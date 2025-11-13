@@ -1,0 +1,389 @@
+{
+    "success": true,
+    "content_type": "reading",
+    "passages": [
+        {
+            "passage_number": 1,
+            "title": "Australian artist Margaret Preston",
+            "summary": "This passage details the life and artistic career of Margaret Preston, an Australian painter and printmaker, focusing on the evolution of her style and her influences, including European art, Aboriginal art, and the Australian landscape.",
+            "content": "Margaret Preston's vibrant paintings and prints of Australian flowers, animals and landscapes have delighted the Australian public since the early 1920s.\n\nMargaret Preston was born Margaret Rose McPherson in Port Adelaide, South Australia in 1875, the daughter of David McPherson, a Scottish marine engineer and his wife Prudence Lyle. She and her sister were sent at first to a private school, but when family circumstances changed, her mother took the girls to Sydney where Margaret attended a public high school. She decided early in life to become an artist and took private art lessons. In 1888, she trained for several months with Sydney landscape painter William Lister, and in 1893 enrolled at the National Gallery of Victoria Art School, where she studied for just over four years.\n\nIn 1898, after her father died, Margaret returned to Adelaide to study and then teach at the Adelaide School of Design. Her early artwork was influenced by the German aesthetic tradition, in which subjects of the natural world were depicted in a true to life manner.\n\nMargaret's first visit to Europe in 1904, and her studies in Paris, France had little impact on this naturalism that dominated her work from this early period. However some eight years later, after returning to Paris, she began to recognise the decorative possibilities of art.\n\nWith the outbreak of the First World War, Margaret traveled to England, where she had exhibitions and continued her studies of art. She was a student of pottery, but at some time developed her interest in various techniques of printmaking and design. In England's West Country, she taught basket weaving at a rehabilitation unit for servicemen. It was on board a boat returning to Australia that she met wealthy businessman William Preston, whom she married in 1919. Together Margaret and William settled in the Sydney harbourside suburb of Mosman. The most characteristic prints from her early years in Sydney are views of boats floating on Sydney Harbour and of houses clustered on foreshore hills. Although Sydney was their home, the couple traveled regularly, both overseas and within Australia.\n\nHer first major showing in Australia was with her friend Thea Proctor, in exhibitions in Melbourne and Sydney in 1925. Many of Preston's prints were hand-coloured in rich scarlet reds, blues and greens, and all of them were set in Chinese red lacquer frames. Harbour views were again prominent, but in comparison with earlier artworks, they were compact and busy, using striking contrasts of black and white combined with elaborate patterns and repetitions. Other prints from this period featured native flora. It was with these still-life subjects that she convinced the public that Australian native flowers were equal in beauty to any exotic species.\n\nFrom 1932 to 1939, Preston moved away from Sydney and lived with her husband at Berowra, on the upper reaches of the Hawkesbury River. The area was one of rugged natural beauty, and for the first time Preston found herself living in a home surrounded bush. Prior to this, the native flowers that featured in her paintings and prints had been purchased from local florists; they now grew in abundance around her home. Preston's prints became larger, less complex and less reliant on the use of bright colours. Flowers were no longer arranged in vases, and Preston began to concentrate instead on flowers that were growing wild.\n\nWhile living at Berowra, and undoubtedly prompted by the Aboriginal' rock engravings found near her property, Preston also developed what was to her a lifelong interest in Aboriginal art. On returning to Sydney in 1939, she became a member of the Anthropological Society of New South Wales, and later visited many important Aboriginal sites throughout Australia. Preston believed that Aboriginal art provided the key to establishing a national body of art that reflected the vast and ancient continent of Australia.\n\nDuring the 1940s, symbols used by Aboriginal people, together with dried, burnt colours found in traditional Aboriginal paintings, became increasingly prominent in her prints. The artist's titles from this period frequently acknowledge her sources, and reveal the extent to which she drew inspiration from traditional Aboriginal art to create her own art.\n\nIt was in 1953, at the age of 78, that Preston produced her most significant prints. The exhibition at Macquarie Galleries in Sydney included 29 prints made using the ancient technique known as stenciling. Many of the artworks in the exhibition incorporated her fusion of Aboriginal and Chinese concepts. Preston had admired Chinese art since 1915, when she acquired the first of her many books on the subject, and she had visited China on two occasions. Chinese elements may be found in several of her earlier paintings.\n\nHowever, in her prints of the 1950s, Preston combined Chinese ideas with her understanding of the Dreamtime' creation stories of Aboriginal Australians. Preston did not let age alter her habit of working hard. As she got older, her love of painting, printmaking and travel continued. By the time of her death in 1963, when she was 88, she had produced over 400 paintings and prints. In a career spanning almost 60 years, she created a body of work that demonstrates her extraordinary originality and the intensity of her commitment to Australian art.",
+            "question_groups": [
+                {
+                    "title": "Questions 1-7",
+                    "question_type": "TFNG",
+                    "description": "Do the following statements agree with the information given in Reading Passage?\nIn boxes 1-7 on your answer sheet, write\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "Artists in the German aesthetic tradition portrayed nature realistically.",
+                            "correct_answer": "TRUE"
+                        },
+                        {
+                            "order": 2,
+                            "text": "Margaret attended a famous art college in Paris.",
+                            "correct_answer": "NOT GIVEN"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Margaret met her husband William while teaching a craft at a rehabilitation unit.",
+                            "correct_answer": "FALSE"
+                        },
+                        {
+                            "order": 4,
+                            "text": "Margaret Preston and Thea Proctor explored similar themes in their art.",
+                            "correct_answer": "NOT GIVEN"
+                        },
+                        {
+                            "order": 5,
+                            "text": "Margaret's 1925 artworks of Sydney Harbour were simpler than her previous ones.",
+                            "correct_answer": "NOT GIVEN"
+                        },
+                        {
+                            "order": 6,
+                            "text": "The colours in Margaret's Berowra prints were very bright.",
+                            "correct_answer": "FALSE"
+                        },
+                        {
+                            "order": 7,
+                            "text": "When living in Berowra, Margaret painted flowers in their natural location.",
+                            "correct_answer": "TRUE"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 8-13",
+                    "question_type": "NC",
+                    "description": "Complete the notes below. Choose ONE WORD AND/OR A NUMBER from the passage for each answer.",
+                    "question_data": {
+                        "title": "Margaret Preston's later life",
+                        "items": [
+                            {
+                                "title": "Aboriginal influence",
+                                "items": [
+                                    "interest in Aboriginal art was inspired by seeing rock engravings close to her Berowra home",
+                                    "incorporated <input> and colours from Aboriginal art in her own work often referred to Aboriginal sources in the <input> she gave her artworks"
+                                ]
+                            },
+                            {
+                                "title": "1953 exhibition",
+                                "items": [
+                                    "very old method of <input> was used for some prints",
+                                    "was inspired by <input> about Chinese art that she had started collecting in 1915",
+                                    "combination of Chinese and Aboriginal elements"
+                                ]
+                            },
+                            {
+                                "title": "Old age",
+                                "items": [
+                                    "still interested in <input> and art",
+                                    "worked for nearly six decades making more than <input> artworks dedicated to Australian art and the originality of her work is seen in Preston's long career"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 8,
+                            "text": "incorporated <input> and colours from Aboriginal art...",
+                            "correct_answer": "symbols"
+                        },
+                        {
+                            "order": 9,
+                            "text": "...in the <input> she gave her artworks",
+                            "correct_answer": "titles"
+                        },
+                        {
+                            "order": 10,
+                            "text": "very old method of <input> was used for some prints",
+                            "correct_answer": "stenciling"
+                        },
+                        {
+                            "order": 11,
+                            "text": "was inspired by <input> about Chinese art...",
+                            "correct_answer": "books"
+                        },
+                        {
+                            "order": 12,
+                            "text": "still interested in <input> and art",
+                            "correct_answer": "painting"
+                        },
+                        {
+                            "order": 13,
+                            "text": "...making more than <input> artworks dedicated to Australian art...",
+                            "correct_answer": "400"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "passage_number": 2,
+            "title": "Ideal Homes: New ideas and some old ones",
+            "summary": "This passage compares traditional, environmentally adapted architecture with modern, energy-intensive building designs, advocating for a return to sustainable principles and the adoption of low-energy technologies.",
+            "content": "<strong>A</strong>\nThe traditional kampung houses of Malaysia do not need air-conditioning. Built on stilts and with steep roofs, they have year-round ventilation. The raised structure ensures a cooling breeze comes up through the floorboards, while the high roof acts as a chimney to release hot air. The airtight, concrete boxes of modern city construction, in contrast, are heat traps, says Muhammad Peter Davis of University Putra Malaysia. He has calculated that typical modern Malaysian houses are 5'C hotter than the air outside. The builders of kampung houses \"had no knowledge of modern science or engineering but they came up with the perfect design,' says Davis.\n\n<strong>B</strong>\nThis story of ancient architectural sophistication and moder insanity is repeated around the world. In the name of modernism, people have thrown away architecture designed to cope with the environment in which they live, and adopted house designs originating from cold, northern environments, where the idea is to keep heat in.\n\n<strong>C</strong>\nOnce, the aim of architectural modernists was to build structures that kept nature out and to replace it with air-conditioning. Now they are learning that they cannot do that effectively. Slowly, they are seeing the benefit of working with nature, rather than against it. In California, they probably use more power for air-conditioning than anywhere else on Earth. According to Arthur Rosenfeld from the University of California, what California needs is white paint. If Los Angeles painted its roofs white, planted trees to shade buildings, and chose lighter-colored paving, it could reduce city temperatures by 3'C and cut the annual air-conditioning bill by $ US 170 million a year.\n\n<strong>D</strong>\nModern buildings are greedy in their use of energy. Much is made of the contribution of transportation to global warming, through its emissions of greenhouse gases, but, globally, transportation is responsible for just 22 per cent of carbon dioxide emissions. The building sector is responsible for 31 per cent, mostly the result of heating and air- conditioning systems. In developing countries, where demand for electricity for buildings is rising by 5 per cent a year, the biggest demand is for air-conditioning in modem buildings which are often designed to cope with every different climatic condition.\n\n<strong>E</strong>\nBefore air-conditioning, much of the Arab world kept cool through thoughtful building design. Many buildings were built according to the principles of the wind tower, a tall structure with vertical vents at the top that open in all directions to catch any passing breeze. Typically, these wind-tower buildings were made of local materials such as stone, mud brick, wood and palm-tree fronds, The buildings were inward-looking, which served the dual function of focusing attention on the courtyard, where family members spend time together, and protecting living areas from the rays of the sun.\n\n<strong>F</strong>\nThroughout the Middle East today, wind towers are often little more than museum piece. But there are exceptions, Jordan has won awards for the architecture of a village on the shores of the Red Sea, which is designed to conserve energy. Made of rough, local stone in a traditional style, it combines the ventilation system of the wind towers for summer coolness with up-to-date heating and floor insulation to protect against the desert cold in winter\n\n<strong>G</strong>\nTraditional building materials, like traditional building designs, are being rediscovered by those looking for low-energy solutions to the current construction needs. Clay is one such material: As the Dutch housing contractor R van der Ley has argued in promoting a series of clay housing projects in developing countries, clay has many benefits over its industrialized version, brick, Clay blocks cost only half as much as ordinary bricks. Clay also generates work because people can find it, mould it, bake it and work it themselves. Two hundred clay bricks can be made with the fuel oil that makes just one ordinary brick Moreover, clay is an excellent insulator against both cold and heat outside, and can easily be recycled.\n\n<strong>H</strong>\nBut although traditional methods and materials can be revived in appropriate settings, new green, low-energy technologies are needed, especially in urban environments. The thermalinsulation of homes in cold countries is an example. In 1983, Sweden adopted a national standard, requiring the country's homes to loge no more than 60 kilowatt-hours per square more over the year to meet that standard, windows were double-glazed, and walls and roofs insulated. Every home became a fortress against the cold air outside. Unfortunately, the rest of Europe has not followed the lead.\n\n<strong>I</strong>\nIn the United States, Amory Lovins has promoted a range of low-energy technologies: 'superwindows', for example, which let in invisible light but can be 'tuned' to either allow in, or reflect away, infrared solar radiation - the stuff that heats. Buildings with large expanses of window (and big energy bills) can be designed to achieve optimum temperatures.\n\n<strong>J</strong>\nAs well as more efficient use of energy, the world also needs new sources of renewable power. Solar energy is being tried out in the developing world, in villages often far from electricity grids. The world's biggest solar power installation got underway in the Philippines, in 2001, where a project commenced to install solar panels for 400,000people in 150 villages. Such projects are demonstrating that countries, whether developing or developed, no longer need huge national grids to supply electricity. Every home can do its own thing with the help of a solar panel and a storage battery\n\n<strong>K</strong>\nHouses, of course, are more than machines for living in. They are social and psychological spaces, too. Future houses may not look exactly like kampungs or wind towers or any other traditional models. But to work for us and for our environment, they will have to suit us as well as these traditional forms did.",
+            "question_groups": [
+                {
+                    "title": "Questions 14-18",
+                    "question_type": "MI",
+                    "description": "Reading Passage 2 has eleven paragraphs, A-K. Which paragraph contains the following information? Write the correct letter, A-K, in boxes 14-18 on your answer sheet.",
+                    "question_data": {
+                        "options": [
+                            { "value": "A", "label": "Paragraph A" },
+                            { "value": "B", "label": "Paragraph B" },
+                            { "value": "C", "label": "Paragraph C" },
+                            { "value": "D", "label": "Paragraph D" },
+                            { "value": "E", "label": "Paragraph E" },
+                            { "value": "F", "label": "Paragraph F" },
+                            { "value": "G", "label": "Paragraph G" },
+                            { "value": "H", "label": "Paragraph H" },
+                            { "value": "I", "label": "Paragraph I" },
+                            { "value": "J", "label": "Paragraph J" },
+                            { "value": "K", "label": "Paragraph K" }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 14,
+                            "text": "reasons why a particular construction material is advantageous",
+                            "correct_answer": "G"
+                        },
+                        {
+                            "order": 15,
+                            "text": "an example of a construction design which benefits domestic interaction",
+                            "correct_answer": "E"
+                        },
+                        {
+                            "order": 16,
+                            "text": "a description of a house that is ventilated from below",
+                            "correct_answer": "A"
+                        },
+                        {
+                            "order": 17,
+                            "text": "an example of self-sufficient energy supply",
+                            "correct_answer": "J"
+                        },
+                        {
+                            "order": 18,
+                            "text": "suggested methods of reducing temperatures in a city",
+                            "correct_answer": "C"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 19-22",
+                    "question_type": "MF",
+                    "description": "Look at the following people and the list of ideas below. Match each person with the correct idea, A-G. Write the correct letter, A-G, in boxes 19-22 on your answer sheet.",
+                    "question_data": {
+                        "options": [
+                            { "value": "A", "label": "The choice of a certain construction material can have a socio-economic impact" },
+                            { "value": "B", "label": "Throughout the world, people are rejecting traditional housing design in order to appear modern." },
+                            { "value": "C", "label": "Houses should not only meet people's physical needs but also their social and psychological needs." },
+                            { "value": "D", "label": "Traditional knowledge can be superior to modern knowledge." },
+                            { "value": "E", "label": "There is an innovation that can save costs on both air-conditioning and heating." },
+                            { "value": "F", "label": "Solar energy can meet the energy needs of people living in villages in developing countries." },
+                            { "value": "G", "label": "There is a very simple solution that can save on the cost of air-conditioning" }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 19,
+                            "text": "Muhammad Peter Davis",
+                            "correct_answer": "D"
+                        },
+                        {
+                            "order": 20,
+                            "text": "Arthur Rosenfeld",
+                            "correct_answer": "G"
+                        },
+                        {
+                            "order": 21,
+                            "text": "R van der Ley",
+                            "correct_answer": "A"
+                        },
+                        {
+                            "order": 22,
+                            "text": "Amory Lovins",
+                            "correct_answer": "E"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 23-26",
+                    "question_type": "TFNG",
+                    "description": "Do the following statements agree with the information given in Reading Passage 2? In boxes 23-26 on your answer sheet, write\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 23,
+                            "text": "The air temperature in modern Malaysian houses is lower than the air temperature outside.",
+                            "correct_answer": "FALSE"
+                        },
+                        {
+                            "order": 24,
+                            "text": "The construction industry is more to blame than transport for global warming",
+                            "correct_answer": "TRUE"
+                        },
+                        {
+                            "order": 25,
+                            "text": "The use of wind towers for cooling is widespread in the Middle East today.",
+                            "correct_answer": "FALSE"
+                        },
+                        {
+                            "order": 26,
+                            "text": "The 'super-windows' promoted by Amory Lovins can be installed at low cost.",
+                            "correct_answer": "NOT GIVEN"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "passage_number": 3,
+            "title": "Conformity",
+            "summary": "This passage explores the psychological concept of conformity, discussing various definitions, landmark studies by Jennes and Asch, and Kelman's three processes of social conformity: compliance, internalization, and identification.",
+            "content": "A review of conformity and some of the studies that have been done on it\n\nDuring your childhood, there will have been some kind of craze which affected all the people in your school. It may have been to do with a particular toy or possibly a must-have item of clothing. Imay have been something as simple as a type of pen or as expensive as an electronic games console. Fashion designers, toy manufacturers and anyone else involved in the retail trade love conformity. Set up a craze, especially in the young and everyone will go for it. In fact, it's an ideal way to sell huge quantities of merchandise. The levels of conformity in consumerism are phenomenal. When you actually stand back and consider how easily we are persuaded that having certain items is the only way we can ensure peace of mind, you see what an important concept conformity is.\n\nConformity has been described as \"yielding to group pressure\" (Crutchfield1962). However, this implies that other people put pressure on us to make us conform and this is not always the case. A better definition is given by Aronson (1976) who said it was a \"change in a person's behaviour or opinions as a result of real or imagined pressure from a person or group of people. This would make more sense, as often the pressure we feels imagined. The person or group he refers to would have to be important to us at the time, regardless of their status.\n\nThere has been considerable research on conformity. One of the first studies looked at the answers people gave when asked to estimate the number of beans in a bottle (Jennes, 1932). If you have ever entered a 'guess the number' competition, you probably looked at the previous estimates made and based your judgment on what other people had guessed. This is more or less what happened in the Jennes study. First of all, he asked the respondents to give their own estimates, and then he asked them to decide a group estimate. Finally, he asked them alone again and discovered that they had stayed with the group answer.\n\nProbably the most famous study on conformity was undertaken by Asch (1951) when he created a situation where many of his subjects gave answers which were blatantly untrue, rather than contradict the people they were with. He did this by getting his subject to sit round a table with six stooges (colleagues of the experimenter) so that the subject was second to last. He showed them all a large card which had three lines of different lengths drawn on it, labelled AB and C. He then gave them ac card with a single line and asked them to match this in terms of length to one of the lines A, B or C.\n\nThe stooges gave untrue responses in a number of the trials and the subjects were left in the situation where they either reported what they saw with their own eyes or conformed to the norm of the group. When the results were assessed, Asch found that in one out of every three trials where the wrong answer was given, the subject gave the same wrong answer as the stooges. This led to an average level of conformity of 32 per cent. Asch interviewed his subjects after the trials to try to find out why they conformed to an answer which was so obviously wrong. Most of them said that they did not want to cause problems within the group. although they falsehearted that when they did give wrong answers it made them anxious. (Asch found that when there was just one other person present who did not go along with the majority, no matter how many others there were, it was sufficient to make the subject give the right answer.)\n\nKelman (1953) outlined three processes which can explain social conformity. The first is compliance where subjects go along with the crowd to prevent any in-group hostility or bad feeling and to maintain group harmony. However, they do not change their own private belief. If we look back to the Asch study, we can see that the subjects were simply complying with the demands of the experimental situation but hadn't actually internalized the group's norms. They agreed in public, but dissented in private. In a process known as internalization, however, subjects do actually see the view of the group as the more valid one.\n\nThey may be able to do this, for example, by convincing themselves that their eyesight is poor. Sometimes, however, subjects actually seem to change their beliefs because they want to become more like their heroes. If they really want to become part of an in-group, they will start to identify with that group and take on the group's values and beliefs, even if they are different to their own. Kelman calls this identification. It frequently happens with teenagers who want to become more like a peer group in order to be accepted, and suddenly seem to go against all the values and beliefs of their parents.\n\nSo why is it that we have to conform? Some people feel confident most of the time, have high self-esteem and do not have to go along with the majority. For most of us, though, how confident we feel varies from day to day, depending on the situation we are in, and this can influence behaviour.",
+            "question_groups": [
+                {
+                    "title": "Questions 27-30",
+                    "question_type": "YNNG",
+                    "description": "Do the following statements agree with the claims of the writer in Reading Passage 3?\nIn boxes 27-30 on your answer sheet, write\nYES if the statement agrees with the claims of the writer\nNO if the statement contradicts the claims of the writer\nNOT GIVEN if it is impossible to say what the writer thinks about this",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 27,
+                            "text": "Childhood crazes can center on items of any value.",
+                            "correct_answer": "YES"
+                        },
+                        {
+                            "order": 28,
+                            "text": "Children are more vulnerable to crazes now than they used to be.",
+                            "correct_answer": "NOT GIVEN"
+                        },
+                        {
+                            "order": 29,
+                            "text": "Consumers make too many quick decisions in shops.",
+                            "correct_answer": "NOT GIVEN"
+                        },
+                        {
+                            "order": 30,
+                            "text": "Crutchfield's definition of conformity is the most reliable.",
+                            "correct_answer": "NO"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 31-35",
+                    "question_type": "SUC",
+                    "description": "Complete the summary below. Choose ONE WORD ONLY from the passage for each answer. Write your answers in boxes 31-35 on your answer sheet.",
+                    "question_data": {
+                        "title": "Studies on conformity",
+                        "text": "In the Jennes study, people had to guess how many <input> were in a container. Jennes found that, in most cases, people opted for an estimate given by a <input>. Asch asked his subjects to <input> line lengths. To test the extent to which people would conform, he placed his subjects with colleagues who gave <input> responses. He found that his subjects agreed with his colleagues 32% of the time, although they admitted to feeling <input> about giving their answer.",
+                        "blankCount": 5
+                    },
+                    "questions": [
+                        {
+                            "order": 31,
+                            "question_text": "In the Jennes study, people had to guess how many <input> were in a container.",
+                            "correct_answer": "beans"
+                        },
+                        {
+                            "order": 32,
+                            "question_text": "...people opted for an estimate given by a <input>.",
+                            "correct_answer": "group"
+                        },
+                        {
+                            "order": 33,
+                            "question_text": "Asch asked his subjects to <input> line lengths.",
+                            "correct_answer": "match"
+                        },
+                        {
+                            "order": 34,
+                            "question_text": "...he placed his subjects with colleagues who gave <input> responses.",
+                            "correct_answer": "wrong|untrue"
+                        },
+                        {
+                            "order": 35,
+                            "question_text": "...they admitted to feeling <input> about giving their answer.",
+                            "correct_answer": "anxious"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 36-40",
+                    "question_type": "NC",
+                    "description": "Complete the notes below. Choose ONE WORD ONLY from the passage for each answer. Write your answers in boxes 36-40 on your answer sheet.",
+                    "question_data": {
+                        "title": "Kelman's processes of social conformity",
+                        "items": [
+                            {
+                                "prefix": "• Compliance",
+                                "items": [
+                                    "People support the majority view despite their own ideas",
+                                    "Social harmony is maintained",
+                                    "Illustrated by the results of the research conducted by <input>"
+                                ]
+                            },
+                            {
+                                "prefix": "• <input>",
+                                "items": [
+                                    "majority view is considered most <input> view",
+                                    "people persuade themselves despite their own ideas"
+                                ]
+                            },
+                            {
+                                "prefix": "• <input>",
+                                "items": [
+                                    "People change their ideas to those of the majority",
+                                    "Typical of <input>"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 36,
+                            "text": "Compliance ... Illustrated by the results of the research conducted by <input>",
+                            "correct_answer": "Asch"
+                        },
+                        {
+                            "order": 37,
+                            "text": "A process of social conformity: <input>",
+                            "correct_answer": "Internalization"
+                        },
+                        {
+                            "order": 38,
+                            "text": "Internalization ... majority view is considered most <input> view",
+                            "correct_answer": "valid"
+                        },
+                        {
+                            "order": 39,
+                            "text": "A process of social conformity: <input>",
+                            "correct_answer": "Identification"
+                        },
+                        {
+                            "order": 40,
+                            "text": "Identification ... Typical of <input>",
+                            "correct_answer": "teenagers"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "total_passages": 3,
+        "total_questions": 40,
+        "estimated_difficulty": "medium",
+        "topics": [
+            "art history",
+            "biography",
+            "architecture",
+            "sustainability",
+            "psychology",
+            "sociology"
+        ],
+        "has_answer_key": true,
+        "formatting_quality": "excellent"
+    }
+}

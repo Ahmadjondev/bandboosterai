@@ -1,0 +1,414 @@
+{% extends 'student/base_student.html' %}
+{% load static %}
+{% load exam_filters %}
+
+{% block title %}{{ exam.name }} - Student Panel{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Back Button -->
+    <div class="mb-6">
+        <a href="{% url 'student:dashboard' %}" class="inline-flex items-center text-gray-600 hover:text-gray-900">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Dashboard
+        </a>
+    </div>
+ 
+    <!-- Exam Header -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
+        <div class="flex items-start justify-between mb-6">
+            <div class="flex-1">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if exam.mock_test.exam_type == 'FULL_TEST' %}bg-purple-100 text-purple-800
+                        {% elif exam.mock_test.exam_type == 'LISTENING' %}bg-blue-100 text-blue-800
+                        {% elif exam.mock_test.exam_type == 'READING' %}bg-green-100 text-green-800
+                        {% elif exam.mock_test.exam_type == 'WRITING' %}bg-yellow-100 text-yellow-800
+                        {% elif exam.mock_test.exam_type == 'SPEAKING' %}bg-pink-100 text-pink-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ exam.mock_test.get_exam_type_display }}
+                    </span>
+                    
+                    {% if is_enrolled %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        Enrolled
+                    </span>
+                    {% endif %}
+                    
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if exam.status == 'ACTIVE' %}bg-green-100 text-green-800
+                        {% elif exam.status == 'SCHEDULED' %}bg-blue-100 text-blue-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ exam.get_status_display }}
+                    </span>
+                </div>
+                
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ exam.name }}</h1>
+                
+                {% if exam.description %}
+                <p class="text-gray-600">{{ exam.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Exam Info Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Exam Type -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-file-alt text-gray-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Exam Type</p>
+                    <p class="font-medium text-gray-900">{{ exam.mock_test.get_exam_type_display }}</p>
+                </div>
+            </div>
+
+            <!-- Start Time -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-calendar text-primary-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Start Time</p>
+                    <p class="font-medium text-gray-900">{{ exam.start_date|date:"M d, Y - H:i" }}</p>
+                </div>
+            </div>
+            
+            <!-- Expire Time -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-clock text-red-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Expires</p>
+                    <p class="font-medium text-gray-900">{{ exam.expire_date|date:"M d, Y - H:i" }}</p>
+                </div>
+            </div>
+
+            <!-- PIN Code (if enrolled) -->
+            {% if is_enrolled and exam.pin_code %}
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-key text-green-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">PIN Code</p>
+                    <p class="font-medium text-gray-900 font-mono">{{ exam.pin_code }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Enrolled Students -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-users text-yellow-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Enrolled</p>
+                    <p class="font-medium text-gray-900">{{ exam.enrolled_count }}{% if exam.max_students %}/{{ exam.max_students }}{% else %} (Unlimited){% endif %} students</p>
+                </div>
+            </div>
+            
+            <!-- Price -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-tag text-indigo-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Price</p>
+                    <p class="font-medium text-gray-900">{{ exam.price|format_price }}{% if exam.price %} so'm{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Countdown Section (if exam hasn't started) -->
+    {% if not has_started %}
+    <div class="bg-orange-50 border-2 border-orange-200 rounded-lg p-8 mb-6 text-center">
+        <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-clock text-orange-600 text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-orange-900 mb-2">Exam Hasn't Started Yet</h3>
+        <p class="text-orange-700 mb-4">This exam will be available in:</p>
+        
+        <div id="countdown" class="text-4xl font-bold text-orange-600 mb-4" data-start-time="{{ exam.start_date|date:'c' }}">
+            Calculating...
+        </div>
+        
+        <p class="text-sm text-orange-600">The "Start Exam" button will be enabled when the countdown reaches zero.</p>
+    </div>
+    {% endif %}
+
+    <!-- Not Enrolled Warning -->
+    {% if not is_enrolled %}
+    <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-8 mb-6 text-center">
+        <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-exclamation-triangle text-yellow-600 text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-yellow-900 mb-2">You're Not Enrolled</h3>
+        <p class="text-yellow-700 mb-4">You need to join this exam first before you can take it.</p>
+        <button onclick="openPinModal()" class="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg">
+            <i class="fas fa-key mr-2"></i>
+            Join with PIN
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Exam Sections Info -->
+    
+
+    <!-- Action Buttons -->
+    {% if is_enrolled %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex flex-col sm:flex-row gap-4">
+            <!-- Start Exam Button -->
+            {% if has_started %}
+                {% if attempt and attempt.status == 'IN_PROGRESS' %}
+                <a href="{% url 'exams:exam' attempt.id %}" 
+                   class="flex-1 px-6 py-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg text-lg transition-colors text-center">
+                    <i class="fas fa-arrow-right mr-2"></i>
+                    Continue Exam
+                </a>
+                {% elif attempt and attempt.status == 'COMPLETED' %}
+                <a href="{% url 'exams:results' attempt.id %}" 
+                   class="flex-1 px-6 py-4 bg-blue-500 hover:bg-orange-600 text-white font-bold rounded-lg text-lg transition-colors text-center">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    View Results
+                </a>
+                {% else %}
+                <a href="{% url 'student:start_exam' exam.id %}" 
+                   class="flex-1 px-6 py-4 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-lg text-lg transition-colors text-center">
+                    <i class="fas fa-play-circle mr-2"></i>
+                    Start Exam
+                </a>
+                {% endif %}
+            {% else %}
+            <button disabled 
+                    class="flex-1 px-6 py-4 bg-gray-300 text-gray-500 font-bold rounded-lg text-lg cursor-not-allowed"
+                    title="Exam hasn't started yet">
+                <i class="fas fa-lock mr-2"></i>
+                Start Exam (Locked)
+            </button>
+            {% endif %}
+
+            {%if attempt.status == 'NOT_STARTED'%}
+            <!-- Cancel/Leave Button -->
+            <button onclick="leaveExam()" 
+                    class="sm:w-auto px-6 py-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+                <i class="fas fa-sign-out-alt mr-2"></i>
+                Leave Exam
+            </button>
+            {%endif%}
+        </div>
+
+        {% if not has_started %}
+        <p class="text-sm text-gray-500 text-center mt-4">
+            <i class="fas fa-info-circle mr-1"></i>
+            The exam will be available on {{ exam.start_date|date:"M d, Y at H:i" }}
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Previous Attempts (if any) -->
+    {% if attempt %}
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 class="text-lg font-bold text-blue-900 mb-4">Your Attempt Status</h3>
+        <div class="space-y-3">
+            <div class="flex justify-between items-center">
+                <span class="text-blue-700">Status:</span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                    {% if attempt.status == 'COMPLETED' %}bg-green-100 text-green-800
+                    {% elif attempt.status == 'IN_PROGRESS' %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {{ attempt.get_status_display }}
+                </span>
+            </div>
+            {% if attempt.started_at %}
+            <div class="flex justify-between text-sm">
+                <span class="text-blue-700">Started:</span>
+                <span class="font-medium text-blue-900">{{ attempt.started_at|date:"M d, Y - H:i" }}</span>
+            </div>
+            {% endif %}
+            {% if attempt.completed_at %}
+            <div class="flex justify-between text-sm">
+                <span class="text-blue-700">Completed:</span>
+                <span class="font-medium text-blue-900">{{ attempt.completed_at|date:"M d, Y - H:i" }}</span>
+            </div>
+            {% endif %}
+            {% if attempt.current_section and attempt.current_section != 'NOT_STARTED' and attempt.status == 'IN_PROGRESS' %}
+            <div class="flex justify-between text-sm">
+                <span class="text-blue-700">Current Section:</span>
+                <span class="font-medium text-blue-900">{{ attempt.current_section|title }}</span>
+            </div>
+            {% endif %}
+            
+            {% if attempt.status == 'IN_PROGRESS' %}
+            <div class="mt-4 pt-4 border-t border-blue-200">
+                <a href="{% url 'exams:exam' attempt.id %}" 
+                   class="block w-full text-center px-4 py-2 bg-orange-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+                    <i class="fas fa-arrow-right mr-2"></i>
+                    Continue Your Exam
+                </a>
+            </div>
+            {% elif attempt.status == 'COMPLETED' %}
+            <div class="mt-4 pt-4 border-t border-blue-200">
+                <a href="{% url 'exams:results' attempt.id %}" 
+                   class="block w-full text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    View Your Results
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- PIN Modal (for non-enrolled students) -->
+{% if not is_enrolled %}
+<div id="pinModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-900">Join This Exam</h3>
+            <button onclick="closePinModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <p class="text-gray-600 mb-6">Enter the PIN code for this exam to join.</p>
+        
+        <form method="post" action="{% url 'student:join_exam' %}">
+            {% csrf_token %}
+            <div class="mb-6">
+                <label for="pin" class="block text-sm font-medium text-gray-700 mb-2">PIN Code</label>
+                <input type="text" 
+                       name="pin" 
+                       id="pin" 
+                       maxlength="10"
+                       placeholder="Enter PIN"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center text-2xl font-mono tracking-wider"
+                       required>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button type="button" 
+                        onclick="closePinModal()" 
+                        class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium">
+                    Join Exam
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    {% if not is_enrolled %}
+    // PIN Modal Functions
+    function openPinModal() {
+        document.getElementById('pinModal').classList.remove('hidden');
+        document.getElementById('pin').focus();
+    }
+    
+    function closePinModal() {
+        document.getElementById('pinModal').classList.add('hidden');
+        document.getElementById('pin').value = '';
+    }
+    
+    // Close modal on ESC key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closePinModal();
+        }
+    });
+    
+    // Close modal on outside click
+    document.getElementById('pinModal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closePinModal();
+        }
+    });
+    {% endif %}
+    
+    {% if not has_started %}
+    // Countdown Timer
+    function updateCountdown() {
+        const countdownEl = document.getElementById('countdown');
+        if (!countdownEl) return;
+        
+        const startTime = new Date(countdownEl.dataset.startTime).getTime();
+        const now = new Date().getTime();
+        const distance = startTime - now;
+        
+        if (distance < 0) {
+            countdownEl.innerHTML = "Available Now!";
+            countdownEl.classList.add('text-green-600');
+            countdownEl.classList.remove('text-orange-600');
+            // Reload page to enable the button
+            setTimeout(() => location.reload(), 1000);
+            return;
+        }
+        
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        
+        let timeString = '';
+        if (days > 0) {
+            timeString = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        } else if (hours > 0) {
+            timeString = `${hours}h ${minutes}m ${seconds}s`;
+        } else {
+            timeString = `${minutes}m ${seconds}s`;
+        }
+        
+        countdownEl.innerHTML = timeString;
+    }
+    
+    // Update countdown every second
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+    {% endif %}
+    
+    // Leave Exam Function
+    function leaveExam() {
+        if (confirm('Are you sure you want to leave this exam? You will need the PIN to join again.')) {
+            // Submit form to leave exam
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "student:join_exam" %}';
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = '{{ csrf_token }}';
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'leave';
+            
+            const examInput = document.createElement('input');
+            examInput.type = 'hidden';
+            examInput.name = 'exam_id';
+            examInput.value = '{{ exam.id }}';
+            
+            form.appendChild(csrfInput);
+            form.appendChild(actionInput);
+            form.appendChild(examInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends 'student/base_student.html' %}
+{% load static %}
+
+{% block title %}Result Details - Student Panel{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Back Button -->
+    <div class="mb-6">
+        <a href="{% url 'student:my_results' %}" class="inline-flex items-center text-gray-600 hover:text-gray-900">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Results
+        </a>
+    </div>
+
+    <!-- Result Header -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6 text-center">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ result.exam.name }}</h1>
+        <p class="text-gray-600 mb-6">Completed on {{ result.completed_at|date:"F d, Y" }}</p>
+        
+        {% if result.overall_score %}
+        <div class="inline-flex flex-col items-center p-8 bg-primary-50 rounded-lg">
+            <p class="text-sm font-medium text-primary-600 mb-2">Overall Band Score</p>
+            <p class="text-6xl font-bold text-primary-600">{{ result.overall_score }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Section Scores -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 mb-6">Section Scores</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% if result.listening_score %}
+            <div class="text-center p-6 bg-blue-50 rounded-lg">
+                <i class="fas fa-headphones text-blue-600 text-3xl mb-3"></i>
+                <p class="text-sm font-medium text-gray-600 mb-2">Listening</p>
+                <p class="text-4xl font-bold text-blue-600">{{ result.listening_score }}</p>
+            </div>
+            {% endif %}
+            
+            {% if result.reading_score %}
+            <div class="text-center p-6 bg-green-50 rounded-lg">
+                <i class="fas fa-book-open text-green-600 text-3xl mb-3"></i>
+                <p class="text-sm font-medium text-gray-600 mb-2">Reading</p>
+                <p class="text-4xl font-bold text-green-600">{{ result.reading_score }}</p>
+            </div>
+            {% endif %}
+            
+            {% if result.writing_score %}
+            <div class="text-center p-6 bg-yellow-50 rounded-lg">
+                <i class="fas fa-pen text-yellow-600 text-3xl mb-3"></i>
+                <p class="text-sm font-medium text-gray-600 mb-2">Writing</p>
+                <p class="text-4xl font-bold text-yellow-600">{{ result.writing_score }}</p>
+            </div>
+            {% endif %}
+            
+            {% if result.speaking_score %}
+            <div class="text-center p-6 bg-pink-50 rounded-lg">
+                <i class="fas fa-microphone text-pink-600 text-3xl mb-3"></i>
+                <p class="text-sm font-medium text-gray-600 mb-2">Speaking</p>
+                <p class="text-4xl font-bold text-pink-600">{{ result.speaking_score }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Exam Details -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">Exam Details</h2>
+        <div class="space-y-3">
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-600">Exam Type:</span>
+                <span class="font-medium text-gray-900">{{ result.exam.mock_test.get_exam_type_display }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-600">Status:</span>
+                <span class="font-medium text-gray-900">{{ result.get_status_display }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-600">Started:</span>
+                <span class="font-medium text-gray-900">{{ result.started_at|date:"F d, Y - g:i A" }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-600">Completed:</span>
+                <span class="font-medium text-gray-900">{{ result.completed_at|date:"F d, Y - g:i A" }}</span>
+            </div>
+            {% if result.get_duration_minutes %}
+            <div class="flex justify-between py-2">
+                <span class="text-gray-600">Duration:</span>
+                <span class="font-medium text-gray-900">{{ result.get_duration_minutes }} minutes</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

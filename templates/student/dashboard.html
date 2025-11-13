@@ -1,0 +1,388 @@
+{% extends 'student/base_student.html' %}
+{% load static %}
+{% load exam_filters %}
+
+{% block title %}Dashboard - Student Panel{% endblock %}
+
+{% block content %}
+<div  >
+    <!-- Welcome Section -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Welcome back, {{ request.user.first_name|default:request.user.username }}!</h1>
+        <p class="text-gray-600">Ready to practice your IELTS skills?</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total Enrolled Exams -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 mb-1">My Exams</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ my_exams.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-file-alt text-primary-500 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Exams -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 mb-1">Available Exams</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ available_exams.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-clipboard-list text-blue-500 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Completed Tests -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 mb-1">Completed Tests</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ recent_results.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join by PIN Button -->
+    <div class="mb-8">
+        <button onclick="openPinModal()" class="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg shadow-sm transition-colors">
+            <i class="fas fa-plus-circle mr-2"></i>
+            Join Exam with PIN
+        </button>
+    </div>
+
+    <!-- My Exams Section -->
+    {% if my_exams %}
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-bold text-gray-900">My Exams</h2>
+            <a href="{% url 'student:exam_list' %}" class="text-primary-500 hover:text-primary-600 font-medium text-sm">
+                View All <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for exam in my_exams %}
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="p-6">
+                    <!-- Exam Badge -->
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+                            {% if exam.mock_test.exam_type == 'FULL_TEST' %}bg-purple-100 text-purple-800
+                            {% elif exam.mock_test.exam_type == 'LISTENING' %}bg-blue-100 text-blue-800
+                            {% elif exam.mock_test.exam_type == 'READING' %}bg-green-100 text-green-800
+                            {% elif exam.mock_test.exam_type == 'WRITING' %}bg-yellow-100 text-yellow-800
+                            {% elif exam.mock_test.exam_type == 'SPEAKING' %}bg-pink-100 text-pink-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ exam.mock_test.get_exam_type_display }}
+                        </span>
+                        
+                        <!-- Status Badge -->
+                        {% if exam.is_active %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <span class="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                                Active
+                            </span>
+                        {% elif exam.is_upcoming %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                <span class="w-2 h-2 bg-orange-500 rounded-full mr-1"></span>
+                                Scheduled
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Exam Title -->
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ exam.name }}</h3>
+                    
+                    <!-- Exam Info -->
+                    <div class="space-y-2 mb-4">
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i class="fas fa-calendar w-5"></i>
+                            <span class="ml-2">{{ exam.start_date|date:"M d, Y - H:i" }}</span>
+                        </div>
+                        
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i class="fas fa-users w-5"></i>
+                            <span class="ml-2">{{ exam.enrolled_count }}{% if exam.max_students %}/{{ exam.max_students }}{% endif %} enrolled</span>
+                        </div>
+                        
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i class="fas fa-tag w-5"></i>
+                            <span class="ml-2">{{ exam.price|format_price }}{% if exam.price %} so'm{% endif %}</span>
+                        </div>
+                    </div>
+
+                    <!-- Countdown Timer (if not started) -->
+                    {% if exam.is_upcoming %}
+                    <div class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <p class="text-xs font-medium text-orange-800 mb-1">Starts in:</p>
+                        <div class="countdown text-lg font-bold text-orange-600" data-start-time="{{ exam.start_date|date:'c' }}">
+                            Calculating...
+                        </div>
+                    </div>
+                    {% elif exam.is_active %}
+                    <div class="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs font-medium text-green-800">Status:</p>
+                            <i class="fas fa-broadcast-tower text-green-400 text-xs"></i>
+                        </div>
+                        <div class="flex items-center text-lg font-bold text-green-600">
+                            <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                            Live Now
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mb-4 p-3 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-lg">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs font-medium text-red-800">Status:</p>
+                            <i class="fas fa-exclamation-circle text-red-400 text-xs"></i>
+                        </div>
+                        <div class="flex items-center text-lg font-bold text-red-600">
+                            <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                            Expired
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Button -->
+                    <a href="{% url 'student:exam_detail' exam.id %}" 
+                       class="block w-full text-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors">
+                        View Details
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-inbox text-gray-400 text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">No Enrolled Exams</h3>
+        <p class="text-gray-600 mb-4">You haven't joined any exams yet. Use a PIN code to join an exam.</p>
+        <button onclick="openPinModal()" class="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg">
+            <i class="fas fa-plus-circle mr-2"></i>
+            Join with PIN
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Available Exams Section -->
+    {% if available_exams %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Available Exams</h2>
+        <p class="text-gray-600 mb-4">These exams are available in your center. Use the PIN code to join.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for exam in available_exams %}
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="p-6">
+                    <!-- Exam Badge -->
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+                            {% if exam.mock_test.exam_type == 'FULL_TEST' %}bg-purple-100 text-purple-800
+                            {% elif exam.mock_test.exam_type == 'LISTENING' %}bg-blue-100 text-blue-800
+                            {% elif exam.mock_test.exam_type == 'READING' %}bg-green-100 text-green-800
+                            {% elif exam.mock_test.exam_type == 'WRITING' %}bg-yellow-100 text-yellow-800
+                            {% elif exam.mock_test.exam_type == 'SPEAKING' %}bg-pink-100 text-pink-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ exam.mock_test.get_exam_type_display }}
+                        </span>
+                        
+                        {% if exam.is_full %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Full
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Exam Title -->
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ exam.name }}</h3>
+                    
+                    <!-- Exam Info -->
+                    <div class="space-y-2 mb-4">
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i class="fas fa-calendar w-5"></i>
+                            <span class="ml-2">{{ exam.start_date|date:"M d, Y - H:i" }}</span>
+                        </div>
+                        
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i class="fas fa-users w-5"></i>
+                            <span class="ml-2">{{ exam.enrolled_count }}{% if exam.max_students %}/{{ exam.max_students }}{% endif %} enrolled</span>
+                        </div>
+                        
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i class="fas fa-tag w-5"></i>
+                            <span class="ml-2">{{ exam.price|format_price }}{% if exam.price %} so'm{% endif %}</span>
+                        </div>
+                    </div>
+
+                    <!-- Countdown Timer -->
+                    <script>console.log("{{exam}}");</script>
+                    {% if exam.is_upcoming %}
+                    <div class="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs font-medium text-blue-800">Starts in:</p>
+                            <i class="fas fa-clock text-blue-400 text-xs"></i>
+                        </div>
+                        <div class="countdown text-lg font-bold text-blue-600" data-start-time="{{ exam.start_date|date:'c' }}">
+                            Calculating...
+                        </div>
+                    </div>
+                    {% elif exam.is_active %}
+                    <div class="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs font-medium text-green-800">Status:</p>
+                            <i class="fas fa-broadcast-tower text-green-400 text-xs"></i>
+                        </div>
+                        <div class="flex items-center text-lg font-bold text-green-600">
+                            <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                            Live Now
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mb-4 p-3 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-lg">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs font-medium text-red-800">Status:</p>
+                            <i class="fas fa-exclamation-circle text-red-400 text-xs"></i>
+                        </div>
+                        <div class="flex items-center text-lg font-bold text-red-600">
+                            <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                            Expired
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Button -->
+                    <button onclick="openPinModal()" class="block w-full text-center px-4 py-2 border-2 border-primary-500 text-primary-500 hover:bg-primary-50 font-medium rounded-lg transition-colors">
+                        Join with PIN
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- PIN Modal -->
+<div id="pinModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-900">Join Exam with PIN</h3>
+            <button onclick="closePinModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <p class="text-gray-600 mb-6">Enter the PIN code provided by your instructor to join an exam.</p>
+        
+        <form method="post" action="{% url 'student:join_exam' %}">
+            {% csrf_token %}
+            <div class="mb-6">
+                <label for="pin" class="block text-sm font-medium text-gray-700 mb-2">PIN Code</label>
+                <input type="text" 
+                       name="pin" 
+                       id="pin" 
+                       maxlength="10"
+                       placeholder="Enter 6-digit PIN"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center text-2xl font-mono tracking-wider"
+                       required>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button type="button" 
+                        onclick="closePinModal()" 
+                        class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium">
+                    Join Exam
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // PIN Modal Functions
+    function openPinModal() {
+        document.getElementById('pinModal').classList.remove('hidden');
+        document.getElementById('pin').focus();
+    }
+    
+    function closePinModal() {
+        document.getElementById('pinModal').classList.add('hidden');
+        document.getElementById('pin').value = '';
+    }
+    
+    // Close modal on ESC key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closePinModal();
+        }
+    });
+    
+    // Close modal on outside click
+    document.getElementById('pinModal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closePinModal();
+        }
+    });
+    
+    // Countdown Timer Function
+    function updateCountdowns() {
+        const countdowns = document.querySelectorAll('.countdown');
+        
+        countdowns.forEach(countdown => {
+            const startTime = new Date(countdown.dataset.startTime).getTime();
+            const now = new Date().getTime();
+            const distance = startTime - now;
+            
+            if (distance < 0) {
+                countdown.innerHTML = "Available Now!";
+                countdown.classList.add('text-green-600');
+                countdown.classList.remove('text-orange-600');
+                return;
+            }
+            
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            
+            let timeString = '';
+            if (days > 0) {
+                timeString = `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                timeString = `${hours}h ${minutes}m ${seconds}s`;
+            } else {
+                timeString = `${minutes}m ${seconds}s`;
+            }
+            
+            countdown.innerHTML = timeString;
+        });
+    }
+    
+    // Update countdowns every second
+    if (document.querySelectorAll('.countdown').length > 0) {
+        updateCountdowns();
+        setInterval(updateCountdowns, 1000);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,297 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Manager Panel - IELTS Mock System</title>
+    <meta name="description" content="Manager administration panel for IELTS Mock System.">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Custom Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        orange: {
+                        50:  '#f3fcf4',
+                        100: '#e2f8e4',
+                        200: '#bdf0c2',
+                        300: '#8fe797',
+                        400: '#5dd26b',
+                        500: '#34b34a',
+                        600: '#28953c',
+                        700: '#207833',
+                        800: '#1b602b',
+                        900: '#164d23',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Feather Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    
+    <!-- Vue.js 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+        }
+        button {
+            background-color: #E75225;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Utility classes */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        /* Loading animation */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Toast animations */
+        .toast-enter-active,
+        .toast-leave-active {
+            transition: all 0.3s ease;
+        }
+        .toast-enter-from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        .toast-enter-to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .toast-leave-from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .toast-leave-to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    </style>
+</head>
+<body class="h-full antialiased">
+    <!-- Vue App Container -->
+    <div id="manager-app"></div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Load Scripts in Correct Order -->
+    
+    <!-- 1. API Service Layer -->
+    <script src="{% static 'js/manager/services/api.service.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <!-- 2. Utilities -->
+    <script src="{% static 'js/manager/utils/feather.utils.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/utils/helpers.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/utils/navigation.utils.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <!-- 3. Mixins -->
+    <script src="{% static 'js/manager/mixins/featherIconsMixin.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <!-- 4. Reusable Components -->
+    <script src="{% static 'js/manager/components/shared/Common.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/layout/Header.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/layout/Sidebar.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <!-- 5. Question Builder Dependencies (load BEFORE QuestionBuilder) -->
+    <script src="{% static 'js/manager/components/QuestionBuilderHelpers.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/QuestionFormMixin.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/MCQBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/TFNGBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/MatchingBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/SummaryCompletionBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/NoteCompletionBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/FormCompletionBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/TableCompletionBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/DiagramLabelingBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/MapLabelingBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/StandardQuestionForm.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/QuestionList.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/QuestionPartials/BulkAdd.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <!-- 6. Question Builder Component (must load AFTER partials) -->
+    <script src="{% static 'js/manager/components/pages/QuestionBuilder.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <!-- 7. Page Components -->
+    <script src="{% static 'js/manager/components/pages/Dashboard.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/Students.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/StudentDetail.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/ReadingTests.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/PassageForm.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/TestHeads.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/ListeningTests.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/WritingTasks.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/SpeakingTopics.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/MockTests.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/MockTestDetails.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/MockTestForm.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/Exams.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/ExamDetails.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/ExamForm.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/Results.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/StudentResultDetail.js' %}?v={{ STATIC_VERSION }}"></script>
+    <script src="{% static 'js/manager/components/pages/AIContentGenerator.js' %}?v={{ STATIC_VERSION }}"></script>
+
+    <!-- 8. Main App -->
+    <script src="{% static 'js/manager/app.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <!-- 9. Initialize JWT Tokens from Session -->
+    <script>
+        (function() {
+            'use strict';
+            
+            console.log('Initializing JWT tokens from session...');
+            
+            // Initialize JWT tokens from Django session if available
+            {% if request.session.jwt_access_token %}
+                const accessToken = '{{ request.session.jwt_access_token }}';
+                localStorage.setItem('access_token', accessToken);
+                console.log('Access token set:', accessToken.substring(0, 20) + '...');
+            {% else %}
+                console.warn('No access token in session');
+            {% endif %}
+            
+            {% if request.session.jwt_refresh_token %}
+                const refreshToken = '{{ request.session.jwt_refresh_token }}';
+                localStorage.setItem('refresh_token', refreshToken);
+                console.log('Refresh token set:', refreshToken.substring(0, 20) + '...');
+            {% else %}
+                console.warn('No refresh token in session');
+            {% endif %}
+            
+            // Debug: Check what's in localStorage
+            console.log('Tokens in localStorage:', {
+                access: localStorage.getItem('access_token') ? 'Present' : 'Missing',
+                refresh: localStorage.getItem('refresh_token') ? 'Present' : 'Missing'
+            });
+            
+            // If user is authenticated but tokens are missing, generate them
+            {% if user.is_authenticated and not request.session.jwt_access_token %}
+                console.log('User authenticated but no tokens in session, fetching tokens...');
+                // Fetch tokens from backend
+                fetch('/manager/api/auth/get-tokens/', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.access && data.refresh) {
+                        localStorage.setItem('access_token', data.access);
+                        localStorage.setItem('refresh_token', data.refresh);
+                        console.log('Tokens fetched and stored successfully');
+                        // Reload to apply tokens
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching tokens:', error);
+                });
+            {% endif %}
+        })();
+    </script>
+    
+    <!-- 10. Initialize Toast Container -->
+    <script>
+        (function() {
+            'use strict';
+            
+            // Wait for DOM and Vue to be ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initToastContainer);
+            } else {
+                initToastContainer();
+            }
+            
+            function initToastContainer() {
+                const { createApp } = Vue;
+                
+                // Create toast container app
+                const toastApp = createApp({
+                    delimiters: ['[[', ']]'],  // Required to avoid conflicts with Django templates
+                    template: '<ToastContainer />',
+                    components: {
+                        ToastContainer: window.ToastContainer,
+                    },
+                });
+                
+                toastApp.mount('#toast-container');
+                
+                // Create global toast function
+                window.showToast = function(options) {
+                    if (typeof options === 'string') {
+                        options = { message: options };
+                    }
+                    
+                    const event = new CustomEvent('show-toast', {
+                        detail: {
+                            type: options.type || 'info',
+                            title: options.title || '',
+                            message: options.message || '',
+                            duration: options.duration !== undefined ? options.duration : 5000,
+                        }
+                    });
+                    
+                    window.dispatchEvent(event);
+                };
+                
+                // Convenience methods
+                window.toast = {
+                    success: (message, title = 'Success', duration) => {
+                        window.showToast({ type: 'success', title, message, duration });
+                    },
+                    error: (message, title = 'Error', duration) => {
+                        window.showToast({ type: 'error', title, message, duration });
+                    },
+                    warning: (message, title = 'Warning', duration) => {
+                        window.showToast({ type: 'warning', title, message, duration });
+                    },
+                    info: (message, title = '', duration) => {
+                        window.showToast({ type: 'info', title, message, duration });
+                    },
+                };
+            }
+        })();
+    </script>
+</body>
+</html>
+

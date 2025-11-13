@@ -1,0 +1,132 @@
+<!-- Student Panel Header -->
+<header class="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-white border-b border-gray-200 z-30 shadow-sm">
+    <div class="h-full px-4 lg:px-8 flex items-center justify-between">
+        <!-- Left Section: Mobile Menu Toggle & Page Title -->
+        <div class="flex items-center space-x-4">
+            <!-- Mobile Menu Toggle -->
+            <button onclick="toggleSidebar()" class="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg focus:outline-none transition-colors">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+            
+            {% comment %} <!-- Page Title -->
+            <div>
+                <h1 class="text-xl font-bold text-gray-900">
+                    {% block page_title %}Student Dashboard{% endblock %}
+                </h1>
+                <p class="text-xs text-gray-500 hidden sm:block">
+                    {% block page_subtitle %}Welcome back, {{ request.user.first_name|default:"Student" }}!{% endblock %}
+                </p>
+            </div> {% endcomment %}
+        </div>
+        
+        <!-- Right Section: Search, Notifications & User Menu -->
+        <div class="flex items-center space-x-2 lg:space-x-4">
+            {% comment %} <!-- Search Bar (Hidden on mobile) -->
+            <div class="hidden md:flex items-center bg-gray-100 rounded-lg px-4 py-2 w-64">
+                <i class="fas fa-search text-gray-400 text-sm mr-2"></i>
+                <input type="text" 
+                       placeholder="Search..." 
+                       class="bg-transparent border-none outline-none text-sm text-gray-700 w-full placeholder-gray-400">
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="hidden lg:flex items-center space-x-2">
+                <!-- New Exam Button -->
+                <a href="{% url 'student:exam_list' %}" 
+                   class="flex items-center space-x-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors shadow-sm">
+                    <i class="fas fa-plus text-sm"></i>
+                    <span class="text-sm font-medium">Start Exam</span>
+                </a>
+            </div>
+            
+            <!-- Notifications -->
+            <div class="relative">
+                <button class="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg focus:outline-none transition-colors">
+                    <i class="fas fa-bell text-lg"></i>
+                    <!-- Notification Badge -->
+                    <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+                </button>
+            </div> {% endcomment %}
+            
+            {% comment %} <!-- Divider -->
+            <div class="hidden lg:block w-px h-8 bg-gray-200"></div>
+             {% endcomment %}
+            <!-- User Menu -->
+            <div class="relative">
+                <button onclick="toggleMobileMenu()"
+                        class="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100 rounded-lg focus:outline-none transition-colors">
+                    <!-- User Avatar -->
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+                        <span class="text-white text-sm font-semibold">
+                            {{ request.user.first_name|first|default:"S" }}{{ request.user.last_name|first|default:"T" }}
+                        </span>
+                    </div>
+                    <!-- User Info (Hidden on mobile) -->
+                    <div class="hidden lg:block text-left">
+                        <p class="text-sm font-medium text-gray-900">
+                            {{ request.user.get_full_name|default:request.user.username }}
+                        </p>
+                        <p class="text-xs text-gray-500">Student Account</p>
+                    </div>
+                    <i class="fas fa-chevron-down text-xs text-gray-400 hidden lg:block"></i>
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div id="mobile-menu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
+                    <!-- User Info Header -->
+                    <div class="px-4 py-3 border-b border-gray-100">
+                        <p class="text-sm font-semibold text-gray-900">
+                            {{ request.user.get_full_name|default:request.user.username }}
+                        </p>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ request.user.phone|default:"No phone set" }}</p>
+                    </div>
+                    
+                    <!-- Menu Items -->
+                    <div class="py-2">
+                        <a href="{% url 'student:dashboard' %}" 
+                           class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-home w-5 text-gray-400"></i>
+                            <span class="ml-3">Dashboard</span>
+                        </a>
+                        
+                        <a href="{% url 'student:profile' %}" 
+                           class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-user w-5 text-gray-400"></i>
+                            <span class="ml-3">My Profile</span>
+                        </a>
+                        
+                        <a href="{% url 'student:exam_list' %}" 
+                           class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-file-alt w-5 text-gray-400"></i>
+                            <span class="ml-3">Mock Exams</span>
+                        </a>
+                    </div>
+
+                    
+                    <div class="border-t border-gray-100 my-2"></div>
+                    
+                    <!-- Logout -->
+                    <a href="{% url 'logout' %}" 
+                       class="flex items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                        <i class="fas fa-sign-out-alt w-5"></i>
+                        <span class="ml-3 font-medium">Logout</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<script>
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const mobileMenu = document.getElementById('mobile-menu');
+        const userButton = event.target.closest('button');
+        
+        if (!userButton && mobileMenu && !mobileMenu.classList.contains('hidden')) {
+            if (!mobileMenu.contains(event.target)) {
+                mobileMenu.classList.add('hidden');
+            }
+        }
+    });
+</script>

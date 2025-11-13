@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mock Exam System{% endblock %}</title>
+    
+    <!-- CSRF Token -->
+    {% csrf_token %}
+    
+    <!-- Styles -->
+    {% block styles %}{% endblock %}
+    
+    <!-- Axios CDN - Load BEFORE our config -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.5.0/dist/axios.min.js"></script>
+    
+    <!-- Global Axios Configuration - Load AFTER axios, BEFORE app code -->
+    <script src="{% static 'js/axios-config.js' %}?v={{ STATIC_VERSION }}"></script>
+</head>
+<body>
+    {% block content %}{% endblock %}
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

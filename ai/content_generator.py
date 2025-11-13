@@ -1,0 +1,1394 @@
+"""
+AI Content Generator for IELTS Mock Tests
+Extracts and generates IELTS test content from PDF files using Gemini AI.
+Adapted from BandBooster project for current IELTS Mock System.
+"""
+
+import json
+from django.conf import settings
+from ai.tools import generate_ai, change_to_json
+
+
+def generate_reading_passages_from_pdf(pdf_bytes, pdf_mime_type="application/pdf"):
+    """
+    Extract reading passages WITH QUESTIONS from PDF and structure them for IELTS reading test.
+
+    Args:
+        pdf_bytes: PDF file content as bytes
+        pdf_mime_type: MIME type of the PDF
+
+    Returns:
+        dict: Structured reading passage data with questions
+    """
+    prompt = """
+You are an expert IELTS test content analyzer. Analyze this PDF document and extract IELTS Reading passages WITH their questions.
+
+**CRITICAL JSON FORMATTING RULES - READ CAREFULLY:**
+1. ALL newlines in passage content MUST be replaced with the escape sequence \\n (not literal newlines)
+2. ALL double quotes (") within strings must be escaped as \\"
+3. ALL single quotes (') within strings should remain as-is (they're valid in JSON strings)
+4. ALL backslashes must be escaped: \\\\
+5. NO trailing commas before closing } or ]
+6. All brackets and braces must be properly closed
+7. The "content" field must be a SINGLE LINE string with \\n for line breaks
+8. Example of correct formatting:
+   "content": "First paragraph here.\\nSecond paragraph.\\nText with \\"quoted\\" words."
+   NOT: "content": "First paragraph
+   Second paragraph" (this breaks JSON!)
+
+**QUOTE ESCAPING IS CRITICAL:**
+- If text contains: He said "hello"
+- JSON should have: He said \\"hello\\"
+- Example: "text": "She replied, \\"I don't know.\\" Then she left."
+
+**ESSENTIAL: When extracting passage content:**
+- Replace ALL actual line breaks with \\n
+- Escape ALL double quotes with \\"
+- Keep the text as ONE continuous string
+- Preserve paragraph structure using \\n\\n for paragraph breaks
+- Example: "Line one\\nLine two with \\"quotes\\"\\n\\nNew paragraph"
+
+**PARAGRAPH LABELS (CRITICAL FOR IELTS READING):**
+- IELTS passages often have paragraphs labeled with letters: A, B, C, D, E, F, G, etc.
+- These labels MUST be preserved as they are referenced in questions (especially Matching Information and Matching Headings)
+- Format paragraph labels as: <strong>A</strong>\\n (label in strong tags followed by newline)
+- Then include the paragraph text on the next line
+- Example: "<strong>A</strong>\\nTea has been consumed for thousands of years...\\n\\n<strong>B</strong>\\nThe British popularized tea drinking..."
+- Labels are usually bold, on separate lines, or at the start of paragraphs
+- Do NOT skip or ignore these labels - they are essential for question functionality
+
+**DOT-BASED INPUT DETECTION:**
+- PDFs may use dotted lines (......) or underscores (______) to represent blank spaces where answers should go
+- Convert these to standardized format using ONLY the <input> tag WITHOUT any question numbers
+- **CRITICAL**: Do NOT include question numbers like (1), (2), (3) in the text - they go ONLY in the questions array
+- Examples:
+  * "The capital is ......" → "The capital is <input>" (NOT "The capital is <input> (1)")
+  * "Name: ______" → "Name: <input>" (NOT "Name: <input> (2)")
+  * "Address: 45 ...... Street" → "Address: 45 <input> Street" (NOT "Address: 45 <input> (1) Street")
+- Maintain surrounding context and punctuation
+- Question numbering is handled automatically by the "order" field in the questions array
+
+**PDF STRUCTURE HANDLING:**
+- Preserve paragraph breaks and indentation in passage content
+- Handle multi-column layouts by reading left-to-right, top-to-bottom
+- Maintain question numbering even if PDF formatting is inconsistent
+- Keep punctuation, spacing, and line breaks in questions and answers
+- If questions are split across pages, merge them intelligently
+
+**IMPORTANT INSTRUCTIONS:**
+1. Identify IELTS Reading passages (typically 1-3 passages)
+2. Extract the complete text of each passage WITH proper formatting
+3. Extract ALL questions associated with each passage
+4. Identify the question type for each question group
+5. Extract answers for all questions (or mark as null if not provided)
+
+**IELTS READING QUESTION TYPES:**
+- **MCQ**: Multiple Choice (single answer)
+- **MCMA**: Multiple Choice (multiple answers)
+- **SA**: Short Answer
+- **SC**: Sentence Completion - INDEPENDENT sentences (each sentence is separate and standalone)
+- **TFNG**: True/False/Not Given
+- **YNNG**: Yes/No/Not Given
+- **MF**: Matching Features (match statements to options like names, theories, etc.)
+- **MI**: Matching Information (match information to paragraphs)
+- **MH**: Matching Headings (match headings to paragraphs/sections)
+- **SUC**: Summary Completion - CONNECTED narrative (forms a cohesive paragraph/summary with multiple blanks)
+- **NC**: Note Completion (complete notes with blanks)
+- **FC**: Form Completion (fill in a form)
+- **FCC**: Flow Chart Completion (complete a flow chart)
+- **TC**: Table Completion (complete cells in a table)
+- **DL**: Diagram Labelling (label parts of a diagram)
+- **ML**: Map Labelling (label locations on a map)
+
+**CRITICAL: SC vs SUC DISTINCTION - READ THIS CAREFULLY!**
+
+⚠️ **COMMON MISTAKE**: PDFs may say "Complete the sentences" but if all sentences are about THE SAME TOPIC, it's SUC not SC!
+
+Use **SUC (Summary Completion)** when:
+- ✅ ALL sentences are about THE SAME TOPIC (e.g., all about trains, all about chocolate production, all about climate change)
+- ✅ Sentences form a CONNECTED narrative that flows together
+- ✅ Removing one sentence would break the coherence of the text
+- ✅ Can be read as ONE cohesive paragraph
+- ✅ Describes a unified concept, process, or topic
+- **IMPORTANT**: Even if the PDF says "Complete the sentences", if they're all about the same topic → SUC!
+
+**SUC Examples**:
+1. Train technology (all about TGV/Japanese trains):
+   "French TGV locomotives pull trains using ___. Japanese ground is unsuitable because ___. The electric system can act as ___. Electricity is produced by ___. Improvements come from ___."
+   → All sentences about TRAIN SYSTEMS = SUC ✅
+
+2. Chocolate production (all about making chocolate):
+   "Chocolate is made from ___ which are ___. The process involves ___. Finally, chocolate is ___."
+   → All sentences about CHOCOLATE PRODUCTION = SUC ✅
+
+3. Climate change (all about environmental effects):
+   "Global temperatures are rising due to ___. This causes ___. Scientists predict ___. Solutions include ___."
+   → All sentences about CLIMATE = SUC ✅
+
+Use **SC (Sentence Completion)** when:
+- ❌ Each sentence is about a DIFFERENT topic (e.g., capitals, dates, prices)
+- ❌ Sentences are INDEPENDENT facts that don't relate to each other
+- ❌ Can reorder sentences without losing meaning
+- ❌ Removing one sentence doesn't affect others
+
+**SC Examples**:
+1. Random facts (different topics):
+   "The capital of France is ___. The experiment lasted ___. Mozart was born in ___. The temperature reached ___."
+   → Different topics (geography, science, biography, weather) = SC ✅
+
+2. Unrelated information:
+   "The meeting is at ___. The book costs ___. The train leaves at ___."
+   → Different facts about different things = SC ✅
+
+**DECISION RULE**: 
+🔍 Ask yourself: "Are ALL the sentences describing or explaining THE SAME thing/topic/concept?"
+- YES → SUC (Summary Completion) ✅
+- NO → SC (Sentence Completion) ✅
+
+**DO NOT** be misled by the PDF title! "Complete the sentences" can still be SUC if sentences are thematically connected!
+
+**SPECIAL NOTE ON MULTIPLE CHOICE MULTIPLE ANSWERS (MCMA):**
+- MCMA questions allow students to select MORE THAN ONE correct answer
+- Each correct answer counts as 1 question toward the 40-question total
+- Example: If a MCMA question has 3 correct answers (A, C, E), it counts as 3 questions
+- The "correct_answer" field should contain ALL correct letters concatenated: "ACE" (not "A, C, E")
+- Format correct_answer WITHOUT spaces or commas: "AB", "ACD", "BCE", etc.
+- Students receive partial credit: if they select 2 out of 3 correct answers, they get 2 points
+- Use MCMA when:
+  * The question explicitly asks to "Choose ALL correct answers"
+  * Multiple answers are genuinely correct based on the passage
+  * The instructions mention "more than one letter" or "several answers"
+- MCMA questions typically have 2-5 correct answers (not just 1)
+- Include 4-6 total choices with 2-5 being correct
+- Example MCMA question:
+  {
+    "order": 15,
+    "text": "Which of the following are mentioned as effects of climate change?",
+    "correct_answer": "ABDE",
+    "choices": [
+      {"key": "A", "text": "Rising sea levels"},
+      {"key": "B", "text": "More extreme weather"},
+      {"key": "C", "text": "Decreased rainfall everywhere"},
+      {"key": "D", "text": "Melting ice caps"},
+      {"key": "E", "text": "Species extinction"}
+    ]
+  }
+
+**SPECIAL NOTE ON MATCHING QUESTIONS (MI/MH/MF):**
+- For MI (Matching Information) and MH (Matching Headings): If the passage has paragraph labels (A, B, C, D...), these become the options
+- Automatically create options from paragraph labels: [{"value": "A", "label": "Paragraph A"}, {"value": "B", "label": "Paragraph B"}, ...]
+- For MF (Matching Features): Extract explicit options from the question (e.g., names of people, theories, countries)
+- If MI/MH questions don't have explicit options in the PDF, use the detected paragraph labels
+- Example for MI with 6 labeled paragraphs:
+  "question_data": {
+    "options": [
+      {"value": "A", "label": "Paragraph A"},
+      {"value": "B", "label": "Paragraph B"},
+      {"value": "C", "label": "Paragraph C"},
+      {"value": "D", "label": "Paragraph D"},
+      {"value": "E", "label": "Paragraph E"},
+      {"value": "F", "label": "Paragraph F"}
+    ]
+  }
+
+**SPECIAL NOTE ON MAP LABELLING (ML) QUESTIONS:**
+- ML questions require students to label locations on a map/floor plan/diagram
+- The map image itself is uploaded separately - the AI only extracts the structure
+- **CRITICAL FORMAT** - Use this exact structure:
+  "question_data": {
+    "title": "Brief descriptive title of the map",
+    "description": "Optional context (e.g., 'The map shows the layout of a university campus')",
+    "labelCount": <number of locations to label>,
+    "labels": [
+      {"name": "Location name (what students see)", "correctAnswer": "Correct answer (letter/word)"},
+      ...
+    ],
+    "note": "Image of map needs to be uploaded separately - map should have numbered locations"
+  }
+- **IMPORTANT**: Each label has TWO fields:
+  * "name": The location/place name that students see (e.g., "Swimming Pool", "Library", "Main Entrance")
+  * "correctAnswer": The correct answer students must write (usually a letter like "A", "H", or a word)
+- Students see: "11. Swimming Pool _________" and must write the answer (e.g., "G")
+- The "questions" array mirrors the labels with "text" = label name and "correct_answer" = correct answer
+- Example ML structure:
+  {
+    "title": "Questions 11-14",
+    "question_type": "ML",
+    "description": "Label the map below. Write the correct letter, A-H, next to questions 11-14.",
+    "question_data": {
+      "title": "University Campus Map",
+      "description": "The map shows the main buildings on campus",
+      "labelCount": 4,
+      "labels": [
+        {"name": "Library", "correctAnswer": "C"},
+        {"name": "Sports Center", "correctAnswer": "F"},
+        {"name": "Cafeteria", "correctAnswer": "A"},
+        {"name": "Parking Lot", "correctAnswer": "E"}
+      ],
+      "note": "Image of map needs to be uploaded separately"
+    },
+    "questions": [
+      {"order": 11, "text": "Library", "correct_answer": "C"},
+      {"order": 12, "text": "Sports Center", "correct_answer": "F"},
+      {"order": 13, "text": "Cafeteria", "correct_answer": "A"},
+      {"order": 14, "text": "Parking Lot", "correct_answer": "E"}
+    ]
+  }
+- The map image with numbered locations (11, 12, 13, 14) must be uploaded manually by the teacher
+- Extract location names from the PDF (e.g., "library", "gym", "cafe", "parking")
+- Extract correct answers if provided in an answer key (often letters A-H or words)
+- If no answer key exists, you can infer likely answers or leave placeholder values
+
+**OUTPUT FORMAT - Return a valid JSON object with this EXACT structure:**
+
+**⚠️ CRITICAL RULE FOR INPUT FIELDS IN question_data.items:**
+- In the "items" array or similar structures, use ONLY <input> tags WITHOUT question numbers
+- DO NOT add question numbers like (1), (2), (3) after <input> tags in text/items
+- Question numbers belong ONLY in the "questions" array's "order" field
+- CORRECT: "Name: <input>"
+- WRONG: "Name: <input> (1)" ❌
+- CORRECT: "The capital is <input>"
+- WRONG: "The capital is <input> (1)" ❌
+
+{
+    "success": true,
+    "content_type": "reading",
+    "passages": [
+        {
+            "passage_number": 1,
+            "title": "The History of Tea",
+            "summary": "This passage explores the origins and global spread of tea consumption.",
+            "content": "<strong>A</strong>\\nTea has been consumed for thousands of years in Asia, with its origins traced to ancient China. The beverage became an integral part of Chinese culture and medicine.\\n\\n<strong>B</strong>\\nThe British popularized tea drinking during the colonial period, establishing vast plantations in India and Ceylon. Tea became Britain's national drink by the 19th century.\\n\\n<strong>C</strong>\\nModern tea production uses advanced machinery, but traditional methods are still valued for premium varieties. Organic and fair-trade teas have gained popularity in recent decades.",
+            "question_groups": [
+                {
+                    "title": "Questions 1-3",
+                    "question_type": "MI",
+                    "description": "Which paragraph contains the following information?",
+                    "question_data": {
+                        "options": [
+                            {"value": "A", "label": "Paragraph A"},
+                            {"value": "B", "label": "Paragraph B"},
+                            {"value": "C", "label": "Paragraph C"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "The introduction of tea to Western countries",
+                            "correct_answer": "B"
+                        },
+                        {
+                            "order": 2,
+                            "text": "The historical origins of tea consumption",
+                            "correct_answer": "A"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Contemporary trends in tea production",
+                            "correct_answer": "C"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 4-8",
+                    "question_type": "MCQ",
+                    "description": "Choose the correct letter, A, B, C or D.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 4,
+                            "text": "What is the main topic of the passage?",
+                            "correct_answer": "A",
+                            "choices": [
+                                {"key": "A", "text": "The history of tea"},
+                                {"key": "B", "text": "Modern tea production"},
+                                {"key": "C", "text": "Health benefits of tea"},
+                                {"key": "D", "text": "Tea recipes"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 5-7",
+                    "question_type": "MCMA",
+                    "description": "Choose ALL the correct answers, A, B, C, D or E. (Multiple answers possible)",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 5,
+                            "text": "Which of the following are mentioned as benefits of tea drinking?",
+                            "correct_answer": "ACE",
+                            "choices": [
+                                {"key": "A", "text": "Health benefits"},
+                                {"key": "B", "text": "Weight loss guarantees"},
+                                {"key": "C", "text": "Cultural significance"},
+                                {"key": "D", "text": "Cures all diseases"},
+                                {"key": "E", "text": "Social importance"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 9-13",
+                    "question_type": "TFNG",
+                    "description": "Do the following statements agree with the information in the passage?",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 9,
+                            "text": "Tea was first discovered in South America.",
+                            "correct_answer": "FALSE"
+                        },
+                        {
+                            "order": 10,
+                            "text": "What are the main tea-producing countries?",
+                            "correct_answer": "China|India|Sri Lanka"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 11-15",
+                    "question_type": "MF",
+                    "description": "Match each statement with the correct person.",
+                    "question_data": {
+                        "options": [
+                            {"value": "A", "label": "John Smith"},
+                            {"value": "B", "label": "Mary Johnson"},
+                            {"value": "C", "label": "Robert Brown"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 11,
+                            "text": "Discovered the health benefits of chocolate",
+                            "correct_answer": "A"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 16-20",
+                    "question_type": "SUC",
+                    "description": "Complete the summary below using words from the passage. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "The Production of Chocolate",
+                        "text": "Chocolate is made from cacao beans which are <input> and then <input>. The process involves several steps including <input> and <input>. Finally, the chocolate is <input> and packaged.",
+                        "blankCount": 5
+                    },
+                    "questions": [
+                        {
+                            "order": 16,
+                            "question_text": "Chocolate is made from cacao beans which are <input> and then",
+                            "correct_answer": "harvested"
+                        },
+                        {
+                            "order": 17,
+                            "question_text": "which are harvested and then <input>. The process involves several steps",
+                            "correct_answer": "roasted"
+                        },
+                        {
+                            "order": 18,
+                            "question_text": "The process involves several steps including <input> and grinding",
+                            "correct_answer": "fermentation"
+                        },
+                        {
+                            "order": 19,
+                            "question_text": "several steps including fermentation and <input>. Finally, the chocolate",
+                            "correct_answer": "grinding"
+                        },
+                        {
+                            "order": 20,
+                            "question_text": "and grinding. Finally, the chocolate is <input> and packaged.",
+                            "correct_answer": "tempered"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 21-25",
+                    "question_type": "SC",
+                    "description": "Complete the sentences below using NO MORE THAN THREE WORDS from the passage.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 21,
+                            "text": "The capital of France is <input>.",
+                            "correct_answer": "Paris"
+                        },
+                        {
+                            "order": 22,
+                            "text": "The author was born in <input>.",
+                            "correct_answer": "London"
+                        },
+                        {
+                            "order": 23,
+                            "text": "The experiment lasted for <input>.",
+                            "correct_answer": "three weeks"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 21-25",
+                    "question_type": "SA",
+                    "description": "Answer the questions below using NO MORE THAN THREE WORDS.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 21,
+                            "text": "Where did chocolate originate?",
+                            "correct_answer": "Central America"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 26-29",
+                    "question_type": "TC",
+                    "description": "Complete the table below. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "items": [
+                            ["Name of restaurant", "Location", "Reason for recommendation", "Other comments"],
+                            ["The Junction", "Greyson Street, near the station", "Good for people who are especially keen on <input>", ["Quite expensive", "The <input> is a good place for a drink"]],
+                            ["Paloma", "In Bow Street next to the cinema", "<input> food, good for sharing", ["Staff are very friendly", "Need to pay £50 deposit", "A limited selection of <input> food on the menu"]],
+                            ["The <input>", "At the top of a <input>", ["A famous chef", "All the <input> are very good", "Only uses <input> ingredients"], ["Set lunch costs £<input> per person", "Portions probably of <input> size"]]
+                        ]
+                    },
+                    "questions": [
+                        {"order": 26, "text": "The Junction - Reason for recommendation (food type)", "correct_answer": "seafood"},
+                        {"order": 27, "text": "The Junction - Other comments (location for drinks)", "correct_answer": "garden"},
+                        {"order": 28, "text": "Paloma - Reason for recommendation (type of cuisine)", "correct_answer": "Spanish"},
+                        {"order": 29, "text": "Paloma - Other comments (type of food selection)", "correct_answer": "vegetarian"}
+                    ]
+                },
+                {
+                    "title": "Questions 30-35",
+                    "question_type": "NC",
+                    "description": "Complete the notes below. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "Urban River Development",
+                        "items": [
+                            {
+                                "title": "Historical Background",
+                                "items": [
+                                    "Cities built on rivers for transport and trade",
+                                    {
+                                        "prefix": "Industrial era problems:",
+                                        "items": [
+                                            "increased sewage discharge",
+                                            "pollution from <input>  on riverbanks"
+                                        ]
+                                    },
+                                    "Thames declared biologically <input> in 1957"
+                                ]
+                            },
+                            {
+                                "title": "Modern Improvements",
+                                "items": [
+                                    "Wildlife returned including <input> species",
+                                    "Old warehouses converted to <input>",
+                                    "Cities create riverside <input> for recreation"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {"order": 30, "text": "factories", "correct_answer": "factories"},
+                        {"order": 31, "text": "dead", "correct_answer": "dead"},
+                        {"order": 32, "text": "rare", "correct_answer": "rare"},
+                        {"order": 33, "text": "apartments", "correct_answer": "apartments"},
+                        {"order": 34, "text": "parks", "correct_answer": "parks"}
+                    ]
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "total_passages": 1,
+        "total_questions": 34,
+        "estimated_difficulty": "medium",
+        "topics": ["history", "food science", "urban development"],
+        "has_answer_key": true,
+        "formatting_quality": "good"
+    }
+}
+
+**METADATA EXTRACTION:**
+- estimated_difficulty: "easy", "medium", "hard" based on passage complexity and question types
+- topics: Array of main topics covered (e.g., "science", "history", "technology", "environment")
+- has_answer_key: true if answers are found in PDF, false if missing
+- formatting_quality: "excellent", "good", "fair", "poor" based on PDF structure
+
+**VALIDATION RULES:**
+- passage_number must be 1, 2, or 3
+- content must be COMPLETE passage text (minimum 500 words per passage)
+- Each question MUST have order, and correct_answer (use null if answer not found in PDF)
+- **MULTIPLE CORRECT ANSWERS**: If a question has multiple correct answers, join them with pipe separator | (e.g., "answer1|answer2|answer3"). DO NOT use commas, semicolons, or other separators.
+- For MCQ/MCMA: Include choices array with key and text. Each question needs "text" and "correct_answer"
+- For MF/MI/MH: Include options in question_data. Each question needs "text" and "correct_answer"
+- For SUC: Include "title", "text" (with <input> for blanks), and "blankCount" in question_data. Each question needs "question_text" (context snippet with <input>) and "correct_answer"
+- For NC/FC: Include text or items structure in question_data. Each question needs "text" and "correct_answer"
+- For TC: Include "items" array in question_data. First row is headers, subsequent rows are data with <input> for blanks. Cells can be strings or arrays (for multi-line cells). Each question needs "text" (cell description) and "correct_answer"
+- For FCC/DL/ML: Include appropriate structure in question_data. Each question needs "text" and "correct_answer"
+- For SA/SC/TFNG/YNNG: Each question needs "text" and "correct_answer"
+- For NC: Use NESTED structure with title and items array. Items can be strings or objects with "prefix" and nested "items". Mark blanks with <input> followed by question number in parentheses.
+- question_type must match one of the 16 types listed above
+- **MISSING ANSWERS**: If answer key is not in PDF, set correct_answer to null and set has_answer_key: false in metadata
+- **CRITICAL JSON REQUIREMENTS:**
+  * Return ONLY valid JSON - no trailing commas
+  * Properly escape quotes and special characters in strings
+  * Ensure ALL brackets and braces are properly closed
+  * NO trailing commas before closing } or ]
+  * Validate your JSON before responding
+
+**QUESTION EXTRACTION TIPS:**
+
+⚠️ **CRITICAL WARNING - MOST COMMON MISTAKE**: 
+The PDF title "Complete the sentences" does NOT automatically mean SC!
+**If all sentences are about THE SAME TOPIC → it's SUC, not SC!**
+
+**REAL EXAMPLE** that is SUC (not SC):
+PDF shows: "Questions 36-40: Complete the sentences below"
+- "French TGV locomotives pull trains from both ends using a ___"
+- "Japanese ground is unsuitable for TGV because it is ___"
+- "The Japanese electric car system can act as a ___"
+- "Electricity is still produced by ___"
+- "Improvements have been made possible by advances in ___"
+
+This is **SUC** because:
+✅ ALL sentences about train technology (TGV vs Japanese systems)
+✅ Forms connected narrative comparing two train systems
+✅ Cannot reorder without losing meaning
+✅ Describes ONE unified topic (high-speed rail technology)
+
+**Classification**: SUC with question_data containing the full connected paragraph!
+
+---
+
+- Questions usually appear after the passage
+- Look for "Questions 1-5", "Questions 6-10" patterns
+- Match question numbers with the text
+- For matching questions, extract both the statements and the options
+- For MI (Matching Information) and MH (Matching Headings): If no explicit options are listed, use paragraph labels (A, B, C...) as options
+- For MF (Matching Features): Extract explicit options from the question text (names, theories, locations, etc.)
+- For completion questions, identify blanks marked with numbers or underscores
+- **CRITICAL: Distinguishing SC vs SUC**:
+  * **STEP 1**: Read all sentences and ask: "Are they all about the SAME topic?"
+  * **STEP 2**: If YES → SUC. If NO → SC.
+  * **STEP 3**: Ignore the PDF title - "Complete the sentences" can be SUC!
+  * **SC**: Each sentence is independent, different topics
+    - Example: "The capital is ___." / "The author lived in ___." / "The experiment lasted ___."
+    - Topics: geography, biography, science (ALL DIFFERENT) = SC ✅
+  * **SUC**: All sentences about same topic, connected narrative
+    - Example: "French TGV uses ___. Japanese trains differ because ___. The system provides ___."
+    - Topic: Train technology (ALL SAME) = SUC ✅
+  * **Golden rule**: Same topic throughout = SUC. Different topics = SC.
+- **For SUC (Summary Completion)**: 
+  * Extract the complete summary text with <input> tags for blanks
+  * Count total blanks and set "blankCount" in question_data
+  * For each question, include "question_text" with surrounding context (about 50-80 characters before and after the blank)
+  * Example: "...which are harvested and then <input>. The process involves..." (shows context around blank)
+  * Use "correct_answer" field (not "correct_answer_text")
+  * The context helps students locate the blank in the full summary
+- **For SC (Sentence Completion)**:
+  * Each question has its own independent sentence with <input> tag
+  * Store the complete sentence in the "text" field
+  * Example: "The capital of France is <input>."
+  * No need for "question_data" structure - just individual questions
+- **For NC (Note Completion)**: Extract hierarchical note structure with sections, subsections, and nested bullet points. Use <input> for blanks with question numbers in parentheses. Support 2-3 levels of nesting with "title", "prefix", and "items" arrays.
+- **For FC (Form Completion)**: Similar to NC but typically flat structure representing form fields
+- **For TC (Table Completion)**:
+  * Extract table structure as 2D array in "items" field of question_data
+  * First row (index 0) contains column headers: ["Header1", "Header2", "Header3", ...]
+  * Subsequent rows contain data with <input> tags for blanks
+  * Each cell can be:
+    - String: "Simple text" or "Text with <input>"
+    - Array: ["Line 1", "Line 2", "Text with <input>"] for multi-line cells
+  * Example structure:
+    "items": [
+      ["Name", "Location", "Price"],  // Headers
+      ["Restaurant A", "Main St", "<input>"],  // Row 1
+      ["The <input>", "<input> Street", ["$25", "Includes <input>"]]  // Row 2 with multi-line cell
+    ]
+  * Each question has "text" describing the cell location and "correct_answer"
+- Always extract the correct answers
+- **PARAGRAPH LABEL DETECTION**: Count how many labeled paragraphs (A, B, C...) exist in the passage and use them for MI/MH options
+
+**ERROR HANDLING:**
+If no valid content found, return:
+{
+    "success": false,
+    "error": "No valid IELTS reading passages with questions found in the document",
+    "content_type": "reading"
+}
+
+**FINAL REMINDER:** Your response must be VALID JSON only. 
+- NO trailing commas before } or ]
+- ALL double quotes inside strings MUST be escaped as \\"
+- ALL newlines inside strings MUST be escaped as \\n
+- Example: "text": "He said, \\"Hello world!\\nHow are you?\\""
+- Verify JSON syntax before responding - test that it parses correctly!
+
+Now analyze the provided PDF and extract reading passages with questions following the format above.
+"""
+
+    try:
+        result = generate_ai(prompt=prompt, document=pdf_bytes, mime_type=pdf_mime_type)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"AI processing error: {str(e)}",
+            "content_type": "reading",
+        }
+
+
+def generate_listening_parts_from_pdf(pdf_bytes, pdf_mime_type="application/pdf"):
+    """
+    Extract listening transcripts WITH QUESTIONS from PDF and structure them for IELTS listening test.
+
+    Args:
+        pdf_bytes: PDF file content as bytes
+        pdf_mime_type: MIME type of the PDF
+
+    Returns:
+        dict: Structured listening part data with questions
+    """
+
+    prompt = """
+You are an expert IELTS test content analyzer. Analyze this PDF document and extract IELTS Listening parts WITH their questions.
+
+**CRITICAL JSON FORMATTING RULES - READ CAREFULLY:**
+1. ALL newlines in text content MUST be replaced with the escape sequence \\n (not literal newlines)
+2. ALL double quotes (") within strings must be escaped as \\"
+3. ALL single quotes (') within strings should remain as-is (they're valid in JSON strings)
+4. ALL backslashes must be escaped: \\\\
+5. NO trailing commas before closing } or ]
+6. All brackets and braces must be properly closed
+7. Text fields (description, context, etc.) must be SINGLE LINE strings with \\n for line breaks
+8. Example of correct formatting:
+   "description": "First line with \\"quotes\\".\\nSecond line here."
+   NOT: "description": "First line
+   Second line" (this breaks JSON!)
+
+**QUOTE ESCAPING IS CRITICAL:**
+- If text contains: He said "hello"
+- JSON should have: He said \\"hello\\"
+- Example: "text": "She replied, \\"I don't know.\\" Then she left."
+
+**ESSENTIAL: When extracting any text:**
+- Replace ALL actual line breaks with \\n
+- Escape ALL double quotes with \\"
+- Keep the text as ONE continuous string
+- Use \\n for line breaks, \\n\\n for paragraph breaks
+
+**DOT-BASED INPUT DETECTION:**
+- PDFs may use dotted lines (......) or underscores (______) to represent blank spaces where answers should go
+- Convert these to standardized format using ONLY the <input> tag WITHOUT any question numbers
+- **CRITICAL**: Do NOT include question numbers like (1), (2), (3) in the items/context - they go ONLY in the questions array
+- Examples:
+  * "Name: ......" → "Name: <input>" (NOT "Name: <input> (1)")
+  * "Date: ______" → "Date: <input>" (NOT "Date: <input> (2)")
+  * "Address: 45 ...... Street" → "Address: 45 <input> Street" (NOT "Address: 45 <input> (1) Street")
+- Maintain surrounding context and punctuation
+- Question numbering is handled automatically by the "order" field in the questions array
+
+**PDF STRUCTURE HANDLING:**
+- Preserve line breaks and indentation in descriptions
+- Handle form-style layouts (common in Listening Part 1-2)
+- Maintain question numbering even if PDF formatting is inconsistent
+- Keep punctuation, spacing in questions
+- Extract speaker information and context clues
+
+**IMPORTANT INSTRUCTIONS:**
+1. Identify IELTS Listening parts (Parts 1-4)
+2. Extract the description, context, and scenario for each part
+3. Extract ALL questions associated with each part
+4. Identify the question type for each question group
+5. Extract answers for all questions (or mark as null if not provided)
+
+**IELTS LISTENING QUESTION TYPES (same as Reading):**
+- **MCQ**: Multiple Choice (single answer)
+- **MCMA**: Multiple Choice (multiple answers)
+- **SA**: Short Answer
+- **SC**: Sentence Completion - INDEPENDENT sentences (each sentence is separate and standalone)
+- **TFNG**: True/False/Not Given
+- **YNNG**: Yes/No/Not Given
+- **MF**: Matching Features
+- **MI**: Matching Information
+- **MH**: Matching Headings
+- **SUC**: Summary Completion - CONNECTED narrative (forms a cohesive paragraph/summary with multiple blanks)
+- **NC**: Note Completion
+- **FC**: Form Completion
+- **FCC**: Flow Chart Completion
+- **TC**: Table Completion
+- **DL**: Diagram Labelling
+- **ML**: Map Labelling
+
+**CRITICAL: SC vs SUC DISTINCTION - READ THIS CAREFULLY!**
+
+⚠️ **COMMON MISTAKE**: PDFs may say "Complete the sentences" but if all sentences are about THE SAME TOPIC, it's SUC not SC!
+
+Use **SUC (Summary Completion)** when:
+- ✅ ALL sentences are about THE SAME TOPIC (e.g., all about a hotel, all about a sports center, all about a tour)
+- ✅ Sentences form a CONNECTED narrative that flows together
+- ✅ Removing one sentence would break the coherence of the text
+- ✅ Can be read as ONE cohesive paragraph
+- ✅ Describes a unified concept, process, or place
+- **IMPORTANT**: Even if the PDF says "Complete the sentences", if they're all about the same topic → SUC!
+
+**SUC Examples** (Listening):
+1. Hotel description (all about hotel facilities):
+   "The hotel has ___ rooms. It offers ___ and ___. Guests can enjoy ___. The restaurant serves ___."
+   → All sentences about THE HOTEL = SUC ✅
+
+2. Tour information (all about a tour):
+   "The tour starts at ___. Participants will visit ___. Lunch is provided at ___. The tour ends at ___."
+   → All sentences about THE TOUR = SUC ✅
+
+Use **SC (Sentence Completion)** when:
+- ❌ Each sentence is about a DIFFERENT topic
+- ❌ Sentences are INDEPENDENT facts that don't relate to each other
+- ❌ Can reorder sentences without losing meaning
+
+**SC Examples** (Listening):
+1. Random facts (different topics):
+   "The meeting is at ___. The speaker works in ___. The cost is ___. The deadline is ___."
+   → Different topics = SC ✅
+
+**DECISION RULE**: 
+🔍 Ask yourself: "Are ALL the sentences describing or explaining THE SAME thing/topic/place?"
+- YES → SUC (Summary Completion) ✅
+- NO → SC (Sentence Completion) ✅
+
+**DO NOT** be misled by the PDF title! "Complete the sentences" can still be SUC if sentences are thematically connected!
+
+**SPECIAL NOTE ON MULTIPLE CHOICE MULTIPLE ANSWERS (MCMA):**
+- MCMA questions allow students to select MORE THAN ONE correct answer
+- Each correct answer counts as 1 question toward the 40-question total
+- Example: If a MCMA question has 3 correct answers (A, C, E), it counts as 3 questions
+- The "correct_answer" field should contain ALL correct letters concatenated: "ACE" (not "A, C, E")
+- Format correct_answer WITHOUT spaces or commas: "AB", "ACD", "BCE", etc.
+- Use MCMA when:
+  * The question explicitly asks to "Choose ALL correct answers"
+  * Multiple answers are genuinely correct based on the audio
+  * The instructions mention "more than one letter" or "several answers"
+- MCMA questions typically have 2-5 correct answers
+- Include 4-6 total choices with 2-5 being correct
+- Example:
+  {
+    "order": 25,
+    "text": "Which activities are available at the sports center?",
+    "correct_answer": "BDE",
+    "choices": [
+      {"key": "A", "text": "Golf"},
+      {"key": "B", "text": "Swimming"},
+      {"key": "C", "text": "Skiing"},
+      {"key": "D", "text": "Tennis"},
+      {"key": "E", "text": "Yoga"}
+    ]
+  }
+
+**SPECIAL NOTE ON MAP LABELLING (ML) QUESTIONS:**
+- ML questions require students to label locations on a map/floor plan (very common in Listening Part 1-2)
+- The map image itself is uploaded separately - the AI only extracts the structure
+- **CRITICAL FORMAT** - Use this exact structure:
+  "question_data": {
+    "title": "Brief descriptive title of the map",
+    "description": "Optional context (e.g., 'Plan of the sports center')",
+    "labelCount": <number of locations to label>,
+    "labels": [
+      {"name": "Location name (what students see)", "correctAnswer": "Correct answer (letter/word)"},
+      ...
+    ],
+    "note": "Image of map needs to be uploaded separately - map should have numbered locations"
+  }
+- **IMPORTANT**: Each label has TWO fields:
+  * "name": The location/place name that students see (e.g., "Reception", "Pool", "Cafe")
+  * "correctAnswer": The correct answer students must write (usually a letter like "A", "H", or a word)
+- Students see: "1. Reception _________" and must write the answer (e.g., "C")
+- The "questions" array mirrors the labels with "text" = label name and "correct_answer" = correct answer
+- Example for Listening Part 1 (hotel floor plan):
+  {
+    "title": "Questions 1-5",
+    "question_type": "ML",
+    "description": "Label the hotel floor plan. Write the correct letter, A-H, next to questions 1-5.",
+    "question_data": {
+      "title": "Hotel Ground Floor Plan",
+      "description": "The plan shows the layout of the ground floor",
+      "labelCount": 5,
+      "labels": [
+        {"name": "Reception", "correctAnswer": "C"},
+        {"name": "Restaurant", "correctAnswer": "F"},
+        {"name": "Gym", "correctAnswer": "A"},
+        {"name": "Pool", "correctAnswer": "E"},
+        {"name": "Conference Room", "correctAnswer": "B"}
+      ],
+      "note": "Image of map needs to be uploaded separately"
+    },
+    "questions": [
+      {"order": 1, "text": "Reception", "correct_answer": "C"},
+      {"order": 2, "text": "Restaurant", "correct_answer": "F"},
+      {"order": 3, "text": "Gym", "correct_answer": "A"},
+      {"order": 4, "text": "Pool", "correct_answer": "E"},
+      {"order": 5, "text": "Conference Room", "correct_answer": "B"}
+    ]
+  }
+- Extract location names from the PDF (e.g., "reception", "restaurant", "parking", "garden")
+- Extract correct answers if provided in an answer key (often letters A-H)
+- If no answer key exists, you can infer likely answers or use placeholder letters
+
+**LISTENING PART TYPES:**
+- Part 1: Conversation in everyday context (2 speakers)
+- Part 2: Monologue in everyday context
+- Part 3: Conversation in educational/training context (2-4 speakers)
+- Part 4: Monologue on academic subject
+
+**OUTPUT FORMAT - Return a valid JSON object with this EXACT structure:**
+
+**⚠️ CRITICAL RULE FOR INPUT FIELDS IN question_data.items:**
+- In the "items" array, use ONLY <input> tags WITHOUT question numbers
+- DO NOT add question numbers like (1), (2), (3) after <input> tags in items
+- Question numbers belong ONLY in the "questions" array's "order" field
+- CORRECT: "Name: <input>"
+- WRONG: "Name: <input> (1)" ❌
+- CORRECT: "Street Address: 45 <input> Court"
+- WRONG: "Street Address: 45 <input> (1) Court" ❌
+
+{
+    "success": true,
+    "content_type": "listening",
+    "parts": [
+        {
+            "part_number": 1,
+            "title": "Booking a Hotel Room",
+            "description": "A conversation between a customer and a hotel receptionist about booking a room.",
+            "scenario": "Phone conversation",
+            "speaker_count": 2,
+            "context": "everyday",
+            "question_groups": [
+                {
+                    "title": "Questions 1-5",
+                    "question_type": "FC",
+                    "description": "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+                    "question_data": {
+                        "title": "Hotel Booking Form",
+                        "items": [
+                            {
+                                "title": "Guest Information",
+                                "items": [
+                                    "Name: <input>",
+                                    "Phone: <input>",
+                                    "Check-in date: <input>"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "Name",
+                            "correct_answer": "Sarah Johnson"
+                        },
+                        {
+                            "order": 2,
+                            "text": "Phone",
+                            "correct_answer": "555-1234"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Preferred amenities",
+                            "correct_answer": "wifi|parking|breakfast"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 6-10",
+                    "question_type": "MCQ",
+                    "description": "Choose the correct letter, A, B or C.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 6,
+                            "text": "What type of room does the customer want?",
+                            "correct_answer": "B",
+                            "choices": [
+                                {"key": "A", "text": "Single room"},
+                                {"key": "B", "text": "Double room"},
+                                {"key": "C", "text": "Suite"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 7-9",
+                    "question_type": "MCMA",
+                    "description": "Choose ALL the correct answers, A, B, C, D or E.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 7,
+                            "text": "Which facilities are included in the hotel package?",
+                            "correct_answer": "ABD",
+                            "choices": [
+                                {"key": "A", "text": "Free wifi"},
+                                {"key": "B", "text": "Breakfast buffet"},
+                                {"key": "C", "text": "Airport shuttle"},
+                                {"key": "D", "text": "Gym access"},
+                                {"key": "E", "text": "Spa treatments"}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "part_number": 2,
+            "title": "Community Center Activities",
+            "description": "A talk by a community center manager about facilities and activities.",
+            "scenario": "Public announcement",
+            "speaker_count": 1,
+            "context": "everyday",
+            "question_groups": [
+                {
+                    "title": "Questions 11-14",
+                    "question_type": "ML",
+                    "description": "Label the map below. Write the correct letter, A-H, next to questions 11-14.",
+                    "question_data": {
+                        "title": "City Center Map",
+                        "description": "The map shows various locations in the city center",
+                        "labelCount": 4,
+                        "labels": [
+                            {"name": "Swimming Pool", "correctAnswer": "G"},
+                            {"name": "Gym", "correctAnswer": "C"},
+                            {"name": "Library", "correctAnswer": "A"},
+                            {"name": "Cafe", "correctAnswer": "H"}
+                        ],
+                        "note": "Image of map needs to be uploaded separately - map should have numbered locations (11, 12, 13, 14)"
+                    },
+                    "questions": [
+                        {
+                            "order": 11,
+                            "text": "Swimming Pool",
+                            "correct_answer": "G"
+                        },
+                        {
+                            "order": 12,
+                            "text": "Gym",
+                            "correct_answer": "C"
+                        },
+                        {
+                            "order": 13,
+                            "text": "Library",
+                            "correct_answer": "A"
+                        },
+                        {
+                            "order": 14,
+                            "text": "Cafe",
+                            "correct_answer": "H"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 15-18",
+                    "question_type": "NC",
+                    "description": "Complete the notes below. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "Community Center Facilities",
+                        "items": [
+                            {
+                                "title": "Sports Area",
+                                "items": [
+                                    "New <input> equipment in gym",
+                                    "Pool is <input> meters long",
+                                    {
+                                        "prefix": "Available classes:",
+                                        "items": [
+                                            "yoga sessions",
+                                            "aerobics in the <input>"
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "title": "Other Facilities",
+                                "items": [
+                                    "Library with <input> books"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {"order": 15, "text": "fitness", "correct_answer": "fitness"},
+                        {"order": 16, "text": "25", "correct_answer": "25"},
+                        {"order": 17, "text": "evening", "correct_answer": "evening"},
+                        {"order": 18, "text": "5000", "correct_answer": "5000"}
+                    ]
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "total_parts": 2,
+        "total_questions": 18,
+        "requires_audio": true,
+        "note": "Audio recording needs to be uploaded separately for each part"
+    }
+}
+
+**VALIDATION RULES:**
+- part_number must be 1, 2, 3, or 4
+- Each question MUST have order, text, and correct_answer
+- **MULTIPLE CORRECT ANSWERS**: If a question has multiple correct answers, join them with pipe separator | (e.g., "answer1|answer2|answer3"). DO NOT use commas, semicolons, or other separators.
+- For MCQ/MCMA: Include choices array
+- For MF/MI/MH/ML: Include options in question_data
+- For SUC: Include "title", "text" (with <input> for blanks), and "blankCount" in question_data. Each question needs "question_text" (context snippet with <input>) and "correct_answer"
+- For NC/FC: Include items structure in question_data
+- For TC: Include "items" array in question_data. First row is headers, subsequent rows are data with <input> for blanks. Cells can be strings or arrays (for multi-line cells). Each question needs "text" (cell description) and "correct_answer"
+- For NC: Use NESTED structure with title and items array. Items can be strings or objects with "prefix" and nested "items". Mark blanks with <input> followed by question number in parentheses.
+- question_type must match one of the 16 types listed
+- **CRITICAL JSON REQUIREMENTS:**
+  * Return ONLY valid JSON - no trailing commas
+  * Properly escape quotes and special characters in strings
+  * Ensure ALL brackets and braces are properly closed
+  * NO trailing commas before closing } or ]
+  * Validate your JSON before responding
+
+**QUESTION EXTRACTION TIPS:**
+
+⚠️ **CRITICAL WARNING - MOST COMMON MISTAKE**: 
+The PDF title "Complete the sentences" does NOT automatically mean SC!
+**If all sentences are about THE SAME TOPIC → it's SUC, not SC!**
+
+**REAL EXAMPLE** that is SUC (not SC):
+PDF shows: "Complete the sentences below"
+- "The hotel is located on ___"
+- "It has ___ rooms"
+- "The restaurant serves ___"
+- "Guests can use the ___"
+
+This is **SUC** because:
+✅ ALL sentences about the hotel
+✅ Forms connected description of one place
+✅ Describes ONE unified topic (the hotel)
+
+**Classification**: SUC with question_data containing the full connected paragraph!
+
+---
+
+- Questions usually appear with the listening transcript
+- Look for "Questions 1-5", "Questions 6-10" patterns
+- Match question numbers with the blanks or options
+- For matching questions, extract both the statements and the options
+- For completion questions, identify blanks marked with numbers or underscores
+- **CRITICAL: Distinguishing SC vs SUC**:
+  * **STEP 1**: Read all sentences and ask: "Are they all about the SAME topic?"
+  * **STEP 2**: If YES → SUC. If NO → SC.
+  * **STEP 3**: Ignore the PDF title - "Complete the sentences" can be SUC!
+  * **Golden rule**: Same topic throughout = SUC. Different topics = SC.
+- **For SUC (Summary Completion)**:
+  * Extract the complete summary text with <input> tags for blanks
+  * Count total blanks and set "blankCount" in question_data
+  * For each question, include "question_text" with surrounding context (about 50-80 characters before and after the blank)
+  * Use "correct_answer" field
+- **For NC (Note Completion)**: Extract hierarchical note structure with sections, subsections, and nested bullet points. Use <input> for blanks with question numbers in parentheses. Support 2-3 levels of nesting with "title", "prefix", and "items" arrays.
+- **For TC (Table Completion)**:
+  * Extract table structure as 2D array in "items" field of question_data
+  * First row (index 0) contains column headers: ["Header1", "Header2", "Header3", ...]
+  * Subsequent rows contain data with <input> tags for blanks
+  * Each cell can be:
+    - String: "Simple text" or "Text with <input>"
+    - Array: ["Line 1", "Line 2", "Text with <input>"] for multi-line cells
+  * Example structure:
+    "items": [
+      ["Name", "Location", "Price"],  // Headers
+      ["Restaurant A", "Main St", "<input>"],  // Row 1
+      ["The <input>", "<input> Street", ["$25", "Includes <input>"]]  // Row 2 with multi-line cell
+    ]
+  * Each question has "text" describing the cell location and "correct_answer"
+- Always extract the correct answers
+
+**IMPORTANT NOTE:**
+The actual audio files need to be uploaded separately. This extraction provides the metadata, descriptions, and questions.
+
+**ERROR HANDLING:**
+If no valid content found, return:
+{
+    "success": false,
+    "error": "No valid IELTS listening parts with questions found in the document",
+    "content_type": "listening"
+}
+
+**FINAL REMINDER:** Your response must be VALID JSON only.
+- NO trailing commas before } or ]
+- ALL double quotes inside strings MUST be escaped as \\"
+- ALL newlines inside strings MUST be escaped as \\n
+- Example: "text": "He said, \\"Hello world!\\nHow are you?\\""
+- Verify JSON syntax before responding - test that it parses correctly!
+
+Now analyze the provided PDF and extract listening parts with questions following the format above.
+"""
+
+    try:
+        result = generate_ai(prompt=prompt, document=pdf_bytes, mime_type=pdf_mime_type)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"AI processing error: {str(e)}",
+            "content_type": "listening",
+        }
+
+
+def generate_writing_tasks_from_pdf(pdf_bytes, pdf_mime_type="application/pdf"):
+    """
+    Extract writing tasks from PDF and structure them for IELTS writing test.
+
+    Args:
+        pdf_bytes: PDF file content as bytes
+        pdf_mime_type: MIME type of the PDF
+
+    Returns:
+        dict: Structured writing task data
+    """
+
+    prompt = """
+You are an expert IELTS test content analyzer. Analyze this PDF document and extract IELTS Writing tasks.
+
+**IMPORTANT INSTRUCTIONS:**
+1. Identify if this PDF contains IELTS Writing tasks (Task 1 and/or Task 2)
+2. Extract the complete task prompt
+3. Identify the task type:
+   - Task 1: Describe visual information (graph, chart, diagram, process)
+   - Task 2: Essay writing on a topic with argument/discussion
+4. Extract any additional instructions or requirements
+5. Identify if there's an accompanying image/diagram (for Task 1)
+
+**OUTPUT FORMAT - Return a valid JSON object with this EXACT structure:**
+{
+    "success": true,
+    "content_type": "writing",
+    "tasks": [
+        {
+            "task_type": "TASK_1",
+            "prompt": "The graph below shows the consumption of three different types of fast food in the UK between 1970 and 1990. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.",
+            "data": {
+                "chart_type": "line graph",
+                "time_period": "1970-1990",
+                "categories": ["hamburgers", "fish and chips", "pizza"]
+            },
+            "min_words": 150,
+            "has_visual": true,
+            "visual_description": "A line graph showing consumption trends of three fast food types over 20 years"
+        },
+        {
+            "task_type": "TASK_2",
+            "prompt": "Some people believe that unpaid community service should be a compulsory part of high school programs. To what extent do you agree or disagree? Give reasons for your answer and include any relevant examples from your own knowledge or experience. Write at least 250 words.",
+            "data": {
+                "question_type": "opinion",
+                "topic": "education and community service"
+            },
+            "min_words": 250,
+            "has_visual": false
+        }
+    ],
+    "metadata": {
+        "total_tasks": 2,
+        "test_type": "academic",
+        "requires_images": true
+    }
+}
+
+**VALIDATION RULES:**
+- task_type must be "TASK_1" or "TASK_2"
+- prompt must be complete and clear (minimum 20 words)
+- min_words: 150 for Task 1, 250 for Task 2
+- has_visual: true if diagram/graph/chart is present
+- data field contains relevant metadata about the task
+
+**TASK TYPE IDENTIFICATION:**
+- Task 1: Usually starts with "The graph/chart/diagram/table shows..." or "The process illustrates..."
+- Task 2: Usually starts with "Some people..." or poses a discussion/opinion question
+
+**ERROR HANDLING:**
+If the PDF does not contain IELTS writing tasks, return:
+{
+    "success": false,
+    "error": "No valid IELTS writing tasks found in the document",
+    "content_type": "unknown"
+}
+
+Now analyze the provided PDF and extract the writing tasks following the format above.
+"""
+
+    try:
+        result = generate_ai(prompt=prompt, document=pdf_bytes, mime_type=pdf_mime_type)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"AI processing error: {str(e)}",
+            "content_type": "writing",
+        }
+
+
+def generate_speaking_topics_from_pdf(pdf_bytes, pdf_mime_type="application/pdf"):
+    """
+    Extract speaking topics from PDF and structure them for IELTS speaking test.
+
+    Args:
+        pdf_bytes: PDF file content as bytes
+        pdf_mime_type: MIME type of the PDF
+
+    Returns:
+        dict: Structured speaking topic data
+    """
+
+    prompt = """
+You are an expert IELTS test content analyzer. Analyze this PDF document and extract IELTS Speaking topics and questions.
+
+**IMPORTANT INSTRUCTIONS:**
+1. Identify if this PDF contains IELTS Speaking topics (Parts 1, 2, or 3)
+2. Extract questions for each part:
+   - Part 1: Introduction and interview (4-5 minutes) - familiar topics
+   - Part 2: Individual long turn (3-4 minutes) - speak about a specific topic
+   - Part 3: Two-way discussion (4-5 minutes) - abstract discussion
+3. Structure the topics and questions appropriately
+4. For Part 2, extract the cue card with bullet points
+
+**OUTPUT FORMAT - Return a valid JSON object with this EXACT structure:**
+{
+    "success": true,
+    "content_type": "speaking",
+    "topics": [
+        {
+            "part_number": 1,
+            "topic": "Work and Studies",
+            "questions": [
+                "Do you work or are you a student?",
+                "What do you like most about your job/studies?",
+                "What are your future career plans?"
+            ]
+        },
+        {
+            "part_number": 2,
+            "topic": "Describe a memorable journey",
+            "cue_card": {
+                "main_prompt": "Describe a memorable journey you have taken.",
+                "bullet_points": [
+                    "Where you went",
+                    "Who you went with",
+                    "What you did",
+                    "And explain why this journey was memorable"
+                ],
+                "preparation_time": "1 minute",
+                "speaking_time": "2 minutes"
+            }
+        },
+        {
+            "part_number": 3,
+            "topic": "Travel and Tourism",
+            "questions": [
+                "How has tourism changed in your country in recent years?",
+                "What are the positive and negative effects of tourism?",
+                "Do you think international travel will increase in the future?"
+            ]
+        }
+    ],
+    "metadata": {
+        "total_topics": 3,
+        "estimated_duration": "11-14 minutes"
+    }
+}
+
+**VALIDATION RULES:**
+- part_number must be 1, 2, or 3
+- Part 1: 3-5 questions about familiar topics
+- Part 2: Must have cue card with main prompt and 3-4 bullet points
+- Part 3: 4-6 questions about abstract/complex topics related to Part 2
+- All questions must be complete and clear
+
+**PART IDENTIFICATION:**
+- Part 1: Simple questions about personal life, work, studies, hobbies
+- Part 2: "Describe a..." with bullet points for guidance
+- Part 3: More complex, analytical questions starting with "Why...", "How...", "What do you think..."
+
+**ERROR HANDLING:**
+If the PDF does not contain IELTS speaking content, return:
+{
+    "success": false,
+    "error": "No valid IELTS speaking topics found in the document",
+    "content_type": "unknown"
+}
+
+Now analyze the provided PDF and extract the speaking topics following the format above.
+"""
+
+    try:
+        result = generate_ai(prompt=prompt, document=pdf_bytes, mime_type=pdf_mime_type)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"AI processing error: {str(e)}",
+            "content_type": "speaking",
+        }
+
+
+def detect_content_type_from_pdf(pdf_bytes, pdf_mime_type="application/pdf"):
+    """
+    Automatically detect what type of IELTS content is in the PDF.
+
+    Args:
+        pdf_bytes: PDF file content as bytes
+        pdf_mime_type: MIME type of the PDF
+
+    Returns:
+        dict: Detection result with content type
+    """
+
+    prompt = """
+You are an expert IELTS test content analyzer. Analyze this PDF document and identify what type of IELTS content it contains.
+
+**YOUR TASK:**
+Determine if this PDF contains:
+1. Reading passages
+2. Listening transcripts/descriptions
+3. Writing tasks
+4. Speaking topics
+5. Multiple types
+6. None of the above
+
+**OUTPUT FORMAT - Return a valid JSON object with this EXACT structure:**
+{
+    "success": true,
+    "detected_types": ["reading", "writing"],
+    "primary_type": "reading",
+    "confidence": "high",
+    "summary": "This PDF contains 2 IELTS reading passages and 1 writing task (Task 2).",
+    "recommendations": {
+        "reading": "Extract 2 passages",
+        "writing": "Extract 1 Task 2 essay prompt"
+    }
+}
+
+**CONTENT TYPE INDICATORS:**
+- **Reading**: Long passages (500+ words) with academic/general topics, often with titles
+- **Listening**: Describes conversations, monologues, scenarios with speakers, mentions "Part 1-4"
+- **Writing**: Contains "Task 1" or "Task 2", prompts with word count requirements (150/250 words)
+- **Speaking**: Contains "Part 1", "Part 2", "Part 3", interview questions, "Describe a...", cue cards
+
+**CONFIDENCE LEVELS:**
+- "high": Clear indicators present
+- "medium": Some indicators but not definitive
+- "low": Uncertain, needs manual review
+
+Now analyze the provided PDF and detect the content type following the format above.
+"""
+
+    try:
+        result = generate_ai(prompt=prompt, document=pdf_bytes, mime_type=pdf_mime_type)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"AI processing error: {str(e)}",
+            "detected_types": [],
+            "primary_type": "unknown",
+        }

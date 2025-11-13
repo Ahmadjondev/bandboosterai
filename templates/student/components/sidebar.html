@@ -1,0 +1,129 @@
+<!-- Student Panel Sidebar -->
+<aside id="sidebar" class="fixed top-0 left-0 w-64 h-screen bg-sidebar text-white transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out z-40 overflow-y-auto flex flex-col">
+    <!-- Logo Section -->
+    <div class="p-2 h-16 border-b border-gray-700">
+        <div class="flex items-center justify-center space-x-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center shadow-lg">
+                <i class="fas fa-graduation-cap text-white text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-white">IELTS Mock</h1>
+                <p class="text-xs text-gray-400">Student Panel</p>
+            </div>
+        </div>
+    </div>
+
+    <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+        <!-- Dashboard -->
+        <a href="{% url 'student:dashboard' %}" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover {% if request.resolver_match.url_name == 'dashboard' %}bg-sidebar-hover border-l-4 border-primary-500{% endif %}">
+            <i class="fas fa-home text-lg w-5"></i>
+            <span class="font-medium">Dashboard</span>
+        </a>
+        
+        <!-- Mock Exams -->
+        <div class="space-y-1">
+            <a href="{% url 'student:exam_list' %}" 
+               class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover {% if request.resolver_match.url_name == 'exam_list' or request.resolver_match.url_name == 'exam_detail' %}bg-sidebar-hover border-l-4 border-primary-500{% endif %}">
+                <i class="fas fa-file-alt text-lg w-5"></i>
+                <span class="font-medium">Mock Exams</span>
+            </a>
+        </div>
+        
+        <!-- Profile -->
+        <a href="{% url 'student:profile' %}" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover {% if request.resolver_match.url_name == 'profile' or request.resolver_match.url_name == 'change_password' %}bg-sidebar-hover border-l-4 border-primary-500{% endif %}">
+            <i class="fas fa-user-circle text-lg w-5"></i>
+            <span class="font-medium">Profile</span>
+        </a>
+        
+        {% comment %} <!-- My Results -->
+        <a href="{% url 'student:my_results' %}" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover {% if request.resolver_match.url_name == 'my_results' or request.resolver_match.url_name == 'result_detail' %}bg-sidebar-hover border-l-4 border-primary-500{% endif %}">
+            <i class="fas fa-chart-line text-lg w-5"></i>
+            <span class="font-medium">My Results</span>
+        </a> {% endcomment %}
+        
+        {% comment %} <!-- Practice Tests -->
+        <a href="#" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover">
+            <i class="fas fa-pen text-lg w-5"></i>
+            <span class="font-medium">Practice Tests</span>
+        </a>
+        
+        <!-- Study Materials -->
+        <a href="#" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover">
+            <i class="fas fa-book text-lg w-5"></i>
+            <span class="font-medium">Study Materials</span>
+        </a>
+        
+        <!-- Progress Tracker -->
+        <a href="#" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover">
+            <i class="fas fa-chart-bar text-lg w-5"></i>
+            <span class="font-medium">Progress</span>
+        </a>
+        
+        <div class="border-t border-gray-600 my-4"></div>
+        
+        <!-- Schedule -->
+        <a href="#" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover">
+            <i class="fas fa-calendar-alt text-lg w-5"></i>
+            <span class="font-medium">Schedule</span>
+        </a>
+        
+        <!-- Messages -->
+        <a href="#" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover">
+            <i class="fas fa-envelope text-lg w-5"></i>
+            <span class="font-medium">Messages</span>
+            <span class="ml-auto bg-primary-500 text-white text-xs px-2 py-1 rounded-full">3</span>
+        </a>
+        
+        <div class="border-t border-gray-600 my-4"></div>
+        
+        <!-- Settings -->
+        <a href="#" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover">
+            <i class="fas fa-cog text-lg w-5"></i>
+            <span class="font-medium">Settings</span>
+        </a>
+        
+        <!-- Help & Support -->
+        <a href="#" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-sidebar-hover">
+            <i class="fas fa-question-circle text-lg w-5"></i>
+            <span class="font-medium">Help & Support</span>
+        </a> {% endcomment %}
+    </nav>
+    
+    <!-- Bottom Section: User Info -->
+    <div class="p-4 border-t border-gray-700 bg-gray-800 bg-opacity-50">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
+                <i class="fas fa-user-graduate text-gray-400"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-white truncate">{{ request.user.get_full_name|default:request.user.username }}</p>
+                <p class="text-xs text-gray-400 truncate">Student</p>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<!-- Sidebar Overlay for Mobile -->
+<div id="sidebar-overlay" 
+     class="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden hidden"
+     onclick="toggleSidebar()"></div>
+
+<script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        sidebar.classList.toggle('-translate-x-full');
+        overlay.classList.toggle('hidden');
+    }
+</script>

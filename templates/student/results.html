@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Results</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Vue 3 from CDN -->
+    <script src="https://unpkg.com/vue@3.3.4/dist/vue.global.prod.js"></script>
+    
+    <!-- Axios for API calls -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.5.0/dist/axios.min.js"></script>
+    
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Feather Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    
+    <style>
+        [v-cloak] {
+            display: none !important;
+        }
+        
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.3s ease;
+        }
+        
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50">
+    <div id="app" v-cloak class="h-full">
+        <results-section :attempt-id="attemptId"></results-section>
+    </div>
+
+    <!-- Vue App Configuration -->
+    <script>
+        // CSRF Token Helper
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrfToken = getCookie('csrftoken');
+
+        // Configure Axios
+        axios.defaults.headers.common['X-CSRFToken'] = csrfToken;
+        axios.defaults.withCredentials = true;
+
+        // App Configuration
+        window.attemptId = {{ attempt.id }};
+    </script>
+
+    <!-- Vue App -->
+    <script>
+        const { createApp, ref } = Vue;
+
+        // Create Vue app
+        window.vueApp = createApp({
+            delimiters: ['[[', ']]'],
+            setup() {
+                const attemptId = ref(window.attemptId);
+                return { attemptId };
+            }
+        });
+    </script>
+
+    <!-- Load Results Component -->
+    <script src="{% static 'js/student/components/ResultsSection.js' %}?v={{ STATIC_VERSION }}"></script>
+    
+    <script>
+        // Mount the app after component is registered
+        window.vueApp.mount('#app');
+        
+        // Initialize Feather Icons
+        if (window.feather) {
+            window.feather.replace();
+            setTimeout(() => window.feather.replace(), 100);
+            const observer = new MutationObserver(() => window.feather.replace());
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
+    </script>
+</body>
+</html>

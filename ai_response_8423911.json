@@ -1,0 +1,569 @@
+{
+    "success": true,
+    "content_type": "listening",
+    "parts": [
+        {
+            "part_number": 1,
+            "title": "Summer Fruit Picking Job Application",
+            "description": "A conversation between a job applicant and a farm representative about a summer fruit picking job.",
+            "scenario": "Phone conversation",
+            "speaker_count": 2,
+            "context": "everyday",
+            "question_groups": [
+                {
+                    "title": "Questions 1-3",
+                    "question_type": "FC",
+                    "description": "Complete the form below.\nWrite NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "Manor Farm\nApplication Form-Summer fruit picking",
+                        "items": [
+                            "Example\nName: Ben Miller",
+                            "Country of origin: the USA",
+                            "Age: 20",
+                            "Visa type: a <input>",
+                            "Visa valid until: November",
+                            "Availability for work: from <input> to October",
+                            "Heard about job: from the <input>"
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "Visa type",
+                            "correct_answer": "blue card"
+                        },
+                        {
+                            "order": 2,
+                            "text": "Availability for work",
+                            "correct_answer": "July"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Heard about job",
+                            "correct_answer": "website"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 4-10",
+                    "question_type": "NC",
+                    "description": "Complete the notes below.\nWrite ONE WORD OR A NUMBER for each answer.",
+                    "question_data": {
+                        "title": "Manor Farm\nImportant information for fruit pickers",
+                        "items": [
+                            {
+                                "title": "Picking season:",
+                                "items": [
+                                    "Busiest month is <input>",
+                                    "Exact picking dates depend on the <input>"
+                                ]
+                            },
+                            {
+                                "title": "Payment:",
+                                "items": [
+                                    "Pickers over 18 will earn 6 £<input> an hour"
+                                ]
+                            },
+                            {
+                                "title": "Accommodation:",
+                                "items": [
+                                    "None on the farm but there is a <input> nearby"
+                                ]
+                            },
+                            {
+                                "title": "Transport:",
+                                "items": [
+                                    "Pickers are advised to travel around by <input>"
+                                ]
+                            },
+                            {
+                                "title": "Documentation:",
+                                "items": [
+                                    "Only pickers with a <input> will be allowed to work"
+                                ]
+                            },
+                            {
+                                "title": "Meals:",
+                                "items": [
+                                    "Pickers must bring lunch and a day's supply of <input>"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 4,
+                            "text": "Busiest month",
+                            "correct_answer": "September"
+                        },
+                        {
+                            "order": 5,
+                            "text": "Picking dates depend on",
+                            "correct_answer": "weather"
+                        },
+                        {
+                            "order": 6,
+                            "text": "Payment per hour",
+                            "correct_answer": "5.60"
+                        },
+                        {
+                            "order": 7,
+                            "text": "Nearby accommodation",
+                            "correct_answer": "campsite"
+                        },
+                        {
+                            "order": 8,
+                            "text": "Recommended transport",
+                            "correct_answer": "bike"
+                        },
+                        {
+                            "order": 9,
+                            "text": "Required documentation",
+                            "correct_answer": "passport"
+                        },
+                        {
+                            "order": 10,
+                            "text": "Day's supply to bring",
+                            "correct_answer": "water"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "part_number": 2,
+            "title": "Karrara Sports & Leisure Centre",
+            "description": "A monologue providing information about a local sports and leisure centre.",
+            "scenario": "Public talk",
+            "speaker_count": 1,
+            "context": "everyday",
+            "question_groups": [
+                {
+                    "title": "Questions 11-16",
+                    "question_type": "ML",
+                    "description": "Label the plan below.\nWrite the correct letter, A-I, next to questions 11-16",
+                    "question_data": {
+                        "title": "Karrara Sports & Leisure Centre",
+                        "description": "Floor plan of the centre",
+                        "labelCount": 6,
+                        "labels": [
+                            {
+                                "name": "Shop",
+                                "correctAnswer": "H"
+                            },
+                            {
+                                "name": "Playground",
+                                "correctAnswer": "G"
+                            },
+                            {
+                                "name": "Spa",
+                                "correctAnswer": "I"
+                            },
+                            {
+                                "name": "Weights room",
+                                "correctAnswer": "D"
+                            },
+                            {
+                                "name": "Gym",
+                                "correctAnswer": "B"
+                            },
+                            {
+                                "name": "Message room",
+                                "correctAnswer": "E"
+                            }
+                        ],
+                        "note": "Image of map needs to be uploaded separately - map should have numbered locations (11, 12, 13, 14, 15, 16)"
+                    },
+                    "questions": [
+                        {
+                            "order": 11,
+                            "text": "Shop",
+                            "correct_answer": "H"
+                        },
+                        {
+                            "order": 12,
+                            "text": "Playground",
+                            "correct_answer": "G"
+                        },
+                        {
+                            "order": 13,
+                            "text": "Spa",
+                            "correct_answer": "I"
+                        },
+                        {
+                            "order": 14,
+                            "text": "Weights room",
+                            "correct_answer": "D"
+                        },
+                        {
+                            "order": 15,
+                            "text": "Gym",
+                            "correct_answer": "B"
+                        },
+                        {
+                            "order": 16,
+                            "text": "Message room",
+                            "correct_answer": "E"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 17 and 18",
+                    "question_type": "MCMA",
+                    "description": "Choose TWO letters, A-E.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 17,
+                            "text": "Which TWO memberships have a special introductory price?",
+                            "correct_answer": "AD",
+                            "choices": [
+                                {
+                                    "key": "A",
+                                    "text": "Off-peak"
+                                },
+                                {
+                                    "key": "B",
+                                    "text": "Gym and weights"
+                                },
+                                {
+                                    "key": "C",
+                                    "text": "Swim plus"
+                                },
+                                {
+                                    "key": "D",
+                                    "text": "All-in"
+                                },
+                                {
+                                    "key": "E",
+                                    "text": "Family pack"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 19 and 20",
+                    "question_type": "MCMA",
+                    "description": "Choose TWO letters, A-E",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 19,
+                            "text": "Which TWO free gifts will new members get?",
+                            "correct_answer": "BC",
+                            "choices": [
+                                {
+                                    "key": "A",
+                                    "text": "Sports towel"
+                                },
+                                {
+                                    "key": "B",
+                                    "text": "Heart monitor"
+                                },
+                                {
+                                    "key": "C",
+                                    "text": "Water bottle"
+                                },
+                                {
+                                    "key": "D",
+                                    "text": "Sports socks"
+                                },
+                                {
+                                    "key": "E",
+                                    "text": "Free massage"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "part_number": 3,
+            "title": "The Value Survey on House Prices",
+            "description": "A conversation between two students, James and Anna, discussing a survey on house prices.",
+            "scenario": "Academic discussion",
+            "speaker_count": 2,
+            "context": "educational",
+            "question_groups": [
+                {
+                    "title": "Questions 21-25",
+                    "question_type": "MCQ",
+                    "description": "Choose the correct letter, A, B or C.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 21,
+                            "text": "According to James and Anna, the Value Survey measured the cost of houses by calculating",
+                            "correct_answer": "C",
+                            "choices": [
+                                {
+                                    "key": "A",
+                                    "text": "the total price of building a new house."
+                                },
+                                {
+                                    "key": "B",
+                                    "text": "the size of house a typical family can afford."
+                                },
+                                {
+                                    "key": "C",
+                                    "text": "the price of houses compared to average income"
+                                }
+                            ]
+                        },
+                        {
+                            "order": 22,
+                            "text": "Anna says the Value Survey is unusual because",
+                            "correct_answer": "A",
+                            "choices": [
+                                {
+                                    "key": "A",
+                                    "text": "it compares prices in different cities."
+                                },
+                                {
+                                    "key": "B",
+                                    "text": "it is the oldest survey of its kind."
+                                },
+                                {
+                                    "key": "C",
+                                    "text": "it publishes its results annually."
+                                }
+                            ]
+                        },
+                        {
+                            "order": 23,
+                            "text": "The students decide that New Zealand house prices are high because of",
+                            "correct_answer": "C",
+                            "choices": [
+                                {
+                                    "key": "A",
+                                    "text": "the cost of construction materials."
+                                },
+                                {
+                                    "key": "B",
+                                    "text": "the shortage of builders."
+                                },
+                                {
+                                    "key": "C",
+                                    "text": "the rules concerning land use."
+                                }
+                            ]
+                        },
+                        {
+                            "order": 24,
+                            "text": "When the students talk about transport they are",
+                            "correct_answer": "A",
+                            "choices": [
+                                {
+                                    "key": "A",
+                                    "text": "concerned there is no plan."
+                                },
+                                {
+                                    "key": "B",
+                                    "text": "worried about rising costs."
+                                },
+                                {
+                                    "key": "C",
+                                    "text": "alarmed by increasing congestion."
+                                }
+                            ]
+                        },
+                        {
+                            "order": 25,
+                            "text": "The students agree that the next Value Survey will",
+                            "correct_answer": "B",
+                            "choices": [
+                                {
+                                    "key": "A",
+                                    "text": "compare a wider number of locations."
+                                },
+                                {
+                                    "key": "B",
+                                    "text": "indicate a future trend in house prices."
+                                },
+                                {
+                                    "key": "C",
+                                    "text": "advise against regulation of house prices."
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 26-30",
+                    "question_type": "MF",
+                    "description": "What aspect of the Value Survey did each of the following people criticize?\nChoose FIVE answers from the box and write the correct letter, A-G, next to questions 26-30.",
+                    "question_data": {
+                        "options": [
+                            {
+                                "key": "A",
+                                "text": "organization of final text"
+                            },
+                            {
+                                "key": "B",
+                                "text": "researchers' qualifications"
+                            },
+                            {
+                                "key": "C",
+                                "text": "period covered"
+                            },
+                            {
+                                "key": "D",
+                                "text": "level of funding"
+                            },
+                            {
+                                "key": "E",
+                                "text": "lack of public access to full information"
+                            },
+                            {
+                                "key": "F",
+                                "text": "old-fashioned systems of date analysis"
+                            },
+                            {
+                                "key": "G",
+                                "text": "way of defining home-buyers' wealth"
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 26,
+                            "text": "Andrew Coleman",
+                            "correct_answer": "D"
+                        },
+                        {
+                            "order": 27,
+                            "text": "Professor Massey",
+                            "correct_answer": "G"
+                        },
+                        {
+                            "order": 28,
+                            "text": "Richard Bernard",
+                            "correct_answer": "F"
+                        },
+                        {
+                            "order": 29,
+                            "text": "Professor Lowndes",
+                            "correct_answer": "A"
+                        },
+                        {
+                            "order": 30,
+                            "text": "Maria Darling",
+                            "correct_answer": "E"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "part_number": 4,
+            "title": "Benefits of Using Drama Activities in the Classroom",
+            "description": "An academic lecture on the use and benefits of drama activities in education.",
+            "scenario": "Academic lecture",
+            "speaker_count": 1,
+            "context": "academic",
+            "question_groups": [
+                {
+                    "title": "Questions 31-40",
+                    "question_type": "NC",
+                    "description": "Complete the notes below.\nWrite ONE WORD ONLY for each answer.",
+                    "question_data": {
+                        "title": "Benefits of using drama activities in the classroom",
+                        "items": [
+                            {
+                                "title": "Child's personal development",
+                                "items": [
+                                    "Group participation develops <input> in own ideas",
+                                    "Unscripted, imaginative activities allow children to take <input>"
+                                ]
+                            },
+                            {
+                                "title": "Child's educational development",
+                                "items": [
+                                    "Working as a group teaches the importance of <input> to others",
+                                    "Performing makes children <input> for their learning and behavior"
+                                ]
+                            },
+                            {
+                                "title": "Role-play can be used",
+                                "items": [
+                                    "as a form of <input> For children experiencing problems",
+                                    "to help children be objective about their behaviour problems",
+                                    "to explore controversial issues with a class in a <input> environment",
+                                    "to explore children's self-knowledge and understanding of <input>"
+                                ]
+                            },
+                            {
+                                "title": "Advantages of using role-play in the study of history",
+                                "items": [
+                                    "Drama activities increase children's <input> in class",
+                                    "Makes it easier for children to <input> and understand historical events",
+                                    "Can find answers to <input> in history to see why certain decisions were made"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 31,
+                            "text": "develops [?] in own ideas",
+                            "correct_answer": "confidence"
+                        },
+                        {
+                            "order": 32,
+                            "text": "allow children to take [?]",
+                            "correct_answer": "risks"
+                        },
+                        {
+                            "order": 33,
+                            "text": "importance of [?] to others",
+                            "correct_answer": "listening"
+                        },
+                        {
+                            "order": 34,
+                            "text": "makes children [?] for their learning",
+                            "correct_answer": "responsible"
+                        },
+                        {
+                            "order": 35,
+                            "text": "as a form of [?]",
+                            "correct_answer": "therapy"
+                        },
+                        {
+                            "order": 36,
+                            "text": "in a [?] environment",
+                            "correct_answer": "safe"
+                        },
+                        {
+                            "order": 37,
+                            "text": "understanding of [?]",
+                            "correct_answer": "morality"
+                        },
+                        {
+                            "order": 38,
+                            "text": "increase children's [?] in class",
+                            "correct_answer": "participation"
+                        },
+                        {
+                            "order": 39,
+                            "text": "easier for children to [?] and understand",
+                            "correct_answer": "remember"
+                        },
+                        {
+                            "order": 40,
+                            "text": "find answers to [?] in history",
+                            "correct_answer": "problems"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "total_parts": 4,
+        "total_questions": 40,
+        "requires_audio": true,
+        "note": "Audio recording needs to be uploaded separately for each part"
+    }
+}

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - IELTS Mock Testing System{% endblock %}
+
+{% block content %}
+<!-- Tailwind Login Page -->
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <!-- Card Container -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:shadow-3xl">
+            <!-- Header Section -->
+            <div class="bg-gradient-to-r from-primary to-primary-light px-8 py-6">
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full shadow-lg mb-4 animate-bounce">
+                        <i class="fas fa-graduation-cap text-3xl" style="color: #E75225;"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white tracking-tight">Welcome Back</h2>
+                    <p class="mt-2 text-sm text-white/90">Sign in to your OPUS LC account</p>
+                </div>
+            </div>
+
+            <!-- Form Section -->
+            <div class="px-8 py-8">
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start space-x-3 animate-shake">
+                        <i class="fas fa-exclamation-circle mt-0.5" style="color: #E75225;"></i>
+                        <div class="text-sm text-red-800">{{ form.non_field_errors }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Phone/Username Field -->
+                    <div class="space-y-2">
+                        <label for="{{ form.username.id_for_label }}" class="flex items-center text-sm font-semibold text-gray-700">
+                            <i class="fas fa-phone mr-2" style="color: #E75225;"></i>
+                            Phone Number or Username
+                        </label>
+                        <div class="relative">
+                            <input 
+                                type="text"
+                                name="{{ form.username.name }}"
+                                id="{{ form.username.id_for_label }}"
+                                placeholder="Enter phone or username"
+                                autofocus
+                                autocomplete="username"
+                                class="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200 text-lg"
+                                {% if form.username.value %}value="{{ form.username.value }}"{% endif %}
+                            >
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                                <i class="fas fa-user-circle text-xl" style="color: #E75225; opacity: 0.3;"></i>
+                            </div>
+                        </div>
+                        {% if form.username.errors %}
+                        <div class="flex items-center space-x-2 text-sm text-red-600 mt-1">
+                            <i class="fas fa-exclamation-triangle" style="color: #E75225;"></i>
+                            <span>{{ form.username.errors }}</span>
+                        </div>
+                        {% endif %}
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1" style="color: #E75225;"></i>
+                            Use your phone number (e.g., +998901234567) or username
+                        </p>
+                    </div>
+                    
+                    <!-- Password Field -->
+                    <div class="space-y-2">
+                        <label for="{{ form.password.id_for_label }}" class="flex items-center text-sm font-semibold text-gray-700">
+                            <i class="fas fa-lock mr-2" style="color: #E75225;"></i>
+                            Password
+                        </label>
+                        <div class="relative">
+                            <input 
+                                type="password"
+                                name="{{ form.password.name }}"
+                                id="{{ form.password.id_for_label }}"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                class="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200 text-lg"
+                            >
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                                <i class="fas fa-key text-xl" style="color: #E75225; opacity: 0.3;"></i>
+                            </div>
+                        </div>
+                        {% if form.password.errors %}
+                        <div class="flex items-center space-x-2 text-sm text-red-600 mt-1">
+                            <i class="fas fa-exclamation-triangle" style="color: #E75225;"></i>
+                            <span>{{ form.password.errors }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <button 
+                        type="submit" 
+                        class="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-primary to-primary-light text-white text-base font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-primary/50"
+                    >
+                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        LOGIN TO ACCOUNT
+                    </button>
+                    
+                    <!-- Security Badge -->
+                    <div class="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                        <i class="fas fa-shield-alt" style="color: #E75225;"></i>
+                        <span>Secure & Encrypted Connection</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Footer Info -->
+        <div class="text-center">
+            <p class="flex items-center justify-center space-x-2 text-sm text-gray-600 bg-white/50 backdrop-blur-sm rounded-lg py-3 px-4 shadow-sm">
+                <i class="fas fa-info-circle" style="color: #E75225;"></i>
+                <span>Use your assigned credentials to access the system</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    .animate-shake {
+        animation: shake 0.5s ease-in-out;
+    }
+</style>
+{% endblock %}

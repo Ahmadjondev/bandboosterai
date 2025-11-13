@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification Code</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 30px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        .message {
+            font-size: 16px;
+            color: #4b5563;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .code-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .code {
+            font-size: 48px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+        }
+        .expiry-notice {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .expiry-notice p {
+            margin: 0;
+            color: #92400e;
+            font-size: 14px;
+        }
+        .expiry-notice strong {
+            color: #78350f;
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 25px 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        .security-tip {
+            background-color: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 15px 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .security-tip p {
+            margin: 0;
+            color: #065f46;
+            font-size: 14px;
+        }
+        @media only screen and (max-width: 600px) {
+            .container {
+                margin: 20px;
+                border-radius: 8px;
+            }
+            .header {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .code {
+                font-size: 36px;
+                letter-spacing: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✉️ Email Verification</h1>
+        </div>
+        
+        <div class="content">
+            <p class="greeting">Hello, <strong>{{ username }}</strong>!</p>
+            
+            <p class="message">
+                Thank you for registering! To complete your registration and access all features, 
+                please verify your email address by entering the verification code below:
+            </p>
+            
+            <div class="code-container">
+                <p class="code">{{ verification_code }}</p>
+            </div>
+            
+            <div class="expiry-notice">
+                <p>
+                    <strong>⏰ Important:</strong> This code will expire in <strong>2 minutes</strong>. 
+                    If it expires, you can request a new verification code.
+                </p>
+            </div>
+            
+            <div class="security-tip">
+                <p>
+                    <strong>🔒 Security Tip:</strong> Never share this code with anyone. Our team will never 
+                    ask you for your verification code via email, phone, or any other method.
+                </p>
+            </div>
+            
+            <p class="message">
+                If you didn't create an account with us, please ignore this email or contact our support team.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>IELTS Mock Testing System</strong></p>
+            <p>© {{ year }} All rights reserved.</p>
+            <p style="margin-top: 15px;">
+                This is an automated message. Please do not reply to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

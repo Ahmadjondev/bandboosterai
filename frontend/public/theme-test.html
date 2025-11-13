@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theme System Test & Fix</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
+  <div class="max-w-4xl mx-auto p-8">
+    <h1 class="text-4xl font-bold mb-8">🎨 Theme System Test & Fix</h1>
+    
+    <!-- Status Display -->
+    <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-6">
+      <h2 class="text-2xl font-semibold mb-4">Current Status</h2>
+      <div class="space-y-3 font-mono text-sm">
+        <div class="flex justify-between">
+          <span>HTML Class:</span>
+          <span id="htmlClass" class="font-bold text-blue-600 dark:text-blue-400"></span>
+        </div>
+        <div class="flex justify-between">
+          <span>app-theme:</span>
+          <span id="appTheme" class="font-bold text-green-600 dark:text-green-400"></span>
+        </div>
+        <div class="flex justify-between">
+          <span>theme (legacy):</span>
+          <span id="legacyTheme" class="font-bold text-yellow-600 dark:text-yellow-400"></span>
+        </div>
+        <div class="flex justify-between">
+          <span>exam-theme (old):</span>
+          <span id="examTheme" class="font-bold text-red-600 dark:text-red-400"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <button
+        onclick="setLightMode()"
+        class="p-4 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 rounded-lg font-semibold transition-colors"
+      >
+        ☀️ Force Light Mode
+      </button>
+      
+      <button
+        onclick="setDarkMode()"
+        class="p-4 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 rounded-lg font-semibold transition-colors"
+      >
+        🌙 Force Dark Mode
+      </button>
+      
+      <button
+        onclick="toggleTheme()"
+        class="p-4 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 rounded-lg font-semibold transition-colors"
+      >
+        🔄 Toggle Theme
+      </button>
+      
+      <button
+        onclick="clearAllThemes()"
+        class="p-4 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 rounded-lg font-semibold transition-colors"
+      >
+        🧹 Clear All & Reset
+      </button>
+    </div>
+
+    <!-- Diagnostics -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 mb-6">
+      <h2 class="text-2xl font-semibold mb-4">🔍 Diagnostics</h2>
+      <div id="diagnostics" class="space-y-2 text-sm"></div>
+    </div>
+
+    <!-- Visual Test -->
+    <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-6">
+      <h2 class="text-2xl font-semibold mb-4">Visual Test</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-gray-900 p-4 rounded border-2 border-gray-300 dark:border-gray-600">
+          <p class="font-semibold">Card 1</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">This should be white in light mode</p>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded border-2 border-gray-300 dark:border-gray-500">
+          <p class="font-semibold">Card 2</p>
+          <p class="text-sm text-gray-600 dark:text-gray-300">This should be light gray in light mode</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mt-8 text-center">
+      <a href="/" class="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors">
+        ← Back to Application
+      </a>
+    </div>
+  </div>
+
+  <script>
+    function updateStatus() {
+      const root = document.documentElement;
+      const hasClass = root.classList.contains('dark');
+      const appTheme = localStorage.getItem('app-theme');
+      const legacyTheme = localStorage.getItem('theme');
+      const examTheme = localStorage.getItem('exam-theme');
+
+      document.getElementById('htmlClass').textContent = hasClass ? 'dark' : 'none';
+      document.getElementById('appTheme').textContent = appTheme || 'not set';
+      document.getElementById('legacyTheme').textContent = legacyTheme || 'not set';
+      document.getElementById('examTheme').textContent = examTheme || 'not set';
+
+      runDiagnostics();
+    }
+
+    function setLightMode() {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('app-theme', 'light');
+      log('☀️ Set to light mode');
+      updateStatus();
+    }
+
+    function setDarkMode() {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('app-theme', 'dark');
+      log('🌙 Set to dark mode');
+      updateStatus();
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        setLightMode();
+      } else {
+        setDarkMode();
+      }
+    }
+
+    function clearAllThemes() {
+      localStorage.removeItem('app-theme');
+      localStorage.removeItem('theme');
+      localStorage.removeItem('exam-theme');
+      document.documentElement.classList.remove('dark');
+      log('🧹 Cleared all theme settings and reset to light mode');
+      updateStatus();
+    }
+
+    function runDiagnostics() {
+      const diagnosticsEl = document.getElementById('diagnostics');
+      const results = [];
+
+      // Check 1: HTML class matches localStorage
+      const hasClass = document.documentElement.classList.contains('dark');
+      const appTheme = localStorage.getItem('app-theme');
+      
+      if (appTheme === 'dark' && hasClass) {
+        results.push('✅ Theme is correctly set to dark mode');
+      } else if (appTheme === 'light' && !hasClass) {
+        results.push('✅ Theme is correctly set to light mode');
+      } else if (!appTheme && !hasClass) {
+        results.push('✅ No theme set, defaulting to light mode');
+      } else {
+        results.push('❌ Mismatch: localStorage says "' + appTheme + '" but HTML has ' + (hasClass ? 'dark' : 'no') + ' class');
+      }
+
+      // Check 2: Old themes cleanup
+      if (localStorage.getItem('exam-theme')) {
+        results.push('⚠️ Old exam-theme exists - should be removed');
+      } else {
+        results.push('✅ No old exam-theme found');
+      }
+
+      // Check 3: Tailwind dark mode
+      const bg = window.getComputedStyle(document.body).backgroundColor;
+      results.push('ℹ️ Body background color: ' + bg);
+
+      diagnosticsEl.innerHTML = results.map(r => '<div>' + r + '</div>').join('');
+    }
+
+    function log(message) {
+      console.log(message);
+      alert(message);
+    }
+
+    // Update on load
+    updateStatus();
+    
+    // Update every second to catch external changes
+    setInterval(updateStatus, 1000);
+  </script>
+</body>
+</html>
