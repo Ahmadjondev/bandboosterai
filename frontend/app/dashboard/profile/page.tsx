@@ -167,16 +167,16 @@ export default function ProfilePage() {
               
               {/* Email Verification Status */}
               <div className={`px-4 py-3 rounded-xl mb-4 ${
-                user.is_email_verified 
+             user.email_verified 
                   ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                   : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
               }`}>
                 <div className="flex items-center justify-center gap-2 text-sm">
                   <span className="text-lg">
-                    {user.is_email_verified ? '✅' : '⚠️'}
+                {user.email_verified ? '✅' : '⚠️'}
                   </span>
-                  <span className={user.is_email_verified ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'}>
-                    {user.is_email_verified ? 'Email Verified' : 'Email Not Verified'}
+                  <span className={user.email_verified ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'}>
+                {user.email_verified ? 'Email Verified' : 'Email Not Verified'}
                   </span>
                 </div>
               </div>

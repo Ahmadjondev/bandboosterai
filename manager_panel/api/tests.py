@@ -46,7 +46,7 @@ def get_reading_passages(request):
     """
     if not check_manager_permission(request.user):
         return permission_denied_response()
-
+    print("User is authenticated:", request.user.is_authenticated)
     passages = ReadingPassage.objects.all()
 
     # Filter by passage number

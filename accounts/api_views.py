@@ -312,3 +312,39 @@ def check_verification_status(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def purchase_cd_exam(request):
+    """
+    API endpoint to purchase a CD exam (deduct 50000 UZS from balance)
+    POST /accounts/api/purchase-cd-exam/
+    """
+    user = request.user
+    exam_price = 50000  # Fixed price for CD exams
+
+    # Check if user has enough balance
+    if user.balance < exam_price:
+        return Response(
+            {
+                "error": "Insufficient balance",
+                "current_balance": float(user.balance),
+                "required": exam_price,
+                "deficit": exam_price - float(user.balance),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Deduct the balance
+    user.balance -= exam_price
+    user.save(update_fields=["balance"])
+
+    return Response(
+        {
+            "message": "CD exam purchased successfully",
+            "new_balance": float(user.balance),
+            "amount_paid": exam_price,
+        },
+        status=status.HTTP_200_OK,
+    )

@@ -69,4 +69,15 @@ urlpatterns = [
         api_views.get_test_results,
         name="api_test_results",
     ),
+    # AI Writing Checker endpoints
+    path(
+        "api/writing/check/",
+        api_views.check_writing,
+        name="api_check_writing",
+    ),
+    path(
+        "api/writing/check/<int:writing_attempt_id>/",
+        api_views.get_writing_check_result,
+        name="api_get_writing_check_result",
+    ),
 ]

@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 
 def check_manager_permission(user):
     """Check if user has manager permissions"""
+    print(user.is_authenticated)
     if not user.is_authenticated:
         return False
     return user.role in ["MANAGER", "SUPERADMIN"]

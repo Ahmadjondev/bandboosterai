@@ -111,9 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Authenticated user trying to access login/register
       // Redirect based on role
       console.log('[AuthProvider] Redirecting authenticated user away from login/register');
-      if (user.role === "SUPERADMIN") {
-        router.push("/superadmin");
-      } else if (user.role === "MANAGER") {
+      if (user.role === "MANAGER") {
         router.push("/manager");
       } else {
         router.push("/dashboard");

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from '@/components/DashboardLayout';
 import VerificationGuard from '@/components/VerificationGuard';
 import { getAvailableTests, createFullTestAttempt, checkActiveAttempt } from "@/lib/exam-api";
+import { purchaseCDExam, getCurrentUser } from "@/lib/auth";
+import { PaymentDialog } from "@/components/PaymentDialog";
 
 export default function CDExamPage() {
   const router = useRouter();
@@ -12,12 +14,23 @@ export default function CDExamPage() {
   const [error, setError] = useState<string | null>(null);
   const [fullTestExam, setFullTestExam] = useState<any | null>(null);
   const [activeAttempt, setActiveAttempt] = useState<any | null>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [userBalance, setUserBalance] = useState<number>(0);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   // Load full test exam and check for active attempts on mount
   useEffect(() => {
     loadFullTestExam();
     checkForActiveAttempt();
+    loadUserBalance();
   }, []);
+
+  async function loadUserBalance() {
+    const user = getCurrentUser();
+    if (user && user.balance !== undefined) {
+      setUserBalance(user.balance);
+    }
+  }
 
   async function checkForActiveAttempt() {
     try {
@@ -75,6 +88,45 @@ export default function CDExamPage() {
       return;
     }
 
+    // Show payment dialog
+    setShowPaymentDialog(true);
+  }
+
+  async function handlePaymentConfirm() {
+    setProcessingPayment(true);
+    setError(null);
+
+    try {
+      // Process payment
+      const { new_balance } = await purchaseCDExam();
+      
+      // Update local balance
+      setUserBalance(new_balance);
+      
+      // Close payment dialog
+      setShowPaymentDialog(false);
+      
+      // Start the exam
+      await startExam();
+    } catch (err: any) {
+      console.error("Payment failed:", err);
+      
+      // Check if error is due to insufficient balance
+      if (err.response?.status === 400) {
+        setError(err.response.data.error || "Insufficient balance. Please top up your account.");
+      } else {
+        setError(err.message || "Payment failed. Please try again.");
+      }
+      
+      setShowPaymentDialog(false);
+    } finally {
+      setProcessingPayment(false);
+    }
+  }
+
+  async function startExam() {
+    if (!fullTestExam) return;
+
     setLoading(true);
     setError(null);
 
@@ -107,6 +159,16 @@ export default function CDExamPage() {
   return (
     <VerificationGuard>
       <DashboardLayout>
+        {/* Payment Dialog */}
+        <PaymentDialog
+          show={showPaymentDialog}
+          onClose={() => setShowPaymentDialog(false)}
+          onConfirm={handlePaymentConfirm}
+          userBalance={userBalance}
+          examPrice={50000}
+          loading={processingPayment}
+        />
+
         <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="w-full max-w-6xl">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">

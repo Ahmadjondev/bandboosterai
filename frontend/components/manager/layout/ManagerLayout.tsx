@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { authClient } from '@/lib/manager/auth-client';
+import { ThemeProvider } from '@/lib/manager/theme-context';
 import { ManagerHeader } from './ManagerHeader';
 import { ManagerSidebar } from './ManagerSidebar';
 import { ToastProvider } from '../shared';
@@ -55,7 +56,7 @@ export function ManagerLayout({ children }: ManagerLayoutProps) {
   // Show loading spinner while checking auth
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-linear-to-br from-slate-50 via-slate-50 to-slate-100">
+      <div className="flex items-center justify-center h-screen bg-linear-to-br from-slate-50 via-slate-50 to-slate-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950">
         <LoadingSpinner size="large" />
       </div>
     );
@@ -73,14 +74,16 @@ export function ManagerLayout({ children }: ManagerLayoutProps) {
 
   return (
     <ToastProvider>
-      <div className="flex h-screen overflow-hidden bg-linear-to-br from-slate-50 via-slate-50 to-slate-100">
+      <div className="flex h-screen overflow-hidden bg-linear-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 transition-colors duration-300">
         <ManagerSidebar sidebarOpen={sidebarOpen} onCloseSidebar={closeSidebar} />
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <ManagerHeader sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
 
-          <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-            <div className="mx-auto">{children}</div>
+          <main className="flex-1 overflow-y-auto">
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              {children}
+            </div>
           </main>
         </div>
       </div>

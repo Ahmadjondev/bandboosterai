@@ -55,10 +55,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",  # Must be before CommonMiddleware
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",  # For static files in production
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",  # Must be before CommonMiddleware
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -201,9 +201,11 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Login URLs
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/login/"
+# LOGIN_URL = "/login/"
+# LOGIN_REDIRECT_URL = "/"
+# LOGOUT_REDIRECT_URL = "/login/"
+
+LOGIN_URL = None
 
 # ============================================================================
 # CORS CONFIGURATION
@@ -215,7 +217,7 @@ CORS_ALLOWED_ORIGINS = config(
 ).split(",")
 
 # For development, you can use CORS_ALLOW_ALL_ORIGINS = True (NOT for production!)
-CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=True, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=False, cast=bool)
 
 CORS_ALLOW_CREDENTIALS = True  # Required for session/cookie authentication
 
@@ -227,11 +229,9 @@ CORS_EXPOSE_HEADERS = [
 
 # Allow necessary headers from the frontend
 CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
     "authorization",
     "content-type",
-    "dnt",
+    "accept",
     "origin",
     "user-agent",
     "x-csrftoken",
@@ -250,7 +250,7 @@ SESSION_COOKIE_SECURE = config(
     "SESSION_COOKIE_SECURE", default=False, cast=bool
 )  # Set to False for HTTP in development
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
-SESSION_COOKIE_SAMESITE = None  # Allow cross-origin cookies in development
+SESSION_COOKIE_SAMESITE = "Lax"  # Allow cross-origin cookies in development
 SESSION_COOKIE_NAME = "sessionid"  # Explicit session cookie name
 
 # For production with HTTPS, use:
@@ -281,17 +281,12 @@ CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens (not session-based)
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",
     default="http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000",
-).split(
-    ","
-)  # Add all frontend domains
+).split(",")
 
-# REST Framework Configuration
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        # Use JWT authentication as primary
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        # Also support session authentication for backwards compatibility
-        "rest_framework.authentication.SessionAuthentication",
+        # "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -350,3 +345,26 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@cdielts.com")
 
 # Frontend URL for email verification links
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
+
+# ============================================================================
+# CELERY CONFIGURATION
+# ============================================================================
+CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = config(
+    "CELERY_RESULT_BACKEND", default="redis://localhost:6379/0"
+)
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# ============================================================================
+# OPENAI CONFIGURATION
+# ============================================================================
+OPENAI_API_KEY = config("OPENAI_API_KEY", default="")
+OPENAI_MODEL = config("OPENAI_MODEL", default="gpt-4o")  # Use GPT-4o or gpt-4o-mini
+OPENAI_ORGANIZATION_ID = config(
+    "OPENAI_ORGANIZATION_ID", default=""
+)  # Optional organization ID

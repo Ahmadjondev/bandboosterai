@@ -179,6 +179,26 @@ class ReadingPassageSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "word_count", "created_at", "updated_at"]
 
 
+class ReadingPassageListSerializer(serializers.ModelSerializer):
+    """Lightweight reading passage serializer for available-content APIs.
+
+    This serializer intentionally excludes the nested `test_heads` to keep
+    the response payload small when listing passages for mock-test selection.
+    """
+
+    class Meta:
+        model = ReadingPassage
+        fields = [
+            "id",
+            "passage_number",
+            "title",
+            "summary",
+            "word_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "word_count", "created_at"]
+
+
 class ListeningPartSerializer(serializers.ModelSerializer):
     """Listening part serializer (lightweight for list/create/update)"""
 

@@ -29,7 +29,7 @@ import { useEffect, useRef, useCallback } from "react";
  */
 const COLORS = [
   // brighter in light mode, softer but visible in dark mode
-  { name: "Yellow", class: "bg-yellow-200 dark:bg-yellow-700/30 text-yellow-900 dark:text-yellow-100", hex: "#fef08a" },
+  { name: "Yellow", class: "bg-yellow-200 dark:bg-yellow-700/70 text-yellow-900 dark:text-yellow-100", hex: "#fef08a" },
   { name: "Green", class: "bg-green-200 dark:bg-green-700/30 text-green-900 dark:text-green-100", hex: "#bbf7d0" },
   { name: "Pink", class: "bg-pink-200 dark:bg-pink-600/30 text-pink-900 dark:text-pink-100", hex: "#fbcfe8" },
   { name: "Blue", class: "bg-blue-200 dark:bg-blue-700/30 text-blue-900 dark:text-blue-100", hex: "#bfdbfe" },

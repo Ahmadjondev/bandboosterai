@@ -2,6 +2,12 @@
  * Manager Panel Types
  */
 
+// Re-export AI content types
+export * from './ai-content';
+
+// Re-export mock tests types
+export * from './mock-tests';
+
 // Dashboard Stats
 export interface DashboardStats {
   total_students: number;
@@ -120,7 +126,10 @@ export interface ListeningPart {
   part_number: number;
   title: string;
   transcript: string;
+  description?: string | null;
+  duration_seconds?: number | null;
   audio_url: string;
+  audio_file?: string | null;
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   is_active: boolean;
   created_at: string;
@@ -284,11 +293,17 @@ export interface SectionAttemptDetail {
 // Pagination
 export interface PaginationData {
   count: number;
+  total: number;
   next: string | null;
   previous: string | null;
   page_size: number;
   current_page: number;
   total_pages: number;
+  pages: number;
+  current: number;
+  per_page: number;
+  has_next: boolean;
+  has_previous: boolean;
 }
 
 export interface PaginatedResponse<T> {

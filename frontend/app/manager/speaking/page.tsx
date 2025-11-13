@@ -290,20 +290,20 @@ export default function SpeakingTopicsPage() {
   return (
     <div className="space-y-6">
       {/* Enhanced Header */}
-      <div className="bg-linear-to-r from-primary to-primary/80 rounded-xl shadow-lg p-6 text-white">
+      <div className="bg-linear-to-r from-primary to-primary/80 dark:from-primary/90 dark:to-primary/70 rounded-xl shadow-lg p-6 text-white">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="bg-white/20 backdrop-blur-sm p-3 rounded-lg">
+            <div className="bg-white/20 dark:bg-white/10 backdrop-blur-sm p-3 rounded-lg">
               <Mic className="h-8 w-8" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Speaking Topics</h1>
-              <p className="mt-1 text-white/80">Manage IELTS speaking topics for all three parts</p>
+              <p className="mt-1 text-white/80 dark:text-white/70">Manage IELTS speaking topics for all three parts</p>
             </div>
           </div>
           <button
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-primary hover:bg-primary/5 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-primary dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group"
           >
             <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
             Add Speaking Topic
@@ -312,38 +312,38 @@ export default function SpeakingTopicsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Search */}
           <div>
-            <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-              <Search className="h-4 w-4 mr-2 text-primary" />
+            <label className="flex items-center text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <Search className="h-4 w-4 mr-2 text-primary dark:text-primary-400" />
               Search
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
               </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search in topics and questions..."
-                className="block w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                className="block w-full pl-11 pr-4 py-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
           </div>
 
           {/* Filter by Type */}
           <div>
-            <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-              <Filter className="h-4 w-4 mr-2 text-primary" />
+            <label className="flex items-center text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <Filter className="h-4 w-4 mr-2 text-primary dark:text-primary-400" />
               Filter by Part
             </label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as any)}
-              className="block w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="block w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
             >
               <option value="all">🎤 All Parts</option>
               <option value="PART_1">👋 Part 1 (Introduction)</option>
@@ -356,19 +356,19 @@ export default function SpeakingTopicsPage() {
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 shadow-lg">
+        <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl p-6 shadow-lg">
           <div className="flex items-start">
             <div className="shrink-0">
-              <div className="bg-red-100 rounded-full p-2">
-                <AlertCircle className="h-6 w-6 text-red-600" />
+              <div className="bg-red-100 dark:bg-red-900/40 rounded-full p-2">
+                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
             <div className="ml-4">
-              <h3 className="text-base font-semibold text-red-900">Oops! Something went wrong</h3>
-              <p className="mt-2 text-sm text-red-700">{error}</p>
+              <h3 className="text-base font-semibold text-red-900 dark:text-red-200">Oops! Something went wrong</h3>
+              <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
               <button
                 onClick={() => loadTopics()}
-                className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 dark:bg-red-700 hover:bg-red-700 dark:hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Try Again
@@ -395,16 +395,16 @@ export default function SpeakingTopicsPage() {
           {topics.map((topic) => (
             <div
               key={topic.id}
-              className="group bg-white rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-gray-100 hover:border-primary"
+              className="group bg-white dark:bg-gray-800 rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-gray-100 dark:border-gray-700 hover:border-primary dark:hover:border-primary"
             >
               {/* Header with gradient */}
               <div
                 className={`relative h-32 flex items-center justify-center overflow-hidden ${
                   topic.speaking_type === 'PART_1'
-                    ? 'bg-linear-to-br from-green-500 to-emerald-600'
+                    ? 'bg-linear-to-br from-green-500 to-emerald-600 dark:from-green-600 dark:to-emerald-700'
                     : topic.speaking_type === 'PART_2'
-                    ? 'bg-linear-to-br from-orange-500 to-red-600'
-                    : 'bg-linear-to-br from-blue-500 to-indigo-600'
+                    ? 'bg-linear-to-br from-orange-500 to-red-600 dark:from-orange-600 dark:to-red-700'
+                    : 'bg-linear-to-br from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700'
                 }`}
               >
                 <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
@@ -417,38 +417,38 @@ export default function SpeakingTopicsPage() {
                   <span
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg ${
                       topic.speaking_type === 'PART_1'
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
                         : topic.speaking_type === 'PART_2'
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-blue-100 text-blue-800'
+                        ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                        : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                     }`}
                   >
                     {topic.speaking_type}
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-gray-900 mb-3 line-clamp-2 min-h-12">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 min-h-12">
                   {topic.topic}
                 </h3>
 
                 {topic.question && (
-                  <p className="text-sm text-gray-600 mb-4 leading-relaxed line-clamp-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed line-clamp-2">
                     {truncateText(topic.question, 100)}
                   </p>
                 )}
 
                 {topic.cue_card && Array.isArray(topic.cue_card) && topic.cue_card.length > 0 && (
-                  <div className="mb-4 bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Cue Card Points:</p>
+                  <div className="mb-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Cue Card Points:</p>
                     <ul className="space-y-1">
                       {topic.cue_card.slice(0, 3).map((point, index) => (
-                        <li key={index} className="text-xs text-gray-600 flex items-start">
+                        <li key={index} className="text-xs text-gray-600 dark:text-gray-400 flex items-start">
                           <span className="mr-2">•</span>
                           <span className="line-clamp-1">{point}</span>
                         </li>
                       ))}
                       {topic.cue_card.length > 3 && (
-                        <li className="text-xs text-gray-500 italic">
+                        <li className="text-xs text-gray-500 dark:text-gray-400 italic">
                           +{topic.cue_card.length - 3} more...
                         </li>
                       )}
@@ -456,7 +456,7 @@ export default function SpeakingTopicsPage() {
                   </div>
                 )}
 
-                <div className="flex items-center text-xs text-gray-500 mb-5 bg-gray-50 rounded-lg px-3 py-2">
+                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-5 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
                   <Calendar className="h-3 w-3 mr-2" />
                   {formatDate(topic.created_at)}
                 </div>
@@ -465,7 +465,7 @@ export default function SpeakingTopicsPage() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => openEditModal(topic)}
-                    className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-orange-200 rounded-xl text-sm font-semibold bg-orange-50 text-primary hover:bg-orange-100 hover:border-orange-300 transition-all"
+                    className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-orange-200 dark:border-orange-800 rounded-xl text-sm font-semibold bg-orange-50 dark:bg-orange-900/20 text-primary dark:text-primary-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:border-orange-300 dark:hover:border-orange-700 transition-all"
                   >
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit
@@ -473,7 +473,7 @@ export default function SpeakingTopicsPage() {
                   {deleteConfirmId === topic.id ? (
                     <button
                       onClick={() => deleteTopic(topic.id)}
-                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-300 rounded-xl text-sm font-semibold text-white bg-linear-to-br from-red-600 to-red-700 hover:shadow-xl transition-all"
+                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-300 dark:border-red-800 rounded-xl text-sm font-semibold text-white bg-linear-to-br from-red-600 to-red-700 dark:from-red-700 dark:to-red-800 hover:shadow-xl transition-all"
                     >
                       <Check className="h-4 w-4 mr-2" />
                       Confirm
@@ -481,7 +481,7 @@ export default function SpeakingTopicsPage() {
                   ) : (
                     <button
                       onClick={() => confirmDelete(topic.id)}
-                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-200 rounded-xl text-sm font-semibold text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-all"
+                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-200 dark:border-red-800 rounded-xl text-sm font-semibold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 hover:border-red-300 dark:hover:border-red-700 transition-all"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
@@ -491,7 +491,7 @@ export default function SpeakingTopicsPage() {
                 {deleteConfirmId === topic.id && (
                   <button
                     onClick={cancelDelete}
-                    className="w-full mt-2 text-xs text-gray-600 hover:text-gray-800"
+                    className="w-full mt-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300"
                   >
                     Cancel
                   </button>
@@ -524,14 +524,14 @@ export default function SpeakingTopicsPage() {
             <button
               onClick={closeModal}
               disabled={saving}
-              className="px-5 py-2.5 rounded-lg bg-white text-gray-700 font-semibold shadow-sm ring-2 ring-inset ring-gray-200 hover:bg-gray-50 transition-all"
+              className="px-5 py-2.5 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold shadow-sm ring-2 ring-inset ring-gray-200 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={saveTopic}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white font-semibold shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg transition-all disabled:opacity-50"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{saving ? 'Saving...' : isEditMode ? 'Update Topic' : 'Create Topic'}</span>
@@ -542,7 +542,7 @@ export default function SpeakingTopicsPage() {
         <div className="space-y-4">
           {/* Speaking Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Speaking Part <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-3 gap-4">
@@ -555,8 +555,8 @@ export default function SpeakingTopicsPage() {
                   }
                   className={`p-4 border-2 rounded-lg transition-all ${
                     formData.speaking_type === type
-                      ? 'border-primary bg-orange-50 text-primary'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-orange-50 dark:bg-orange-900/20 text-primary dark:text-primary-400'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
                   }`}
                 >
                   <div className="text-xs font-semibold">{type.replace('_', ' ')}</div>
@@ -564,35 +564,35 @@ export default function SpeakingTopicsPage() {
               ))}
             </div>
             {formErrors.speaking_type && (
-              <p className="mt-1 text-sm text-red-600">{formErrors.speaking_type}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.speaking_type}</p>
             )}
           </div>
 
           {/* Topic */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Topic <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.topic}
               onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
               placeholder="Enter topic title..."
             />
-            {formErrors.topic && <p className="mt-1 text-sm text-red-600">{formErrors.topic}</p>}
+            {formErrors.topic && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.topic}</p>}
           </div>
 
           {/* Question */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Question {formData.speaking_type !== 'PART_2' && '(Optional)'}
             </label>
             <textarea
               value={formData.question}
               onChange={(e) => setFormData({ ...formData, question: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
               placeholder="Enter the question or prompt..."
             />
           </div>
@@ -601,13 +601,13 @@ export default function SpeakingTopicsPage() {
           {showCueCardSection && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Cue Card Points <span className="text-red-500">*</span>
                 </label>
                 <button
                   type="button"
                   onClick={addCueCardPoint}
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
+                  className="inline-flex items-center gap-1 text-xs text-primary dark:text-primary-400 hover:text-primary/80 dark:hover:text-primary-300"
                 >
                   <ListPlus className="h-4 w-4" />
                   Add Point
@@ -620,14 +620,14 @@ export default function SpeakingTopicsPage() {
                       type="text"
                       value={point}
                       onChange={(e) => updateCueCardPoint(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
                       placeholder={`Point ${index + 1}...`}
                     />
                     {cueCardPoints.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeCueCardPoint(index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
@@ -636,7 +636,7 @@ export default function SpeakingTopicsPage() {
                 ))}
               </div>
               {formErrors.cue_card && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.cue_card}</p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.cue_card}</p>
               )}
             </div>
           )}

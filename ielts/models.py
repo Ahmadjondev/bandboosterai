@@ -141,7 +141,17 @@ class ReadingPassage(models.Model):
         help_text="A brief summary or introduction to the passage.",
     )
     content = models.TextField(help_text="The full text of the reading passage.")
-
+    difficulty = models.CharField(
+        max_length=20,
+        choices=(
+            ("BEGINNER", "Beginner (Band 3-4)"),
+            ("INTERMEDIATE", "Intermediate (Band 5-6)"),
+            ("ADVANCED", "Advanced (Band 7-8)"),
+            ("EXPERT", "Expert (Band 8.5-9)"),
+        ),
+        default="INTERMEDIATE",
+        verbose_name="Difficulty Level",
+    )
     # Word count for reference
     word_count = models.PositiveIntegerField(
         null=True, blank=True, help_text="Approximate word count of the passage"
@@ -182,7 +192,17 @@ class ListeningPart(models.Model):
         blank=True,
         help_text="Upload the audio file for this listening part",
     )
-
+    difficulty = models.CharField(
+        max_length=20,
+        choices=(
+            ("BEGINNER", "Beginner (Band 3-4)"),
+            ("INTERMEDIATE", "Intermediate (Band 5-6)"),
+            ("ADVANCED", "Advanced (Band 7-8)"),
+            ("EXPERT", "Expert (Band 8.5-9)"),
+        ),
+        default="INTERMEDIATE",
+        verbose_name="Difficulty Level",
+    )
     # Duration in seconds
     duration_seconds = models.PositiveIntegerField(
         null=True, blank=True, help_text="Duration of the audio in seconds"
@@ -721,6 +741,29 @@ class WritingAttempt(models.Model):
         blank=True,
         help_text="Detailed feedback from AI on the writing task.",
         default=_default_feedback,
+    )
+
+    # ============================================================================
+    # AI GRAMMARLY-STYLE CHECKER FIELDS
+    # ============================================================================
+    ai_inline = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Essay with inline highlights using <g>, <v>, <s>, <p> tags",
+    )
+    ai_sentences = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Array of corrected sentences with explanations",
+    )
+    ai_summary = models.TextField(
+        null=True, blank=True, help_text="AI summary of mistakes and improvements"
+    )
+    ai_band_score = models.CharField(
+        max_length=10, null=True, blank=True, help_text="Estimated band score from AI"
+    )
+    ai_corrected_essay = models.TextField(
+        null=True, blank=True, help_text="Fully corrected version of the essay"
     )
 
     # Timestamps

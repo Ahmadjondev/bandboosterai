@@ -2,13 +2,14 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  role: 'SUPERADMIN' | 'MANAGER' | 'STUDENT';
+  role: 'MANAGER' | 'STUDENT';
   first_name?: string;
   last_name?: string;
   phone?: string;
   date_of_birth?: string;
   profile_image?: string;
   email_verified: boolean;
+  balance?: number;
   created_at: string;
 }
 

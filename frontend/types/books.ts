@@ -70,6 +70,7 @@ export interface BookSection {
   book: number; // Book ID
   section_type: SectionType;
   title: string; // Added from get_title() method
+  description?: string;
   reading_passage?: ReadingPassage;
   listening_part?: ListeningPart;
   order: number;

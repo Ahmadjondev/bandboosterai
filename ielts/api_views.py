@@ -1544,3 +1544,203 @@ def ping(request):
     Used by permissions page to check internet connectivity.
     """
     return Response({"status": "ok", "timestamp": timezone.now().isoformat()})
+
+
+# ============================================================================
+# WRITING AI CHECKER ENDPOINT
+# ============================================================================
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def check_writing(request):
+    """
+    AI-powered IELTS Writing Checker with Grammarly-style inline highlighting.
+
+    POST /api/writing/check/
+    Request Body:
+    {
+        "essay": "student essay text",
+        "task_type": "Task 1" | "Task 2"  (optional, defaults to "Task 2")
+    }
+
+    Response (immediate):
+    {
+        "status": "processing",
+        "writing_attempt_id": 123,
+        "message": "AI check started. Poll for results."
+    }
+
+    Response (completed - retrieved via GET /api/writing/check/<id>/):
+    {
+        "status": "completed",
+        "inline": "Essay with <g>, <v>, <s>, <p> tags",
+        "sentences": [
+            {
+                "original": "...",
+                "corrected": "...",
+                "explanation": "..."
+            }
+        ],
+        "summary": "Overall feedback",
+        "band_score": "7.5",
+        "corrected_essay": "Fully corrected essay"
+    }
+    """
+    from .serializers import WritingCheckRequestSerializer
+    from .tasks import process_writing_check_task
+
+    # Validate request data
+    serializer = WritingCheckRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(
+            {"status": "error", "errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    essay = serializer.validated_data["essay"]
+    task_type = serializer.validated_data["task_type"]
+
+    # Create a WritingAttempt record
+    # For standalone checker (not tied to an exam), we need a dummy exam_attempt or handle differently
+    # Option 1: Create a standalone WritingCheck model (recommended)
+    # Option 2: Require an exam_attempt_id in the request
+    # For this implementation, let's create a standalone model
+
+    try:
+        # Get or create a "checker" WritingTask
+        writing_task, created = WritingTask.objects.get_or_create(
+            task_type=(
+                WritingTask.TaskType.TASK_2
+                if task_type == "Task 2"
+                else WritingTask.TaskType.TASK_1
+            ),
+            prompt="AI Checker Task",
+            defaults={"is_authentic": False},
+        )
+
+        # For the AI checker, we'll create a temporary ExamAttempt or handle without one
+        # Let's create a dummy exam_attempt for the student
+        # Note: This requires an Exam and MockExam. Better approach: create standalone WritingCheck model
+        # For now, let's just create a WritingAttempt without tying to exam (requires model adjustment)
+
+        # TEMPORARY SOLUTION: Create WritingAttempt with NULL exam_attempt (if allowed)
+        # BETTER SOLUTION: Create a separate WritingCheck model
+
+        # Since WritingAttempt requires exam_attempt FK, we need to adjust approach
+        # Let's assume there's a "checker" exam for standalone checks
+
+        from ielts.models import Exam, MockExam
+
+        # Get or create checker mock exam
+        checker_mock_exam, _ = MockExam.objects.get_or_create(
+            title="AI Writing Checker",
+            exam_type="WRITING",
+            defaults={
+                "description": "Standalone AI writing checker",
+                "is_active": True,
+            },
+        )
+
+        # Get or create checker exam
+        checker_exam, _ = Exam.objects.get_or_create(
+            name="AI Writing Checker",
+            mock_test=checker_mock_exam,
+            defaults={
+                "pin_code": "CHECKER",
+                "start_date": timezone.now(),
+                "expire_date": timezone.now() + timezone.timedelta(days=365),
+                "status": "ACTIVE",
+            },
+        )
+
+        # Create ExamAttempt for this check
+        exam_attempt = ExamAttempt.objects.create(
+            student=request.user,
+            exam=checker_exam,
+            status="IN_PROGRESS",
+            started_at=timezone.now(),
+        )
+
+        # Create WritingAttempt
+        writing_attempt = WritingAttempt.objects.create(
+            exam_attempt=exam_attempt,
+            task=writing_task,
+            answer_text=essay,
+            evaluation_status=WritingAttempt.EvaluationStatus.PENDING,
+        )
+
+        # Trigger Celery task
+        process_writing_check_task.delay(writing_attempt.id)
+
+        return Response(
+            {
+                "status": "processing",
+                "writing_attempt_id": writing_attempt.id,
+                "message": "AI check started. Results will be available shortly.",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    except Exception as e:
+        return Response(
+            {"status": "error", "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_writing_check_result(request, writing_attempt_id):
+    """
+    Get the result of a writing check.
+
+    GET /api/writing/check/<writing_attempt_id>/
+
+    Response:
+    {
+        "status": "completed" | "processing" | "failed",
+        "inline": "...",
+        "sentences": [...],
+        "summary": "...",
+        "band_score": "...",
+        "corrected_essay": "..."
+    }
+    """
+    try:
+        writing_attempt = WritingAttempt.objects.get(
+            id=writing_attempt_id, exam_attempt__student=request.user
+        )
+    except WritingAttempt.DoesNotExist:
+        return Response(
+            {"status": "error", "message": "Writing check not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if writing_attempt.evaluation_status == WritingAttempt.EvaluationStatus.COMPLETED:
+        return Response(
+            {
+                "status": "completed",
+                "inline": writing_attempt.ai_inline or "",
+                "sentences": writing_attempt.ai_sentences or [],
+                "summary": writing_attempt.ai_summary or "",
+                "band_score": writing_attempt.ai_band_score or "N/A",
+                "corrected_essay": writing_attempt.ai_corrected_essay or "",
+            }
+        )
+    elif (
+        writing_attempt.evaluation_status == WritingAttempt.EvaluationStatus.PROCESSING
+    ):
+        return Response(
+            {"status": "processing", "message": "AI is analyzing your essay..."}
+        )
+    elif writing_attempt.evaluation_status == WritingAttempt.EvaluationStatus.FAILED:
+        return Response(
+            {
+                "status": "failed",
+                "message": "AI check failed. Please try again.",
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    else:  # PENDING
+        return Response({"status": "processing", "message": "AI check queued..."})

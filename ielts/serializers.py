@@ -21,6 +21,48 @@ from .models import (
 
 
 # ============================================================================
+# WRITING CHECKER SERIALIZERS
+# ============================================================================
+
+
+class WritingCheckRequestSerializer(serializers.Serializer):
+    """Serializer for writing check API request."""
+
+    essay = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        max_length=10000,
+        help_text="The essay text to check",
+    )
+    task_type = serializers.ChoiceField(
+        choices=["Task 1", "Task 2"],
+        default="Task 2",
+        help_text="IELTS Writing task type",
+    )
+
+
+class SentenceCorrectionSerializer(serializers.Serializer):
+    """Serializer for individual sentence corrections."""
+
+    original = serializers.CharField()
+    corrected = serializers.CharField()
+    explanation = serializers.CharField()
+
+
+class WritingCheckResponseSerializer(serializers.Serializer):
+    """Serializer for writing check API response."""
+
+    status = serializers.ChoiceField(choices=["processing", "completed", "failed"])
+    writing_attempt_id = serializers.IntegerField(required=False)
+    inline = serializers.CharField(required=False)
+    sentences = SentenceCorrectionSerializer(many=True, required=False)
+    summary = serializers.CharField(required=False)
+    band_score = serializers.CharField(required=False)
+    corrected_essay = serializers.CharField(required=False)
+    message = serializers.CharField(required=False)
+
+
+# ============================================================================
 # CHOICE & QUESTION SERIALIZERS
 # ============================================================================
 

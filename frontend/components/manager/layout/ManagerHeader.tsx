@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Menu, Bell, LogOut, Shield } from 'lucide-react';
+import { Menu, Bell, User, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { authClient } from '@/lib/manager/auth-client';
+import { ThemeToggle } from '@/components/manager/shared/ThemeToggle';
+import { cn } from '@/lib/manager/utils';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -31,7 +33,7 @@ export function ManagerHeader({ sidebarOpen, onToggleSidebar }: HeaderProps) {
       setUserInfo({
         name: user.first_name || user.username,
         email: user.email,
-        role: user.role === 'SUPERADMIN' ? 'Super Admin' : 'Manager',
+        role: user.role === 'MANAGER' ? 'Super Admin' : 'Manager',
       });
     }
   }, []);
@@ -66,134 +68,176 @@ export function ManagerHeader({ sidebarOpen, onToggleSidebar }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 border-b border-gray-200 shadow-sm backdrop-blur-sm">
+    <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800 backdrop-blur-xl shadow-sm transition-colors">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
-          {/* Left side - Logo & Menu */}
-          <div className="flex items-center">
+          {/* Left side - Menu & Logo */}
+          <div className="flex items-center gap-4">
             {/* Mobile menu button */}
             <button
               onClick={onToggleSidebar}
-              className="xl:hidden -ml-2 mr-2 rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
+              className={cn(
+                'xl:hidden p-2 rounded-lg transition-all duration-200',
+                'text-gray-600 dark:text-gray-300',
+                'hover:bg-gray-100 dark:hover:bg-gray-800',
+                'focus:outline-none focus:ring-2 focus:ring-primary/20'
+              )}
               aria-label="Toggle sidebar"
             >
               <Menu className="h-6 w-6" />
             </button>
+
+            {/* Brand - Hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-linear-to-br from-primary to-primary/80 flex items-center justify-center">
+                <span className="text-white font-bold text-lg">M</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Manager Panel
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  IELTS Mock System
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Right side - Actions & User Menu */}
-          <div className="flex items-center space-x-1 sm:space-x-2">
+          {/* Right side - Actions */}
+          <div className="flex items-center gap-2">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {/* Notifications */}
             <div className="relative" ref={notificationsRef}>
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
+                className={cn(
+                  'relative p-2 rounded-lg transition-all duration-200',
+                  'text-gray-600 dark:text-gray-300',
+                  'hover:bg-gray-100 dark:hover:bg-gray-800',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/20'
+                )}
                 aria-label="Notifications"
               >
                 <Bell className="h-5 w-5" />
                 {notifications.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {notifications.length}
                   </span>
                 )}
               </button>
 
-              {/* Notifications dropdown */}
+              {/* Notifications Dropdown */}
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none">
-                  <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        Notifications
-                      </h3>
-                      {notifications.length > 0 && (
-                        <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
-                          {notifications.length} new
-                        </span>
-                      )}
-                    </div>
+                <div className="absolute right-0 mt-2 w-80 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Notifications
+                    </h3>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {notifications.length === 0 ? (
                       <div className="p-8 text-center">
-                        <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-sm text-gray-500 font-medium">
+                        <Bell className="h-8 w-8 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           No new notifications
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          You're all caught up!
                         </p>
                       </div>
                     ) : (
-                      notifications.map((notif, index) => (
-                        <div
-                          key={index}
-                          className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="shrink-0">
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Bell className="h-4 w-4 text-primary" />
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-900">
-                                {notif.message}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1 flex items-center">
-                                {notif.time}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                      <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {notifications.map((notification, index) => (
+                          <li
+                            key={index}
+                            className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                          >
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {notification.title}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {notification.message}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* User menu */}
-            <div className="relative ml-2" ref={userMenuRef}>
+            {/* User Menu */}
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-2 rounded-lg p-1.5 pr-3 hover:bg-gray-100 transition-colors duration-150 border border-transparent hover:border-gray-200"
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200',
+                  'hover:bg-gray-100 dark:hover:bg-gray-800',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/20'
+                )}
                 aria-label="User menu"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-primary to-primary/80 text-white font-semibold text-sm shadow-sm">
-                  {userInfo.name.charAt(0)}
+                <div className="h-8 w-8 rounded-full bg-linear-to-br from-primary to-primary/80 flex items-center justify-center">
+                  <span className="text-sm font-medium dark:text-white text-gray-700">
+                    {userInfo.name.charAt(0).toUpperCase()}
+                  </span>
                 </div>
-                <div className="hidden lg:block text-left">
-                  <p className="text-sm font-semibold text-gray-900">
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {userInfo.name}
                   </p>
-                  <p className="text-xs text-gray-500">{userInfo.role}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {userInfo.role}
+                  </p>
                 </div>
+                <ChevronDown className="hidden md:block h-4 w-4 text-gray-500 dark:text-gray-400" />
               </button>
 
-              {/* User dropdown */}
+              {/* User Dropdown */}
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none divide-y divide-gray-100">
-                  <div className="p-4">
-                    <p className="text-sm font-semibold text-gray-900">
+                <div className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {userInfo.name}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {userInfo.email}
                     </p>
-                    <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                      <Shield className="h-3 w-3 mr-1" />
+                    <span className="inline-flex mt-2 items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-400">
                       {userInfo.role}
-                    </div>
+                    </span>
                   </div>
-                  <div className="py-1">
+
+                  <div className="p-2">
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        router.push('/manager/profile');
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <User className="h-4 w-4" />
+                      Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        router.push('/manager/settings');
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </button>
+                  </div>
+
+                  <div className="p-2 border-t border-gray-200 dark:border-gray-700">
                     <button
                       onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
-                      <LogOut className="mr-3 h-4 w-4" />
-                      Sign out
+                      <LogOut className="h-4 w-4" />
+                      Logout
                     </button>
                   </div>
                 </div>

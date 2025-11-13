@@ -12,9 +12,6 @@ from .students import (
     create_student,
     update_student,
     delete_student,
-    bulk_create_students,
-    upload_students_excel,
-    download_excel_template,
 )
 from .tests import (
     # Reading
@@ -59,6 +56,10 @@ from .mock_tests import (
     toggle_mock_test_status,
     delete_mock_test,
     get_student_results,
+    get_available_reading,
+    get_available_listening,
+    get_available_writing,
+    get_available_speaking,
 )
 
 __all__ = [
@@ -71,9 +72,6 @@ __all__ = [
     "create_student",
     "update_student",
     "delete_student",
-    "bulk_create_students",
-    "upload_students_excel",
-    "download_excel_template",
     # Reading
     "get_reading_passages",
     "get_reading_passage",
@@ -114,4 +112,9 @@ __all__ = [
     "toggle_mock_test_status",
     "delete_mock_test",
     "get_student_results",
+    # Available content helpers
+    "get_available_reading",
+    "get_available_listening",
+    "get_available_writing",
+    "get_available_speaking",
 ]

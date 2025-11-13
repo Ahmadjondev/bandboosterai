@@ -14,9 +14,6 @@ from .api import (
     create_student,
     update_student,
     delete_student,
-    bulk_create_students,
-    upload_students_excel,
-    download_excel_template,
     # Reading Tests
     get_reading_passages,
     get_reading_passage,
@@ -56,6 +53,11 @@ from .api import (
     update_mock_test,
     toggle_mock_test_status,
     delete_mock_test,
+    # Available content for Mock Tests
+    get_available_reading,
+    get_available_listening,
+    get_available_writing,
+    get_available_speaking,
     # Results
     get_student_results,
 )
@@ -83,6 +85,22 @@ from .api.exams import (
     get_student_result_detail,
     evaluate_writing_submission,
 )
+from .api.books import (
+    get_books_manager,
+    get_book_manager,
+    create_book,
+    update_book,
+    delete_book,
+    toggle_book_status,
+    get_sections_manager,
+    get_section_manager,
+    create_section,
+    update_section,
+    delete_section,
+    reorder_sections,
+    get_available_content,
+    get_book_stats,
+)
 
 app_name = "manager_api"
 
@@ -96,11 +114,6 @@ urlpatterns = [
     # User Management
     path("users/students/", get_students_list, name="students_list"),
     path("users/students/create/", create_student, name="create_student"),
-    path(
-        "users/students/bulk-create/",
-        bulk_create_students,
-        name="bulk_create_students",
-    ),
     path(
         "users/students/<int:user_id>/",
         get_student_detail,
@@ -120,16 +133,6 @@ urlpatterns = [
         "users/students/<int:user_id>/toggle-active/",
         student_toggle_active,
         name="student_toggle_active",
-    ),
-    path(
-        "users/students/upload-excel/",
-        upload_students_excel,
-        name="upload_students_excel",
-    ),
-    path(
-        "users/students/download-template/",
-        download_excel_template,
-        name="download_excel_template",
     ),
     # Reading Tests
     path("tests/reading/", get_reading_passages, name="reading_passages"),
@@ -275,6 +278,23 @@ urlpatterns = [
         delete_mock_test,
         name="delete_mock_test",
     ),
+    # Available content for mock test selection (paginated, supports is_authentic)
+    path(
+        "mock-tests/available/reading/", get_available_reading, name="available_reading"
+    ),
+    path(
+        "mock-tests/available/listening/",
+        get_available_listening,
+        name="available_listening",
+    ),
+    path(
+        "mock-tests/available/writing/", get_available_writing, name="available_writing"
+    ),
+    path(
+        "mock-tests/available/speaking/",
+        get_available_speaking,
+        name="available_speaking",
+    ),
     # Results & Feedback
     path("results/students/", get_student_results, name="student_results"),
     # Scheduled Exams
@@ -312,4 +332,30 @@ urlpatterns = [
     path("tests/ai-generate/", generate_content_from_pdf, name="ai_generate_content"),
     path("tests/ai-save/", save_generated_content, name="ai_save_content"),
     path("tests/upload-audio-temp/", upload_audio_temp, name="upload_audio_temp"),
+    # Books Management
+    path("books/", get_books_manager, name="books_list"),
+    path("books/create/", create_book, name="create_book"),
+    path("books/<int:book_id>/", get_book_manager, name="get_book"),
+    path("books/<int:book_id>/update/", update_book, name="update_book"),
+    path("books/<int:book_id>/delete/", delete_book, name="delete_book"),
+    path(
+        "books/<int:book_id>/toggle-status/",
+        toggle_book_status,
+        name="toggle_book_status",
+    ),
+    path("books/<int:book_id>/stats/", get_book_stats, name="book_stats"),
+    path(
+        "books/<int:book_id>/reorder-sections/",
+        reorder_sections,
+        name="reorder_sections",
+    ),
+    # Book Sections Management
+    path("sections/", get_sections_manager, name="sections_list"),
+    path("sections/create/", create_section, name="create_section"),
+    path("sections/<int:section_id>/", get_section_manager, name="get_section"),
+    path("sections/<int:section_id>/update/", update_section, name="update_section"),
+    path("sections/<int:section_id>/delete/", delete_section, name="delete_section"),
+    path(
+        "sections/available-content/", get_available_content, name="available_content"
+    ),
 ]

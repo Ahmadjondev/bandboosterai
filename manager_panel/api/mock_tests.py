@@ -30,6 +30,14 @@ from .utils import (
     paginate_queryset,
 )
 
+from ..serializers import (
+    ReadingPassageSerializer,
+    ReadingPassageListSerializer,
+    ListeningPartSerializer,
+    WritingTaskSerializer,
+    SpeakingTopicSerializer,
+)
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -69,8 +77,9 @@ def get_mock_tests(request):
     # Annotate with statistics
     # Note: ExamResult now links to Exam (scheduled), not MockExam
     # So we count through: MockExam -> scheduled_exams -> results
+    # Count attempts through scheduled exams -> exam attempts
     tests_qs = tests_qs.annotate(
-        attempt_count=Count("scheduled_exams__results", distinct=True)
+        attempt_count=Count("scheduled_exams__attempts", distinct=True)
     ).order_by("-created_at")
 
     paginated = paginate_queryset(tests_qs, request)
@@ -409,3 +418,189 @@ def get_student_results(request):
             "pagination": paginated["pagination"],
         }
     )
+
+
+# ==========================================================================
+# Available content endpoints for Mock Tests (with is_authentic filter + pagination)
+# ==========================================================================
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_available_reading(request):
+    """
+    Get available reading passages for mock test selection.
+
+    Query params:
+      - is_authentic: true/false
+      - passage_number: 1/2/3
+      - search: text
+      - page, per_page
+    """
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    passages = ReadingPassage.objects.all()
+
+    is_authentic = request.GET.get("is_authentic")
+    if is_authentic is not None:
+        passages = passages.filter(is_authentic=is_authentic.lower() == "true")
+
+    passage_number = request.GET.get("passage_number")
+    if passage_number:
+        try:
+            passages = passages.filter(passage_number=int(passage_number))
+        except ValueError:
+            pass
+
+    search = request.GET.get("search", "").strip()
+    if search:
+        passages = passages.filter(
+            Q(title__icontains=search) | Q(content__icontains=search)
+        )
+
+    passages = passages.order_by("-created_at")
+
+    paginated = paginate_queryset(
+        passages, request, per_page=int(request.GET.get("per_page", 25))
+    )
+    serializer = ReadingPassageListSerializer(
+        paginated["results"],
+        many=True,
+    )
+
+    return Response(
+        {"passages": serializer.data, "pagination": paginated["pagination"]}
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_available_listening(request):
+    """
+    Get available listening parts for mock test selection.
+
+    Query params:
+      - is_authentic: true/false
+      - part_number: 1..4
+      - search: text
+      - page, per_page
+    """
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    parts = ListeningPart.objects.all()
+
+    is_authentic = request.GET.get("is_authentic")
+    if is_authentic is not None:
+        parts = parts.filter(is_authentic=is_authentic.lower() == "true")
+
+    part_number = request.GET.get("part_number")
+    if part_number:
+        try:
+            parts = parts.filter(part_number=int(part_number))
+        except ValueError:
+            pass
+
+    search = request.GET.get("search", "").strip()
+    if search:
+        parts = parts.filter(
+            Q(title__icontains=search) | Q(description__icontains=search)
+        )
+
+    # Annotate with counts similar to listing endpoint
+    from django.db.models import Count
+
+    parts = parts.annotate(
+        num_heads=Count("test_heads", distinct=True),
+        num_questions=Count("test_heads__questions", distinct=True),
+    )
+
+    parts = parts.order_by("-created_at")
+
+    paginated = paginate_queryset(
+        parts, request, per_page=int(request.GET.get("per_page", 25))
+    )
+    serializer = ListeningPartSerializer(paginated["results"], many=True)
+
+    return Response({"parts": serializer.data, "pagination": paginated["pagination"]})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_available_writing(request):
+    """
+    Get available writing tasks for mock test selection.
+
+    Query params:
+      - is_authentic: true/false
+      - task_type: TASK_1 | TASK_2
+      - search: text
+      - page, per_page
+    """
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    tasks = WritingTask.objects.all()
+
+    is_authentic = request.GET.get("is_authentic")
+    if is_authentic is not None:
+        tasks = tasks.filter(is_authentic=is_authentic.lower() == "true")
+
+    task_type = request.GET.get("task_type")
+    if task_type:
+        tasks = tasks.filter(task_type=task_type)
+
+    search = request.GET.get("search", "").strip()
+    if search:
+        tasks = tasks.filter(Q(prompt__icontains=search))
+
+    tasks = tasks.order_by("-created_at")
+
+    paginated = paginate_queryset(
+        tasks, request, per_page=int(request.GET.get("per_page", 25))
+    )
+    serializer = WritingTaskSerializer(paginated["results"], many=True)
+
+    return Response({"tasks": serializer.data, "pagination": paginated["pagination"]})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_available_speaking(request):
+    """
+    Get available speaking topics for mock test selection.
+
+    Query params:
+      - is_authentic: true/false
+      - speaking_type: PART_1 | PART_2 | PART_3
+      - search: text
+      - page, per_page
+    """
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    topics = SpeakingTopic.objects.all()
+
+    is_authentic = request.GET.get("is_authentic")
+    if is_authentic is not None:
+        topics = topics.filter(is_authentic=is_authentic.lower() == "true")
+
+    speaking_type = request.GET.get("speaking_type")
+    if speaking_type:
+        topics = topics.filter(speaking_type=speaking_type)
+
+    search = request.GET.get("search", "").strip()
+    if search:
+        topics = topics.filter(
+            Q(topic__icontains=search) | Q(question__icontains=search)
+        )
+
+    topics = topics.order_by("-created_at")
+
+    paginated = paginate_queryset(
+        topics, request, per_page=int(request.GET.get("per_page", 25))
+    )
+    serializer = SpeakingTopicSerializer(paginated["results"], many=True)
+
+    return Response({"topics": serializer.data, "pagination": paginated["pagination"]})

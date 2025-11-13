@@ -8,6 +8,7 @@ from .api_views import (
     send_verification_code,
     verify_code,
     check_verification_status,
+    purchase_cd_exam,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -25,4 +26,5 @@ urlpatterns = [
     ),
     path("verify-code/", verify_code, name="verify_code"),
     path("verification-status/", check_verification_status, name="verification_status"),
+    path("purchase-cd-exam/", purchase_cd_exam, name="purchase_cd_exam"),
 ]

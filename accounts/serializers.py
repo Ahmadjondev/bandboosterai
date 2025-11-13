@@ -21,9 +21,10 @@ class UserSerializer(serializers.ModelSerializer):
             "date_of_birth",
             "profile_image",
             "email_verified",
+            "balance",
             "created_at",
         ]
-        read_only_fields = ["id", "email_verified", "created_at"]
+        read_only_fields = ["id", "email_verified", "balance", "created_at"]
 
 
 class RegisterSerializer(serializers.ModelSerializer):

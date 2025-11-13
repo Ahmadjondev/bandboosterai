@@ -11,7 +11,6 @@ class User(AbstractUser):
     """
 
     ROLE_CHOICES = (
-        ("SUPERADMIN", "Super Admin"),
         ("MANAGER", "Manager"),
         ("STUDENT", "Student"),
     )
@@ -44,6 +43,11 @@ class User(AbstractUser):
         null=True, blank=True, verbose_name="Code Expires At"
     )
 
+    # Balance (in UZS)
+    balance = models.DecimalField(
+        max_digits=12, decimal_places=2, default=100000.00, verbose_name="Balance (UZS)"
+    )
+
     # Timestamps (auto-managed)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
@@ -63,7 +67,7 @@ class User(AbstractUser):
 
     def is_superadmin(self):
         """Check if user is a super admin"""
-        return self.role == "SUPERADMIN"
+        return self.role == "MANAGER"
 
     def is_manager(self):
         """Check if user is a manager"""

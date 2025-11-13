@@ -67,9 +67,7 @@ export default function LoginPage() {
       
       // Redirect based on user role
       console.log('[Login] Redirecting to appropriate dashboard...');
-      if (response.user.role === 'SUPERADMIN') {
-        router.push('/superadmin');
-      } else if (response.user.role === 'MANAGER') {
+      if (response.user.role === 'MANAGER') {
         router.push('/manager');
       } else {
         router.push('/dashboard');
