@@ -59,12 +59,12 @@ export function Navbar({ user, onMenuClick }: NavbarProps) {
           )}
 
           {/* Quick Actions */}
-          <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:scale-105 transition-all">
+          {/* <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:scale-105 transition-all">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             <span>New Test</span>
-          </button>
+          </button> */}
 
           {/* Theme Toggle */}
           <ThemeToggle />
@@ -130,7 +130,7 @@ export function Navbar({ user, onMenuClick }: NavbarProps) {
                     <span>👤</span>
                     <span>Profile</span>
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => router.push('/dashboard/settings')}
                     className="w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
                   >
@@ -143,7 +143,7 @@ export function Navbar({ user, onMenuClick }: NavbarProps) {
                   >
                     <span>❓</span>
                     <span>Help & Support</span>
-                  </button>
+                  </button> */}
                 </div>
                 <div className="border-t border-slate-200 dark:border-slate-700 py-2">
                   <button

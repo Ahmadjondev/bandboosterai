@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from accounts.models import User
 from ielts.models import ReadingPassage, ListeningPart
+import uuid
 
 
 class Book(models.Model):
@@ -342,6 +343,16 @@ class UserSectionResult(models.Model):
     """
     Stores results of a user's attempt at a specific book section
     """
+
+    # Unique identifier for secure URL access
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+        help_text="Unique identifier for secure access",
+    )
 
     user = models.ForeignKey(
         User,

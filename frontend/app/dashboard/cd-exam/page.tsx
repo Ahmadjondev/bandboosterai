@@ -6,6 +6,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import VerificationGuard from '@/components/VerificationGuard';
 import { getAvailableTests, createFullTestAttempt, checkActiveAttempt } from "@/lib/exam-api";
 import { purchaseCDExam, getCurrentUser } from "@/lib/auth";
+import { useAuth } from '@/components/AuthProvider';
 import { PaymentDialog } from "@/components/PaymentDialog";
 
 export default function CDExamPage() {
@@ -17,6 +18,7 @@ export default function CDExamPage() {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [userBalance, setUserBalance] = useState<number>(0);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const { refreshUser } = useAuth();
 
   // Load full test exam and check for active attempts on mount
   useEffect(() => {
@@ -102,6 +104,14 @@ export default function CDExamPage() {
       
       // Update local balance
       setUserBalance(new_balance);
+
+      // Refresh global user context so Navbar and other components reflect the new balance
+      try {
+        await refreshUser();
+      } catch (e) {
+        // Non-fatal: log and continue
+        console.error('Failed to refresh user after purchase:', e);
+      }
       
       // Close payment dialog
       setShowPaymentDialog(false);
@@ -132,10 +142,10 @@ export default function CDExamPage() {
 
     try {
       // Create exam attempt
-      const { attemptId } = await createFullTestAttempt(fullTestExam.id);
+      const { attemptId, attemptUuid } = await createFullTestAttempt(fullTestExam.id);
       
-      // Redirect to exam page
-      router.push(`/dashboard/exam/${attemptId}`);
+      // Redirect to exam page using UUID if available
+      router.push(`/dashboard/exam/${attemptUuid || attemptId}`);
     } catch (err: any) {
       console.error("Failed to start test:", err);
       

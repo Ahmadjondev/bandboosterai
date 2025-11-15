@@ -112,6 +112,7 @@ export interface UserBookProgress {
  */
 export interface UserSectionResult {
   id: number;
+  uuid: string;
   user: number; // User ID
   section: number; // BookSection ID
   answers: Record<string, any>;

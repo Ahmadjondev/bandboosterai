@@ -319,12 +319,12 @@ urlpatterns = [
         name="remove_student_from_exam",
     ),
     path(
-        "results/attempt/<int:attempt_id>/",
+        "results/attempt/<str:attempt_id>/",
         get_student_result_detail,
         name="student_result_detail",
     ),
     path(
-        "results/attempt/<int:attempt_id>/writing/<int:task_id>/evaluate/",
+        "results/attempt/<str:attempt_id>/writing/<str:task_id>/evaluate/",
         evaluate_writing_submission,
         name="evaluate_writing_submission",
     ),

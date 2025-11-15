@@ -171,7 +171,9 @@ def get_listening_parts(request):
     )
 
     paginated = paginate_queryset(parts, request)
-    serializer = ListeningPartSerializer(paginated["results"], many=True)
+    serializer = ListeningPartSerializer(
+        paginated["results"], many=True, context={"request": request}
+    )
 
     return Response({"parts": serializer.data, "pagination": paginated["pagination"]})
 
@@ -194,7 +196,7 @@ def get_listening_part(request, part_id):
     )
     part_with_counts = part_qs.first()
 
-    serializer = ListeningPartSerializer(part_with_counts)
+    serializer = ListeningPartSerializer(part_with_counts, context={"request": request})
     return Response(serializer.data)
 
 
@@ -219,7 +221,7 @@ def create_listening_part(request):
     if "audio_file" in request.FILES:
         data["audio_file"] = request.FILES["audio_file"]
 
-    serializer = ListeningPartSerializer(data=data)
+    serializer = ListeningPartSerializer(data=data, context={"request": request})
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -251,7 +253,9 @@ def update_listening_part(request, part_id):
     elif request.data.get("remove_audio") == "true":
         data["audio_file"] = None
 
-    serializer = ListeningPartSerializer(part, data=data, partial=True)
+    serializer = ListeningPartSerializer(
+        part, data=data, partial=True, context={"request": request}
+    )
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)

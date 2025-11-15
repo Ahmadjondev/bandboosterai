@@ -68,10 +68,13 @@ export default function MyTestsPage() {
   };
 
   const handleAttemptClick = (attempt: TestAttemptHistory) => {
+    // Use UUID if available, fallback to ID for backward compatibility
+    const identifier = attempt.uuid || attempt.id;
+    
     if (attempt.status === 'COMPLETED' || attempt.status === 'SUBMITTED') {
-      router.push(`/dashboard/results?attempt=${attempt.id}`);
+      router.push(`/dashboard/results?attempt=${identifier}`);
     } else if (attempt.status === 'IN_PROGRESS') {
-      router.push(`/exam/${attempt.id}`);
+      router.push(`/exam/${identifier}`);
     }
   };
 

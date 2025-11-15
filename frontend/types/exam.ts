@@ -210,6 +210,7 @@ export type SectionData =
 
 export interface ExamAttempt {
   id: number;
+  uuid: string;
   exam_title: string;
   exam_type: ExamType;
   status: ExamStatus;
@@ -230,6 +231,7 @@ export interface ExamAttempt {
 
 export interface TestAttemptHistory {
   id: number;
+  uuid: string;
   exam_id: number;
   exam_title: string;
   exam_type: ExamType;
@@ -421,7 +423,7 @@ export interface SubmitTestResponse {
 // ============================================================================
 
 export interface ExamContextType {
-  attemptId: number;
+  attemptId: number | string;
   currentSection: SectionName;
   sectionData: SectionData | null;
   userAnswers: Record<number, string>;

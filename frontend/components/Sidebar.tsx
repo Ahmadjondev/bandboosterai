@@ -22,11 +22,17 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
   if (comingSoon) {
     return (
       <div className="relative group">
-        <div className={classNames(
-          'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-not-allowed',
-          'text-slate-400 dark:text-slate-600',
-          isCollapsed && 'justify-center px-2'
-        )}>
+        <div
+          className={classNames(
+            'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-not-allowed',
+            'text-slate-400 dark:text-slate-600',
+            isCollapsed && 'justify-center px-2'
+          )}
+          onClick={(e) => {
+            // Prevent parent handlers from toggling sidebar when collapsed
+            if (isCollapsed) e.stopPropagation();
+          }}
+        >
           <span className="text-xl opacity-50">{icon}</span>
           {!isCollapsed && (
             <>
@@ -37,6 +43,7 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
             </>
           )}
         </div>
+
         {isCollapsed && (
           <div className="absolute left-full ml-2 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
             {label}
@@ -50,6 +57,20 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
   return (
     <Link
       href={href}
+      onClick={(e) => {
+        // When the sidebar is collapsed, stop propagation so parent layout
+        // click handlers (which might open/expand the sidebar) don't run.
+        if (isCollapsed) e.stopPropagation();
+      }}
+      onMouseDown={(e) => {
+        if (isCollapsed) e.stopPropagation();
+      }}
+      onKeyDown={(e) => {
+        // Prevent parent key handlers from toggling collapse when using keyboard
+        if (isCollapsed && (e.key === 'Enter' || e.key === ' ')) {
+          e.stopPropagation();
+        }
+      }}
       className={classNames(
         'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group',
         isActive
@@ -59,24 +80,29 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
       )}
     >
       <span className="text-xl">{icon}</span>
+
       {!isCollapsed && (
         <>
           <span className="font-medium">{label}</span>
           {badge && (
-            <span className={classNames(
-              'ml-auto text-xs px-2 py-1 rounded-full font-semibold',
-              isActive
-                ? 'bg-white/20 text-white'
-                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-            )}>
+            <span
+              className={classNames(
+                'ml-auto text-xs px-2 py-1 rounded-full font-semibold',
+                isActive
+                  ? 'bg-white/20 text-white'
+                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+              )}
+            >
               {badge}
             </span>
           )}
         </>
       )}
+
       {isActive && !isCollapsed && (
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full" />
       )}
+
       {isCollapsed && (
         <div className="absolute left-full ml-2 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
           {label}
@@ -105,58 +131,60 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       comingSoon?: boolean;
     }>;
   }> = [
-    { section: 'Main', items: [
-      { href: '/dashboard', icon: '🏠', label: 'Dashboard' },
-      { href: '/dashboard/cd-exam', icon: '📝', label: 'CD IELTS Exam', badge: 'NEW' },
-      { href: '/dashboard/books', icon: '📚', label: 'Practice Books', badge: 'NEW' },
-    ]},
-    { section: 'Tests', items: [
-      { href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' },
-    ]},
-    { section: 'Tools', items: [
-      { href: '/dashboard/analytics', icon: '📈', label: 'Analytics', comingSoon: true },
-      { href: '/dashboard/planner', icon: '📅', label: 'Study Planner', comingSoon: true },
-      { href: '/dashboard/leaderboard', icon: '🏆', label: 'Leaderboard' },
-      { href: '/dashboard/resources', icon: '�', label: 'Study Resources' },
-    ]},
-    { section: 'Account', items: [
-      { href: '/dashboard/profile', icon: '👤', label: 'Profile' },
-    ]},
+    {
+      section: 'Main',
+      items: [
+        { href: '/dashboard', icon: '🏠', label: 'Dashboard' },
+        { href: '/dashboard/cd-exam', icon: '📝', label: 'CD IELTS Exam', badge: 'NEW' },
+        { href: '/dashboard/books', icon: '📚', label: 'Practice Books', badge: 'NEW' }
+      ]
+    },
+    {
+      section: 'Tests',
+      items: [{ href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' }]
+    },
+    {
+      section: 'Tools',
+      items: [
+        { href: '/dashboard/analytics', icon: '📈', label: 'Analytics', comingSoon: true },
+        { href: '/dashboard/planner', icon: '📅', label: 'Study Planner', comingSoon: true },
+        { href: '/dashboard/leaderboard', icon: '🏆', label: 'Leaderboard' },
+        { href: '/dashboard/resources', icon: '✨', label: 'Study Resources' }
+      ]
+    },
+    {
+      section: 'Account',
+      items: [{ href: '/dashboard/profile', icon: '👤', label: 'Profile' }]
+    }
   ];
 
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={onClose} />
       )}
 
-      {/* Sidebar */}
       <aside
         className={classNames(
           'fixed top-0 left-0 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-50 transition-all duration-300 ease-in-out',
           'flex flex-col',
           isCollapsed ? 'w-20' : 'w-72',
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+
+          // ✅ Fix horizontal scroll
+          isCollapsed && 'overflow-x-hidden'
         )}
       >
         {/* Logo */}
-        <div className={classNames(
-          'p-6 border-b border-slate-200 dark:border-slate-800 flex items-center',
-          isCollapsed ? 'justify-center' : 'justify-between'
-        )}>
+        <div
+          className={classNames(
+            'p-6 border-b border-slate-200 dark:border-slate-800 flex items-center',
+            isCollapsed ? 'justify-center' : 'justify-between'
+          )}
+        >
           {!isCollapsed && (
             <Link href="/dashboard" className="flex items-center gap-3">
-              <Image 
-                src="/logo.svg" 
-                alt="BandBooster Logo" 
-                width={40} 
-                height={40}
-                className="w-10 h-10"
-              />
+              <Image src="/logo.svg" alt="BandBooster Logo" width={40} height={40} />
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   BandBooster
@@ -165,22 +193,21 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
               </div>
             </Link>
           )}
-          
+
           {isCollapsed && (
-            <Link href="/dashboard" className="flex items-center justify-center">
-              <Image 
-                src="/logo.svg" 
-                alt="BandBooster Logo" 
-                width={40} 
-                height={40}
-                className="w-10 h-10"
-              />
+            <Link href="/dashboard">
+              <Image src="/logo.svg" alt="BandBooster Logo" width={40} height={40} />
             </Link>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-6">
+        <nav
+          className={classNames(
+            'flex-1 p-4 space-y-6 overflow-y-auto',
+            isCollapsed && 'overflow-x-hidden' // 🔥 Key fix
+          )}
+        >
           {menuItems.map((section) => (
             <div key={section.section}>
               {!isCollapsed && (
@@ -207,7 +234,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
 
         {/* Bottom Controls */}
         <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-          {/* Collapse button - desktop only */}
           <button
             onClick={onToggleCollapse}
             className={classNames(
@@ -215,10 +241,12 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
               'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
               isCollapsed && 'justify-center'
             )}
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <svg
-              className={classNames('w-5 h-5 transition-transform', isCollapsed && 'rotate-180')}
+              className={classNames(
+                'w-5 h-5 transition-transform',
+                isCollapsed && 'rotate-180'
+              )}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -228,7 +256,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
             {!isCollapsed && <span className="font-medium">Collapse Sidebar</span>}
           </button>
 
-          {/* Close button - mobile only */}
           <button
             onClick={onClose}
             className={classNames(
@@ -242,27 +269,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
             <span className="font-medium">Close Menu</span>
           </button>
         </div>
-
-        {/* Progress Card */}
-        {/* {!isCollapsed && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-            <div className="bg-linear-to-br from-blue-600 to-indigo-600 rounded-2xl p-4 text-white">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <span className="text-xl">📊</span>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">Your Progress</p>
-                  <p className="text-xs opacity-90">Keep it up!</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="opacity-90">Tests Taken</span>
-                <span className="font-bold">0</span>
-              </div>
-            </div>
-          </div>
-        )} */}
       </aside>
     </>
   );

@@ -8,6 +8,8 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
 
+    profile_image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -20,11 +22,37 @@ class UserSerializer(serializers.ModelSerializer):
             "phone",
             "date_of_birth",
             "profile_image",
+            "profile_image_url",
             "email_verified",
             "balance",
             "created_at",
         ]
-        read_only_fields = ["id", "email_verified", "balance", "created_at"]
+        read_only_fields = [
+            "id",
+            "email_verified",
+            "balance",
+            "created_at",
+            "profile_image_url",
+        ]
+
+    def get_profile_image_url(self, obj):
+        """
+        Get full URL for profile image from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
+        if obj.profile_image:
+            file_url = obj.profile_image.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(file_url)
+            return file_url
+        return None
 
 
 class RegisterSerializer(serializers.ModelSerializer):

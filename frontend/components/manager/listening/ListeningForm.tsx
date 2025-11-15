@@ -70,37 +70,37 @@ export default function ListeningForm({ mode, id }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto bg-white p-6 rounded">
+    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto bg-white p-6 rounded dark:bg-gray-800 dark:text-gray-100">
       <div className="grid grid-cols-1 gap-4">
         <label>
           Part Number
-          <input type="number" value={form.part_number ?? 1} onChange={(e) => handleChange('part_number', parseInt(e.target.value || '1'))} className="w-full p-2 border rounded" />
+          <input type="number" value={form.part_number ?? 1} onChange={(e) => handleChange('part_number', parseInt(e.target.value || '1'))} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" />
         </label>
 
         <label>
           Title
-          <input value={form.title ?? ''} onChange={(e) => handleChange('title', e.target.value)} className="w-full p-2 border rounded" />
+          <input value={form.title ?? ''} onChange={(e) => handleChange('title', e.target.value)} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" />
         </label>
 
         <label>
           Description
-          <textarea value={form.description ?? ''} onChange={(e) => handleChange('description', e.target.value)} className="w-full p-2 border rounded" rows={4} />
+          <textarea value={form.description ?? ''} onChange={(e) => handleChange('description', e.target.value)} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" rows={4} />
         </label>
 
         <label>
           Transcript
-          <textarea value={form.transcript ?? ''} onChange={(e) => handleChange('transcript', e.target.value)} className="w-full p-2 border rounded" rows={6} />
+          <textarea value={form.transcript ?? ''} onChange={(e) => handleChange('transcript', e.target.value)} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" rows={6} />
         </label>
 
         <label>
           Duration (seconds)
-          <input type="number" value={form.duration_seconds ?? 0} onChange={(e) => handleChange('duration_seconds', parseInt(e.target.value || '0'))} className="w-full p-2 border rounded" />
+          <input type="number" value={form.duration_seconds ?? 0} onChange={(e) => handleChange('duration_seconds', parseInt(e.target.value || '0'))} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" />
         </label>
 
         <div className="flex gap-2 justify-end">
-          <button type="button" onClick={() => router.back()} className="px-4 py-2 border rounded">Cancel</button>
+          <button type="button" onClick={() => router.back()} className="px-4 py-2 border rounded dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">Cancel</button>
           {mode !== 'view' && (
-            <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded">Save</button>
+            <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded dark:bg-emerald-500 dark:hover:bg-emerald-600">Save</button>
           )}
         </div>
       </div>

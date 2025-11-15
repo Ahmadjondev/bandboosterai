@@ -205,6 +205,7 @@ class ListeningPartSerializer(serializers.ModelSerializer):
     # Annotated fields from the queryset
     num_heads = serializers.IntegerField(read_only=True, default=0)
     num_questions = serializers.IntegerField(read_only=True, default=0)
+    audio_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ListeningPart
@@ -214,6 +215,7 @@ class ListeningPartSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "audio_file",
+            "audio_url",
             "duration_seconds",
             "transcript",
             "created_at",
@@ -221,7 +223,27 @@ class ListeningPartSerializer(serializers.ModelSerializer):
             "num_heads",
             "num_questions",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "audio_url"]
+
+    def get_audio_url(self, obj):
+        """
+        Get full URL for audio file from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
+        if obj.audio_file:
+            # Get the URL from the storage backend
+            file_url = obj.audio_file.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(file_url)
+            return file_url
+        return None
 
 
 class ListeningPartDetailSerializer(ListeningPartSerializer):
@@ -239,6 +261,7 @@ class WritingTaskSerializer(serializers.ModelSerializer):
     task_type_display = serializers.CharField(
         source="get_task_type_display", read_only=True
     )
+    picture_url = serializers.SerializerMethodField()
 
     class Meta:
         model = WritingTask
@@ -248,12 +271,32 @@ class WritingTaskSerializer(serializers.ModelSerializer):
             "task_type_display",
             "prompt",
             "picture",
+            "picture_url",
             "data",
             "min_words",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "picture_url"]
+
+    def get_picture_url(self, obj):
+        """
+        Get full URL for picture from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
+        if obj.picture:
+            file_url = obj.picture.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(file_url)
+            return file_url
+        return None
 
 
 class SpeakingTopicSerializer(serializers.ModelSerializer):

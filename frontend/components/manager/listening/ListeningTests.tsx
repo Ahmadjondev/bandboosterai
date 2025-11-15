@@ -120,15 +120,15 @@ export function ListeningTests() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Headphones className="w-8 h-8 text-emerald-600" />
+          <Headphones className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Listening Parts</h1>
-            <p className="text-sm text-slate-600 mt-1">Manage listening parts and audio files</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Listening Parts</h1>
+            <p className="text-sm text-slate-600 mt-1 dark:text-slate-300">Manage listening parts and audio files</p>
           </div>
         </div>
         <button
           onClick={handleCreate}
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors inline-flex items-center gap-2"
+          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors inline-flex items-center gap-2 dark:bg-emerald-500 dark:hover:bg-emerald-600"
         >
           <Plus className="w-5 h-5" />
           New Part
@@ -141,24 +141,24 @@ export function ListeningTests() {
         <StatsCard title="Active Parts" value={stats.activeParts} icon={Headphones} variant="success" />
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 p-4 mb-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-4 mb-6 dark:bg-gray-800 dark:border-gray-700">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[250px]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search listening parts..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-slate-600" />
-            <button onClick={clearFilters} className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+            <Filter className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+            <button onClick={clearFilters} className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-gray-700">
               Clear Filters
             </button>
           </div>
@@ -175,59 +175,59 @@ export function ListeningTests() {
         />
       ) : (
         <>
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Part</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Title</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Questions</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Audio</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Created</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filtered.map((part) => (
-                    <tr key={part.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">Part {part.part_number}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-slate-900">{part.title}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-600">{part.total_questions || 0}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {part.audio_url ? (
-                            <a href={part.audio_url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:underline inline-flex items-center gap-2">
-                              <FileAudio className="w-4 h-4" />
-                              Listen
-                            </a>
-                          ) : (
-                            <span className="text-sm text-slate-500">No audio</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-600">{new Date(part.created_at).toLocaleDateString()}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleView(part.id)} className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => handleEdit(part.id)} className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                          <button onClick={() => handleDelete(part.id)} className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden dark:bg-gray-800 dark:border-gray-700">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200 dark:bg-gray-700 dark:border-gray-600">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 dark:text-gray-300 uppercase tracking-wider">Part</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 dark:text-gray-300 uppercase tracking-wider">Title</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 dark:text-gray-300 uppercase tracking-wider">Questions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 dark:text-gray-300 uppercase tracking-wider">Audio</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 dark:text-gray-300 uppercase tracking-wider">Created</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
+                      {filtered.map((part) => (
+                        <tr key={part.id} className="hover:bg-slate-50 dark:hover:bg-gray-700">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">Part {part.part_number}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{part.title}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-slate-600 dark:text-slate-300">{part.total_questions || 0}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {part.audio_url ? (
+                                <a href={part.audio_url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:underline inline-flex items-center gap-2 dark:text-emerald-400">
+                                  <FileAudio className="w-4 h-4" />
+                                  Listen
+                                </a>
+                              ) : (
+                                <span className="text-sm text-slate-500 dark:text-slate-400">No audio</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-slate-600 dark:text-slate-300">{new Date(part.created_at).toLocaleDateString()}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button onClick={() => handleView(part.id)} className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors dark:text-gray-300 dark:hover:text-blue-300 dark:hover:bg-blue-900/20" title="View"><Eye className="w-4 h-4" /></button>
+                              <button onClick={() => handleEdit(part.id)} className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors dark:text-gray-300 dark:hover:text-emerald-300 dark:hover:bg-emerald-900/10" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                              <button onClick={() => handleDelete(part.id)} className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors dark:text-gray-300 dark:hover:text-rose-300 dark:hover:bg-rose-900/10" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
           {totalPages > 1 && (
             <div className="mt-6 flex items-center justify-between">

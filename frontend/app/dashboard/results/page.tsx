@@ -5,11 +5,22 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { TestResults } from '@/types/results';
 import { getTestResults } from '@/lib/exam-api';
+import InlineHighlighter, { ErrorLegend } from '@/components/writing/InlineHighlighter';
+
+// Helper to strip custom inline tags like <g>, <v>, <s>, <p>
+const stripInlineTags = (input?: string | null) => {
+  if (!input) return '';
+  try {
+    return input.replace(/<(?:g|v|s|p)>(.*?)<\/(?:g|v|s|p)>/g, '$1');
+  } catch (err) {
+    return input;
+  }
+};
 
 function ResultsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const attemptId = searchParams.get('attempt'); // Changed from 'attemptId' to 'attempt'
+  const attemptId = searchParams.get('attempt');
 
   const [results, setResults] = useState<TestResults | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,21 +28,27 @@ function ResultsContent() {
   const [showListeningModal, setShowListeningModal] = useState(false);
   const [showReadingModal, setShowReadingModal] = useState(false);
   const [showWritingModal, setShowWritingModal] = useState(false);
+  
+  // (writing AI results are shown inside the Writing dialog/modal)
 
   useEffect(() => {
     if (attemptId) {
-      loadResults(parseInt(attemptId));
+      loadResults(attemptId);
     } else {
       setIsLoading(false);
     }
   }, [attemptId]);
 
-  const loadResults = async (id: number) => {
+  // Load results and poll for AI updates if writing section exists
+  const loadResults = async (id: string) => {
     try {
       setIsLoading(true);
       setError(null);
       const data = await getTestResults(id);
       setResults(data);
+      
+      // writing AI results are loaded as part of the main results response and
+      // will be shown from the Writing dialog when the user clicks "View Details"
     } catch (err: any) {
       setError(err.message || 'Failed to load results');
       console.error('Error loading results:', err);
@@ -39,6 +56,8 @@ function ResultsContent() {
       setIsLoading(false);
     }
   };
+  
+
 
   const getBandColor = (band: number): string => {
     if (band >= 8.5) return 'from-purple-500 to-pink-500';
@@ -452,6 +471,8 @@ function ResultsContent() {
               </div>
             </div>
           )}
+
+          {/* Writing AI feedback is shown inside the Writing modal when viewing task details */}
         </div>
       </div>
 
@@ -550,21 +571,28 @@ function SectionCard({ title, icon, score, correctAnswers, totalQuestions, color
   };
 
   // Compact square layout for all sections
+  const containerClass = isSquare
+    ? 'bg-white dark:bg-slate-800 rounded-xl border border-slate-600 p-3 hover:shadow-lg transition-shadow flex flex-col aspect-square w-full max-w-[200px]'
+    : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-600 p-4 hover:shadow-xl transition-shadow flex flex-col';
+
+  const iconClass = isSquare ? 'text-xl' : 'text-3xl';
+  const scoreClass = isSquare ? 'text-2xl' : 'text-3xl';
+
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-600 p-4 hover:shadow-xl transition-shadow flex flex-col aspect-square">
-      <div className="flex items-center justify-center mb-3">
-        <div className="text-3xl">{icon}</div>
+    <div className={containerClass}>
+      <div className="flex items-center justify-center mb-2">
+        <div className={iconClass}>{icon}</div>
       </div>
-      
-      <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center mb-2">{title}</h3>
-      
+
+      <h3 className={`font-bold text-slate-900 dark:text-white text-center mb-2 ${isSquare ? 'text-sm' : 'text-lg'}`}>{title}</h3>
+
       {isPending ? (
         <div className="text-center mb-3">
-          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">⏳</div>
+          <div className={`font-bold text-amber-600 dark:text-amber-400 mb-1 ${isSquare ? 'text-xl' : 'text-2xl'}`}>⏳</div>
           <p className="text-xs text-slate-600 dark:text-slate-400">Evaluating...</p>
         </div>
       ) : (
-        <div className={`text-3xl font-bold text-center mb-3 bg-linear-to-r ${colorClasses[color as keyof typeof colorClasses]} bg-clip-text text-transparent`}>
+        <div className={`${scoreClass} font-bold text-center mb-3 bg-linear-to-r ${colorClasses[color as keyof typeof colorClasses]} bg-clip-text text-transparent`}>
           {score.toFixed(1)}
         </div>
       )}
@@ -575,19 +603,10 @@ function SectionCard({ title, icon, score, correctAnswers, totalQuestions, color
             {correctAnswers}/{totalQuestions} ({Math.round((correctAnswers / totalQuestions) * 100)}%)
           </p>
 
-          {/* <div className="mb-3 grow flex items-center">
-            <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className={`h-full bg-linear-to-r ${colorClasses[color as keyof typeof colorClasses]} transition-all duration-500`}
-                style={{ width: `${(correctAnswers / totalQuestions) * 100}%` }}
-              />
-            </div>
-          </div> */}
-          
           {onViewDetails && (
             <button
               onClick={onViewDetails}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-xs transition-colors text-center mt-auto"
+              className={`text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-xs transition-colors text-center ${isSquare ? 'mt-auto' : 'mt-auto'}`}
             >
               View Details →
             </button>
@@ -930,7 +949,16 @@ function WritingModal({ results, onClose }: any) {
 
           {/* Tasks */}
           <div className="space-y-4">
-            {results.tasks.map((task: any) => (
+            {results.tasks.map((task: any) => {
+              const hasAi = Boolean(
+                task.ai_band_score !== undefined && task.ai_band_score !== null ||
+                task.ai_inline ||
+                (task.ai_sentences && task.ai_sentences.length > 0) ||
+                task.ai_corrected_essay ||
+                task.ai_summary
+              );
+
+              return (
               <div
                 key={task.id}
                 className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"
@@ -950,18 +978,18 @@ function WritingModal({ results, onClose }: any) {
                       </h4>
                       <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
                         <span>{task.word_count || 0} words</span>
-                        {task.evaluation_status === 'COMPLETED' && task.band_score ? (
+                        { (task.evaluation_status === 'COMPLETED' && (task.band_score || task.ai_band_score)) ? (
                           <>
                             <span>•</span>
                             <span className="text-green-600 dark:text-green-400 font-medium">
-                              Band {task.band_score.toFixed(1)}
+                              Band {Number(task.band_score ?? task.ai_band_score).toFixed(1)}
                             </span>
                           </>
                         ) : (
                           <>
                             <span>•</span>
                             <span className="text-amber-600 dark:text-amber-400">
-                              {task.evaluation_status === 'PROCESSING' ? 'Evaluating...' : 'Pending Evaluation'}
+                              {task.evaluation_status === 'PROCESSING' ? 'Evaluating...' : (hasAi ? 'AI Results Available' : 'Pending Evaluation')}
                             </span>
                           </>
                         )}
@@ -983,110 +1011,8 @@ function WritingModal({ results, onClose }: any) {
                 {/* Task Details (Expanded) */}
                 {expandedTaskId === task.id && (
                   <div className="p-6 border-t border-slate-200 dark:border-slate-700">
-                    {task.evaluation_status === 'COMPLETED' && task.band_score ? (
+                    {(hasAi || (task.evaluation_status === 'COMPLETED' && task.band_score)) ? (
                       <div className="space-y-6">
-                        {/* Criteria Scores */}
-                        {task.criteria && (
-                          <div>
-                            <h5 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-                              IELTS Scoring Criteria
-                            </h5>
-                            <div className="space-y-3">
-                              {Object.entries(task.criteria).map(([key, value]: any) => {
-                                if (value === null) return null;
-                                return (
-                                  <div key={key} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                    <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                                      {getCriteriaLabel(key)}
-                                    </span>
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                        <div
-                                          className="h-full bg-linear-to-r from-purple-500 to-pink-600"
-                                          style={{ width: `${(value / 9) * 100}%` }}
-                                        />
-                                      </div>
-                                      <span className="text-base font-bold text-slate-900 dark:text-white w-10 text-right">
-                                        {value.toFixed(1)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* AI Feedback */}
-                        {task.feedback && (
-                          <div className="space-y-4">
-                            <h5 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                              Detailed Feedback
-                            </h5>
-                            
-                            {/* Overall Feedback Array */}
-                            {task.feedback.overall && Array.isArray(task.feedback.overall) && task.feedback.overall.length > 0 && (
-                              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                <h6 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                                  <span>📝</span> Overall Assessment
-                                </h6>
-                                <ul className="space-y-2">
-                                  {task.feedback.overall.map((item: string, idx: number) => (
-                                    <li key={idx} className="text-sm text-blue-800 dark:text-blue-200">
-                                      • {item}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Individual Criteria Feedback */}
-                            {task.feedback.task_response_or_achievement && (
-                              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                <h6 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                                  Task Achievement / Response
-                                </h6>
-                                <p className="text-sm text-slate-700 dark:text-slate-300">
-                                  {task.feedback.task_response_or_achievement}
-                                </p>
-                              </div>
-                            )}
-
-                            {task.feedback.coherence_and_cohesion && (
-                              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                <h6 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                                  Coherence & Cohesion
-                                </h6>
-                                <p className="text-sm text-slate-700 dark:text-slate-300">
-                                  {task.feedback.coherence_and_cohesion}
-                                </p>
-                              </div>
-                            )}
-
-                            {task.feedback.lexical_resource && (
-                              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                <h6 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                                  Lexical Resource
-                                </h6>
-                                <p className="text-sm text-slate-700 dark:text-slate-300">
-                                  {task.feedback.lexical_resource}
-                                </p>
-                              </div>
-                            )}
-
-                            {task.feedback.grammatical_range_and_accuracy && (
-                              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                <h6 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                                  Grammatical Range & Accuracy
-                                </h6>
-                                <p className="text-sm text-slate-700 dark:text-slate-300">
-                                  {task.feedback.grammatical_range_and_accuracy}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
                         {/* User Answer */}
                         {task.user_answer && (
                           <div>
@@ -1096,6 +1022,101 @@ function WritingModal({ results, onClose }: any) {
                             <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap max-h-96 overflow-y-auto border border-slate-200 dark:border-slate-700">
                               {task.user_answer}
                             </div>
+                          </div>
+                        )}
+
+                        {/* AI Evaluation Results (from backend) */}
+                        {(task.ai_inline || task.ai_sentences || task.ai_corrected_essay || task.ai_summary || task.ai_band_score) && (
+                          <div className="space-y-4">
+                            <h5 className="text-sm font-semibold text-slate-700 dark:text-slate-300">AI Evaluation</h5>
+
+                            {/* Band Score (AI estimate) */}
+                            {task.ai_band_score !== undefined && task.ai_band_score !== null && (
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6">
+                                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg inline-block">
+                                  <div className="text-xs text-purple-900 dark:text-purple-100">AI Estimated Band</div>
+                                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Number(task.ai_band_score).toFixed(1)}</div>
+                                </div>
+
+                                {/* Condensed IELTS criteria row (horizontal) shown next to AI band when available */}
+                                {task.criteria && Object.values(task.criteria).some((v: any) => v !== null && v !== undefined) && (
+                                  <div className="mt-3 sm:mt-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 items-center">
+                                    {['task_response_or_achievement','coherence_and_cohesion','lexical_resource','grammatical_range_and_accuracy'].map((k) => {
+                                      const v = task.criteria?.[k];
+                                      if (v === null || v === undefined) return (
+                                        <div key={k} />
+                                      );
+                                      return (
+                                        <div key={k} className="flex flex-col bg-slate-50 dark:bg-slate-900 p-2 rounded-lg">
+                                          <div className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mb-1">{getCriteriaLabel(k)}</div>
+                                          <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div className="h-full bg-linear-to-r from-purple-500 to-pink-600" style={{ width: `${(v/9)*100}%` }} />
+                                          </div>
+                                          <div className="text-sm font-semibold text-slate-900 dark:text-white mt-2 text-right">{Number(v).toFixed(1)}</div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Inline highlighted suggestions (if available) */}
+                            {task.ai_inline && (
+                              <div>
+                                <h6 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Highlighted Suggestions</h6>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 max-h-96 overflow-y-auto text-sm">
+                                  <InlineHighlighter text={task.ai_inline} sentences={task.ai_sentences} />
+                                  <div className="mt-3">
+                                    <ErrorLegend />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Sentence-level feedback */}
+                            {task.ai_sentences && Array.isArray(task.ai_sentences) && task.ai_sentences.length > 0 && (
+                              <div>
+                                <h6 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Sentence-level Corrections</h6>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-sm">
+                                  <ul className="list-disc pl-5 space-y-3">
+                                    {task.ai_sentences.map((s: any, idx: number) => (
+                                      <li key={idx} className="text-slate-700 dark:text-slate-300">
+                                        {/* Render corrected sentence (fallback to original) and optional explanation */}
+                                        <div className="font-medium text-sm text-slate-900 dark:text-white">
+                                          {stripInlineTags(s.corrected ?? s.original)}
+                                        </div>
+                                        {s.explanation && (
+                                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                            {stripInlineTags(s.explanation)}
+                                          </div>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Corrected essay (if provided) */}
+                            {task.ai_corrected_essay && (
+                              <div>
+                                <h6 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Corrected Essay</h6>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-sm whitespace-pre-wrap max-h-96 overflow-y-auto">
+                                  {task.ai_corrected_essay}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Short summary */}
+                            {task.ai_summary && (
+                              <div>
+                                <h6 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">AI Summary</h6>
+                                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg text-sm text-slate-700 dark:text-slate-300">
+                                  {task.ai_summary}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1115,7 +1136,8 @@ function WritingModal({ results, onClose }: any) {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
 
             {results.tasks.length === 0 && (
               <div className="text-center py-12 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg">

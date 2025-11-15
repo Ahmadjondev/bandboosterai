@@ -6,6 +6,7 @@ from django.db.models import Q, Avg, Count
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 import json
+import uuid as uuid_module
 
 from .models import (
     MockExam,
@@ -24,12 +25,31 @@ from .models import (
 )
 
 
+def get_attempt_by_uuid_or_id(attempt_id):
+    """Get ExamAttempt by UUID or integer ID."""
+    try:
+        # Try UUID first
+        uuid_obj = uuid_module.UUID(str(attempt_id))
+        return get_object_or_404(
+            ExamAttempt.objects.select_related("exam", "student"), uuid=uuid_obj
+        )
+    except (ValueError, AttributeError):
+        # Fall back to integer ID
+        try:
+            int_id = int(attempt_id)
+            return get_object_or_404(
+                ExamAttempt.objects.select_related("exam", "student"), id=int_id
+            )
+        except (ValueError, TypeError):
+            from django.http import Http404
+
+            raise Http404("Exam attempt not found")
+
+
 @login_required
 def exam_view(request, attempt_id):
     """Display the exam interface for a specific attempt."""
-    attempt = get_object_or_404(
-        ExamAttempt.objects.select_related("exam", "student"), id=attempt_id
-    )
+    attempt = get_attempt_by_uuid_or_id(attempt_id)
 
     # Verify ownership
     if attempt.student != request.user:
@@ -93,9 +113,7 @@ def exam_view(request, attempt_id):
 @login_required
 def results_view(request, attempt_id):
     """Display the results page for a completed exam."""
-    attempt = get_object_or_404(
-        ExamAttempt.objects.select_related("exam", "student"), id=attempt_id
-    )
+    attempt = get_attempt_by_uuid_or_id(attempt_id)
 
     # Verify ownership
     if attempt.student != request.user:

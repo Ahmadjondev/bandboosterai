@@ -27,6 +27,14 @@ const WritingChecker: React.FC<WritingCheckerProps> = ({
   initialEssay = '',
   taskType = 'Task 2',
 }) => {
+  const stripInlineTags = (input?: string | null) => {
+    if (!input) return '';
+    try {
+      return input.replace(/<(?:g|v|s|p)>(.*?)<\/(?:g|v|s|p)>/g, '$1');
+    } catch (err) {
+      return input || '';
+    }
+  };
   const [essay, setEssay] = useState(initialEssay);
   const [selectedTaskType, setSelectedTaskType] = useState<'Task 1' | 'Task 2'>(taskType);
   const [isChecking, setIsChecking] = useState(false);
@@ -226,7 +234,11 @@ const WritingChecker: React.FC<WritingCheckerProps> = ({
           <div className="min-h-96">
             {activeTab === 'highlighted' && (
               <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200">
-                <InlineHighlighter text={result.inline || essay} className="text-lg" />
+                <InlineHighlighter
+                  text={result.inline || essay}
+                  className="text-lg"
+                  sentences={result.sentences || []}
+                />
               </div>
             )}
 
@@ -244,19 +256,19 @@ const WritingChecker: React.FC<WritingCheckerProps> = ({
                       <div className="space-y-2">
                         <div>
                           <span className="text-sm font-semibold text-red-600">Original: </span>
-                          <span className="text-gray-700">{sentence.original}</span>
+                          <span className="text-gray-700">{stripInlineTags(sentence.original)}</span>
                         </div>
                         <div>
                           <span className="text-sm font-semibold text-green-600">
                             Corrected:{' '}
                           </span>
-                          <span className="text-gray-700">{sentence.corrected}</span>
+                          <span className="text-gray-700">{stripInlineTags(sentence.corrected)}</span>
                         </div>
                         <div className="p-3 bg-blue-50 rounded">
                           <span className="text-sm font-semibold text-blue-700">
                             Explanation:{' '}
                           </span>
-                          <span className="text-gray-700">{sentence.explanation}</span>
+                          <span className="text-gray-700">{stripInlineTags(sentence.explanation)}</span>
                         </div>
                       </div>
                     </div>

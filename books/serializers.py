@@ -12,6 +12,7 @@ class BookSerializer(serializers.ModelSerializer):
     level_display = serializers.CharField(source="get_level_display", read_only=True)
     enrolled_count = serializers.SerializerMethodField()
     average_progress = serializers.SerializerMethodField()
+    cover_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
@@ -20,6 +21,7 @@ class BookSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "cover_image",
+            "cover_image_url",
             "level",
             "level_display",
             "total_sections",
@@ -32,7 +34,26 @@ class BookSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "cover_image_url"]
+
+    def get_cover_image_url(self, obj):
+        """
+        Get full URL for cover image from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
+        if obj.cover_image:
+            file_url = obj.cover_image.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(file_url)
+            return file_url
+        return None
 
     def get_enrolled_count(self, obj):
         """Get number of users who have started this book"""
@@ -274,6 +295,7 @@ class UserSectionResultSerializer(serializers.ModelSerializer):
     Serializer for UserSectionResult model
     """
 
+    uuid = serializers.UUIDField(read_only=True)
     section = serializers.SerializerMethodField()
     section_id = serializers.IntegerField(write_only=True)
     user_display = serializers.SerializerMethodField()
@@ -284,6 +306,7 @@ class UserSectionResultSerializer(serializers.ModelSerializer):
         model = UserSectionResult
         fields = [
             "id",
+            "uuid",
             "user",
             "user_display",
             "section",
@@ -343,6 +366,7 @@ class BookWithProgressSerializer(serializers.ModelSerializer):
 
     level_display = serializers.CharField(source="get_level_display", read_only=True)
     user_progress = serializers.SerializerMethodField()
+    cover_image_url = serializers.SerializerMethodField()
     # sections = serializers.SerializerMethodField()
 
     class Meta:
@@ -352,6 +376,7 @@ class BookWithProgressSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "cover_image",
+            "cover_image_url",
             "level",
             "level_display",
             "total_sections",
@@ -364,7 +389,7 @@ class BookWithProgressSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "cover_image_url"]
 
     # def get_sections(self, obj):
     #     """Get minimal section info - only for detail view"""
@@ -377,6 +402,25 @@ class BookWithProgressSerializer(serializers.ModelSerializer):
     #             obj.sections.all().order_by("order"), many=True, context=self.context
     #         ).data
     #     return []
+
+    def get_cover_image_url(self, obj):
+        """
+        Get full URL for cover image from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
+        if obj.cover_image:
+            file_url = obj.cover_image.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(file_url)
+            return file_url
+        return None
 
     def get_user_progress(self, obj):
         """Get user's progress for this book"""

@@ -80,7 +80,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <Link
-            href="/dashboard/tests"
+            href="/dashboard/cd-exam"
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
           >
             Take New Test

@@ -49,10 +49,44 @@ from .analysis import (
 # ============================================================================
 
 
+def get_object_by_uuid_or_id(model, identifier):
+    """
+    Get an object by UUID or integer ID.
+    Tries UUID first, falls back to integer ID.
+
+    Args:
+        model: Django model class
+        identifier: UUID string or integer ID
+
+    Returns:
+        Model instance
+
+    Raises:
+        Http404 if object not found
+    """
+    from django.core.exceptions import ValidationError
+    import uuid as uuid_module
+
+    # Try UUID first
+    try:
+        uuid_obj = uuid_module.UUID(str(identifier))
+        return get_object_or_404(model, uuid=uuid_obj)
+    except (ValueError, ValidationError):
+        # Not a valid UUID, try integer ID
+        try:
+            int_id = int(identifier)
+            return get_object_or_404(model, id=int_id)
+        except (ValueError, TypeError):
+            # Neither UUID nor integer, return 404
+            from django.http import Http404
+
+            raise Http404(f"{model.__name__} not found")
+
+
 def get_user_attempt(attempt_id, user):
-    """Get exam attempt and verify ownership."""
-    attempt = get_object_or_404(
-        ExamAttempt.objects.select_related("student", "exam"), id=attempt_id
+    """Get exam attempt and verify ownership. Supports UUID or integer ID."""
+    attempt = get_object_by_uuid_or_id(
+        ExamAttempt.objects.select_related("student", "exam"), attempt_id
     )
     if attempt.student != user:
         return None, Response(
@@ -216,6 +250,7 @@ def check_active_attempt(request):
                 "has_active_attempt": True,
                 "active_attempt": {
                     "attempt_id": active_attempt.id,
+                    "attempt_uuid": str(active_attempt.uuid),
                     "exam_title": active_attempt.exam.name,
                     "exam_type": active_attempt.exam.mock_test.exam_type,
                     "status": active_attempt.status,
@@ -295,6 +330,7 @@ def get_my_attempts(request):
         attempts_data.append(
             {
                 "id": attempt.id,
+                "uuid": str(attempt.uuid),
                 "exam_id": attempt.exam.id,
                 "exam_title": attempt.exam.mock_test.title,
                 "exam_type": attempt.exam.mock_test.exam_type,
@@ -415,6 +451,7 @@ def create_exam_attempt(request, exam_id):
         {
             "success": True,
             "attempt_id": attempt.id,
+            "attempt_uuid": str(attempt.uuid),
             "exam_title": exam.name,
         },
         status=status.HTTP_201_CREATED,
@@ -747,6 +784,7 @@ def submit_writing(request, attempt_id):
             "task_id": task_id,
             "word_count": word_count,
             "writing_attempt_id": writing_attempt.id,
+            "writing_attempt_uuid": str(writing_attempt.uuid),
         }
     )
 
@@ -868,7 +906,16 @@ def next_section(request, attempt_id):
     # Use atomic transaction to prevent race conditions
     with transaction.atomic():
         # Lock the row to prevent concurrent updates
-        attempt = ExamAttempt.objects.select_for_update().get(id=attempt_id)
+        # attempt_id may be a UUID string or integer ID. Use UUID lookup when possible.
+        from django.core.exceptions import ValidationError
+        import uuid as uuid_module
+
+        try:
+            uuid_obj = uuid_module.UUID(str(attempt_id))
+            attempt = ExamAttempt.objects.select_for_update().get(uuid=uuid_obj)
+        except (ValueError, ValidationError):
+            # Fall back to integer ID
+            attempt = ExamAttempt.objects.select_for_update().get(id=int(attempt_id))
 
         # Update attempt
         attempt.current_section = next_section
@@ -898,6 +945,8 @@ def next_section(request, attempt_id):
 @permission_classes([IsAuthenticated])
 def submit_test(request, attempt_id):
     """Submit the entire test and mark as completed."""
+    from ielts.tasks import process_writing_check_task
+
     attempt, error_response = get_user_attempt(attempt_id, request.user)
     if error_response:
         return error_response
@@ -920,6 +969,20 @@ def submit_test(request, attempt_id):
     ]:
         # We'll calculate scores here or you can trigger async tasks
         pass
+
+    # Automatically trigger AI writing checks if exam has writing section
+    if exam_type in ["WRITING", "LISTENING_READING_WRITING", "FULL_TEST"]:
+        writing_attempts = WritingAttempt.objects.filter(
+            exam_attempt=attempt, answer_text__isnull=False
+        ).exclude(answer_text="")
+
+        for writing_attempt in writing_attempts:
+            # Set status to PENDING before queuing
+            writing_attempt.evaluation_status = WritingAttempt.EvaluationStatus.PENDING
+            writing_attempt.save(update_fields=["evaluation_status"])
+
+            # Queue Celery task for AI analysis (use UUID for task identifier)
+            process_writing_check_task.delay(str(writing_attempt.uuid))
 
     return Response(
         {
@@ -1404,45 +1467,75 @@ def _get_writing_results(attempt):
             "word_count": wa.word_count,
             "evaluation_status": wa.evaluation_status,
             "user_answer": wa.answer_text,  # Include user's written answer
+            "prompt": wa.task.prompt,  # Include task prompt/question
         }
 
+        # Include AI-generated results if available
+        if wa.evaluation_status == WritingAttempt.EvaluationStatus.COMPLETED:
+            task_data["ai_inline"] = wa.ai_inline
+            task_data["ai_sentences"] = wa.ai_sentences
+            task_data["ai_summary"] = wa.ai_summary
+            task_data["ai_band_score"] = wa.ai_band_score
+            task_data["ai_corrected_essay"] = wa.ai_corrected_essay
+
+        # Build criteria scores from database fields (populated by AI or manual evaluation)
+        # Prioritize manual scores, fallback to AI-populated fields if manual not set
+        task_data["criteria"] = {
+            "task_response_or_achievement": (
+                float(wa.task_response_or_achievement)
+                if wa.task_response_or_achievement
+                else None
+            ),
+            "coherence_and_cohesion": (
+                float(wa.coherence_and_cohesion) if wa.coherence_and_cohesion else None
+            ),
+            "lexical_resource": (
+                float(wa.lexical_resource) if wa.lexical_resource else None
+            ),
+            "grammatical_range_and_accuracy": (
+                float(wa.grammatical_range_and_accuracy)
+                if wa.grammatical_range_and_accuracy
+                else None
+            ),
+        }
+
+        # Determine band score: prefer manual, fallback to AI
+        effective_band_score = None
         if (
             wa.evaluation_status == WritingAttempt.EvaluationStatus.COMPLETED
             and wa.band_score
         ):
-            task_data["band_score"] = float(wa.band_score)
-            task_data["band"] = float(wa.band_score)  # Frontend expects 'band' field
+            # Manual evaluation exists
+            effective_band_score = float(wa.band_score)
+            task_data["band_score"] = effective_band_score
+            task_data["band"] = effective_band_score
             task_data["feedback"] = wa.feedback or {}
-
-            # Build criteria scores object from database fields
-            task_data["criteria"] = {
-                "task_response_or_achievement": (
-                    float(wa.task_response_or_achievement)
-                    if wa.task_response_or_achievement
-                    else None
-                ),
-                "coherence_and_cohesion": (
-                    float(wa.coherence_and_cohesion)
-                    if wa.coherence_and_cohesion
-                    else None
-                ),
-                "lexical_resource": (
-                    float(wa.lexical_resource) if wa.lexical_resource else None
-                ),
-                "grammatical_range_and_accuracy": (
-                    float(wa.grammatical_range_and_accuracy)
-                    if wa.grammatical_range_and_accuracy
-                    else None
-                ),
-            }
-            total_band += float(wa.band_score)
-            completed_count += 1
+        elif (
+            wa.evaluation_status == WritingAttempt.EvaluationStatus.COMPLETED
+            and wa.ai_band_score
+            and wa.ai_band_score != "N/A"
+        ):
+            # AI evaluation exists, use it
+            try:
+                effective_band_score = float(wa.ai_band_score)
+                task_data["band_score"] = effective_band_score
+                task_data["band"] = effective_band_score
+                task_data["feedback"] = wa.feedback or {}
+            except (ValueError, TypeError):
+                # Could not parse AI band score
+                task_data["band_score"] = None
+                task_data["band"] = None
+                task_data["feedback"] = {}
         else:
-            # For pending evaluations, still provide data but mark as pending
+            # No evaluation yet
             task_data["band_score"] = None
             task_data["band"] = None
             task_data["feedback"] = {}
-            task_data["criteria"] = {}
+
+        # Add to overall calculation if we have a valid band score
+        if effective_band_score is not None:
+            total_band += effective_band_score
+            completed_count += 1
 
         tasks_data.append(task_data)
 
@@ -1670,13 +1763,14 @@ def check_writing(request):
             evaluation_status=WritingAttempt.EvaluationStatus.PENDING,
         )
 
-        # Trigger Celery task
-        process_writing_check_task.delay(writing_attempt.id)
+        # Trigger Celery task (use UUID for identifier)
+        process_writing_check_task.delay(str(writing_attempt.uuid))
 
         return Response(
             {
                 "status": "processing",
                 "writing_attempt_id": writing_attempt.id,
+                "writing_attempt_uuid": str(writing_attempt.uuid),
                 "message": "AI check started. Results will be available shortly.",
             },
             status=status.HTTP_202_ACCEPTED,
@@ -1707,11 +1801,14 @@ def get_writing_check_result(request, writing_attempt_id):
         "corrected_essay": "..."
     }
     """
+    from django.http import Http404
+
     try:
-        writing_attempt = WritingAttempt.objects.get(
-            id=writing_attempt_id, exam_attempt__student=request.user
+        writing_attempt = get_object_by_uuid_or_id(
+            WritingAttempt.objects.filter(exam_attempt__student=request.user),
+            writing_attempt_id,
         )
-    except WritingAttempt.DoesNotExist:
+    except Http404:
         return Response(
             {"status": "error", "message": "Writing check not found"},
             status=status.HTTP_404_NOT_FOUND,

@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "corsheaders",  # Add CORS support
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",  # JWT token blacklist
+    "storages",  # Django storages for S3
     # Local apps
     "accounts",
     "ielts",
@@ -173,32 +174,120 @@ STATIC_VERSION = config("STATIC_VERSION", default="1.0.0")
 if DEBUG:
     # Development: Serve from static folder directly
     STATICFILES_DIRS = [BASE_DIR / "static"]
-    # Don't use WhiteNoise storage in development
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
 else:
     # Production: Collect static files to this location
     STATIC_ROOT = BASE_DIR / "staticfiles"
-    # Use WhiteNoise for efficient static file serving in production
-    # CompressedManifestStaticFilesStorage for better cache busting
+
+# ============================================================================
+# TIMEWEB S3 OBJECT STORAGE CONFIGURATION
+# ============================================================================
+# Configure AWS S3 (Timeweb) for media file storage
+# This reduces server storage pressure by storing all uploads directly in the cloud
+
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="")
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="ru-1")
+AWS_S3_ENDPOINT_URL = config("AWS_S3_ENDPOINT_URL", default="https://s3.timeweb.com")
+
+# Alternative Timeweb endpoint (if needed)
+# AWS_S3_ENDPOINT_URL = config("AWS_S3_ENDPOINT_URL", default="https://s3.twcstorage.ru")
+
+# S3 File Storage Settings
+AWS_S3_OBJECT_PARAMETERS = {
+    "CacheControl": "max-age=86400",  # Cache files for 24 hours
+}
+
+# File access settings
+AWS_DEFAULT_ACL = "public-read"  # Make files publicly accessible
+AWS_S3_FILE_OVERWRITE = False  # Don't overwrite files with same name
+AWS_QUERYSTRING_AUTH = False  # Don't add authentication query parameters to URLs
+
+# Custom domain (optional - for CDN or custom domain)
+# AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.timeweb.com"
+AWS_S3_CUSTOM_DOMAIN = None
+
+# Location paths for different file types
+AWS_MEDIA_LOCATION = "media"  # Media files subfolder in bucket
+AWS_STATIC_LOCATION = "static"  # Static files subfolder (if using S3 for static)
+
+# Media files configuration
+USE_S3_STORAGE = config("USE_S3_STORAGE", default=True, cast=bool)
+
+if (
+    USE_S3_STORAGE
+    and AWS_ACCESS_KEY_ID
+    and AWS_SECRET_ACCESS_KEY
+    and AWS_STORAGE_BUCKET_NAME
+):
+    # Use S3 for media files via our custom backend
+    # This points to `storage_backends.MediaStorage` so we can set defaults
+    # such as location, default_acl, and file_overwrite in one place.
+    DEFAULT_FILE_STORAGE = "storage_backends.MediaStorage"
+
+    # Generate public URL for media files
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_MEDIA_LOCATION}/"
+    else:
+        # Use Timeweb S3 endpoint format
+        MEDIA_URL = (
+            f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/{AWS_MEDIA_LOCATION}/"
+        )
+
+    # Configure the storage backend
     STORAGES = {
         "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "BACKEND": "storage_backends.MediaStorage",
+            "OPTIONS": {
+                "access_key": AWS_ACCESS_KEY_ID,
+                "secret_key": AWS_SECRET_ACCESS_KEY,
+                "bucket_name": AWS_STORAGE_BUCKET_NAME,
+                "region_name": AWS_S3_REGION_NAME,
+                "endpoint_url": AWS_S3_ENDPOINT_URL,
+                "location": AWS_MEDIA_LOCATION,
+                "default_acl": AWS_DEFAULT_ACL,
+                "file_overwrite": AWS_S3_FILE_OVERWRITE,
+                "querystring_auth": AWS_QUERYSTRING_AUTH,
+                "object_parameters": AWS_S3_OBJECT_PARAMETERS,
+                "custom_domain": AWS_S3_CUSTOM_DOMAIN,
+            },
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+            "BACKEND": (
+                "whitenoise.storage.CompressedStaticFilesStorage"
+                if not DEBUG
+                else "django.contrib.staticfiles.storage.StaticFilesStorage"
+            ),
         },
     }
 
-# Media files
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+    # Optional: Use S3 for static files as well (uncomment if needed)
+    # STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    # STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/{AWS_STATIC_LOCATION}/"
+
+else:
+    # Fallback to local file storage (for development without S3)
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
+
+    if DEBUG:
+        STORAGES = {
+            "default": {
+                "BACKEND": "django.core.files.storage.FileSystemStorage",
+            },
+            "staticfiles": {
+                "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+            },
+        }
+    else:
+        STORAGES = {
+            "default": {
+                "BACKEND": "django.core.files.storage.FileSystemStorage",
+            },
+            "staticfiles": {
+                "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+            },
+        }
 
 # Login URLs
 # LOGIN_URL = "/login/"

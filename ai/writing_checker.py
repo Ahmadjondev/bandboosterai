@@ -1,235 +1,234 @@
 """
-BandBooster AI: IELTS Writing Checker with Grammarly-style inline highlighting.
+BandBooster AI: IELTS Writing Checker — REAL EXAMINER CALIBRATED VERSION
 
-This module integrates with OpenAI's API to provide comprehensive IELTS writing feedback
-with inline error highlighting using XML-style tags:
-- <g>...</g> for grammar errors (red underline)
-- <v>...</v> for vocabulary issues (blue underline)
-- <s>...</s> for spelling errors (yellow underline)
-- <p>...</p> for punctuation issues (purple underline)
+This version strictly follows official IELTS descriptors and prevents
+models from overrating essays (e.g., giving 8.0 for 7.0-level writing).
 """
 
 import json
 import logging
 from typing import Dict, Any, Optional
 from django.conf import settings
-from openai import OpenAI, OpenAIError
+from ai.tools import generate_ai
 import time
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-client = OpenAI(
-    api_key=settings.OPENAI_API_KEY,
-    organization=(
-        settings.OPENAI_ORGANIZATION_ID if settings.OPENAI_ORGANIZATION_ID else None
-    ),
-)
+# ======================================================
+#      🔥 NEW — REAL IELTS EXAMINER SYSTEM PROMPT
+# ======================================================
 
-# System prompt for BandBooster AI
-SYSTEM_PROMPT = """You are BandBooster AI, a professional IELTS examiner specialized in analyzing IELTS Writing Task 1 and Task 2 essays.
+SYSTEM_PROMPT = """
+You are BandBooster AI — a highly accurate, strict, REAL IELTS Writing Examiner.
+You MUST follow the official IELTS public band descriptors exactly.
 
-Your task is to:
-1. Highlight mistakes inline using XML-style tags:
-   - <g>text</g> for grammar errors
-   - <v>text</v> for vocabulary issues
-   - <s>text</s> for spelling errors
-   - <p>text</p> for punctuation issues
+Your decisions should mirror a trained examiner:
+❗ Never over-score.
+❗ Never inflate band scores.
+❗ Use balanced calibration: real examiners usually give 0.5–1.0 lower than ideal.
 
-2. After each sentence, provide:
-   - Correct: <the corrected sentence>
-   - Explanation: <brief reason for the correction>
+STRICT OUTPUT RULES:
+- ALWAYS return pure JSON.
+- NO markdown.
+- NO commentary.
+- NO extra text.
+- NO code blocks.
+- Never escape characters unnecessarily.
 
-3. Return ONLY valid JSON in the exact format specified (no markdown, no code blocks)"""
+-----------------------------------------------------
+INLINE ERROR TAG RULES
+-----------------------------------------------------
+Mark only incorrect parts using XML-style tags:
+<g>...</g>  = grammar error
+<v>...</v>  = vocabulary issue
+<s>...</s>  = spelling mistake
+<p>...</p>  = punctuation issue
 
+NEVER nest tags.
+NEVER highlight correct phrases.
+NEVER highlight whole sentences unnecessarily.
 
-def create_user_prompt(essay: str, task_type: str = "Task 2") -> str:
-    """Create the user prompt for the AI."""
-    return f"""Analyze this IELTS Writing {task_type} essay:
+-----------------------------------------------------
+SCORING RULES (STRICT REAL IELTS CALIBRATION)
+-----------------------------------------------------
 
-Highlight all mistakes inline using the tags (<g>, <v>, <s>, <p>).
+Use OFFICIAL descriptors:
 
-After each sentence, output:
-Correct: <corrected sentence>
-Explanation: <reason for correction>
+TASK 1:
+- Task Achievement
+- Coherence & Cohesion
+- Lexical Resource
+- Grammatical Range & Accuracy
 
-Return JSON ONLY in this exact format (no markdown, no extra text):
-{{
-  "inline": "essay text with inline tags",
+TASK 2:
+- Task Response
+- Coherence & Cohesion
+- Lexical Resource
+- Grammatical Range & Accuracy
+
+Band interpretation:
+9 = expert, almost no weaknesses  
+8 = very strong with minor non-impeding issues  
+7 = good, clear, but lacking sophistication  
+6 = adequate, errors noticeable, ideas partially developed  
+5 = limited, frequent errors  
+4 or lower = very limited
+
+Typical examiner calibration:
+- Strong essays with clean grammar but simple ideas = Band 7
+- Essays lacking advanced vocabulary = max Band 7
+- Essays without complex grammar range = max Band 7
+
+NEVER give Band 8 unless:
+- Lexical sophistication present
+- Complex grammar widely used
+- Cohesion seamless
+- Ideas sophisticated and deeply developed
+
+-----------------------------------------------------
+OUTPUT FORMAT (STRICT)
+-----------------------------------------------------
+
+{
+  "inline": "...",
   "sentences": [
-    {{
-      "original": "original sentence",
-      "corrected": "corrected sentence",
-      "explanation": "why it was corrected"
-    }}
+     {
+       "original": "...",
+       "corrected": "...",
+       "explanation": "..."
+     }
   ],
-  "summary": "overall feedback about common mistakes",
-  "band_score": "7.5",
-  "corrected_essay": "fully corrected essay without tags"
-}}
+  "summary": "...",
+  "band_score": "0.0",
+  "corrected_essay": "...",
+  "task_response_or_achievement": 0.0,
+  "coherence_and_cohesion": 0.0,
+  "lexical_resource": 0.0,
+  "grammatical_range_and_accuracy": 0.0
+}
 
+RETURN ONLY VALID JSON.
+"""
+
+# ======================================================
+#               USER PROMPT BUILDER
+# ======================================================
+
+
+def create_user_prompt(
+    essay: str, task_type: str = "Task 2", task_question: Optional[str] = None
+) -> str:
+
+    question_block = f"Task Question:\n{task_question}\n\n" if task_question else ""
+
+    return f"""
+Analyze the following IELTS Writing {task_type} essay using the STRICT REAL EXAMINER RULES:
+
+{question_block}
 Essay:
-{essay}"""
+{essay}
+
+Return ONLY the JSON structure defined earlier.
+"""
+
+
+# ======================================================
+#          MAIN CHECKING FUNCTION (IMPROVED)
+# ======================================================
 
 
 def check_writing(
     essay_text: str,
     task_type: str = "Task 2",
-    model: str = None,
+    model: str = "gemini-2.5-flash",
     max_retries: int = 3,
-    retry_delay: float = 1.0,
+    retry_delay: float = 1.2,
+    task_question: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Check an IELTS writing essay using OpenAI API.
 
-    Args:
-        essay_text: The student's essay text
-        task_type: "Task 1" or "Task 2"
-        model: OpenAI model to use (defaults to settings.OPENAI_MODEL)
-        max_retries: Maximum number of retry attempts on failure
-        retry_delay: Delay between retries in seconds
+    if not essay_text.strip():
+        raise ValueError("Essay text is empty.")
 
-    Returns:
-        Dict containing:
-        - inline: Essay with inline error tags
-        - sentences: List of corrected sentences with explanations
-        - summary: Overall feedback
-        - band_score: Estimated band score (string)
-        - corrected_essay: Fully corrected essay
+    model_to_use = model or getattr(settings, "OPENAI_MODEL", "gemini-2.5-flash")
 
-    Raises:
-        Exception: If API call fails after all retries
-    """
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not configured in settings")
-
-    if not essay_text or not essay_text.strip():
-        raise ValueError("Essay text cannot be empty")
-
-    model_to_use = model or settings.OPENAI_MODEL
-
-    # Prepare messages following OpenAI API structure
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": create_user_prompt(essay_text, task_type)},
-    ]
+    full_prompt = (
+        SYSTEM_PROMPT
+        + "\n\n"
+        + create_user_prompt(essay_text, task_type, task_question)
+    )
 
     last_error = None
 
     for attempt in range(max_retries):
         try:
-            logger.info(
-                f"Calling OpenAI API (attempt {attempt + 1}/{max_retries}) with model: {model_to_use}"
+            logger.info(f"BandBooster AI writing check (attempt {attempt + 1})")
+
+            response = generate_ai(
+                prompt=full_prompt, model=model_to_use, max_retries=max_retries
             )
 
-            # Call OpenAI Chat Completions API
-            response = client.chat.completions.create(
-                model=model_to_use,
-                messages=messages,
-                temperature=0.7,  # Balanced creativity
-                max_tokens=2000,  # Sufficient for detailed feedback
-                response_format={"type": "json_object"},  # Ensure JSON response
+            # If the AI reported structured failure, retry
+            if isinstance(response, dict) and response.get("success") is False:
+                last_error = response.get("error")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (2**attempt))
+                    continue
+                break
+
+            if not isinstance(response, dict):
+                raise ValueError("Invalid response format.")
+
+            required = {
+                "inline": essay_text,
+                "sentences": [],
+                "summary": "Analysis completed.",
+                "band_score": "N/A",
+                "corrected_essay": essay_text,
+                "task_response_or_achievement": None,
+                "coherence_and_cohesion": None,
+                "lexical_resource": None,
+                "grammatical_range_and_accuracy": None,
+            }
+
+            for key, default in required.items():
+                if key not in response:
+                    response[key] = default
+
+            # Attach metadata
+            response["model_used"] = model_to_use
+            response["tokens_used"] = (
+                response.get("tokens_used")
+                if isinstance(response.get("tokens_used"), int)
+                else None
             )
 
-            # Extract the response content
-            content = response.choices[0].message.content
-
-            logger.info(f"OpenAI API call successful. Usage: {response.usage}")
-
-            # Parse JSON response
-            result = json.loads(content)
-
-            # Validate required fields
-            required_fields = [
-                "inline",
-                "sentences",
-                "summary",
-                "band_score",
-                "corrected_essay",
-            ]
-            missing_fields = [field for field in required_fields if field not in result]
-            if missing_fields:
-                logger.warning(f"Missing fields in API response: {missing_fields}")
-                # Add default values for missing fields
-                if "inline" not in result:
-                    result["inline"] = essay_text
-                if "sentences" not in result:
-                    result["sentences"] = []
-                if "summary" not in result:
-                    result["summary"] = "Analysis completed."
-                if "band_score" not in result:
-                    result["band_score"] = "N/A"
-                if "corrected_essay" not in result:
-                    result["corrected_essay"] = essay_text
-
-            # Add metadata
-            result["model_used"] = response.model
-            result["tokens_used"] = response.usage.total_tokens
-
-            return result
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {e}")
-            last_error = f"Invalid JSON response from API: {str(e)}"
-
-        except OpenAIError as e:
-            logger.error(f"OpenAI API error: {e}")
-            last_error = f"OpenAI API error: {str(e)}"
+            return response
 
         except Exception as e:
-            logger.error(f"Unexpected error during API call: {e}")
-            last_error = f"Unexpected error: {str(e)}"
+            last_error = str(e)
 
-        # Wait before retrying (exponential backoff)
         if attempt < max_retries - 1:
-            wait_time = retry_delay * (2**attempt)
-            logger.info(f"Retrying in {wait_time} seconds...")
-            time.sleep(wait_time)
+            time.sleep(retry_delay * (2**attempt))
 
-    # All retries failed
-    error_msg = f"Failed to check writing after {max_retries} attempts. Last error: {last_error}"
-    logger.error(error_msg)
-    raise Exception(error_msg)
+    raise Exception(
+        f"BandBooster AI failed after {max_retries} attempts. Last error: {last_error}"
+    )
+
+
+# ======================================================
+#             BAND SCORE EXTRACTION
+# ======================================================
 
 
 def extract_band_score(result: Dict[str, Any]) -> Optional[float]:
-    """
-    Extract numeric band score from API result.
-
-    Args:
-        result: The API response dictionary
-
-    Returns:
-        Float band score (e.g., 7.5) or None if not parseable
-    """
     try:
-        band_score_str = result.get("band_score", "")
-        # Handle formats like "7.5", "Band 7.5", "7.5/9"
         import re
 
-        match = re.search(r"(\d+(?:\.\d+)?)", band_score_str)
+        text = result.get("band_score", "")
+        match = re.search(r"(\d+(\.\d+)?)", text)
         if match:
             score = float(match.group(1))
-            # Validate range
-            if 0 <= score <= 9:
-                return score
-    except (ValueError, AttributeError):
-        pass
-
+            return score if 0 <= score <= 9 else None
+    except:
+        return None
     return None
-
-
-# For testing purposes
-if __name__ == "__main__":
-    # Example usage (won't work without Django settings)
-    test_essay = """
-    There is many people who believes that technology have changed our lifes.
-    They thinks computers and smartphones is very important for education and work.
-    However, some peoples says that we spending too much time on devices.
-    """
-
-    try:
-        result = check_writing(test_essay, task_type="Task 2")
-        print(json.dumps(result, indent=2))
-    except Exception as e:
-        print(f"Error: {e}")

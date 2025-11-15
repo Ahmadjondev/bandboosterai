@@ -17,6 +17,8 @@ from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
 from ielts.models import Exam, MockExam, Question, UserAnswer, TestHead
+from ielts.api_views import get_object_by_uuid_or_id
+from django.http import Http404
 from ielts.analysis import calculate_band_score
 from ..serializers import ExamSerializer, ExamDetailSerializer
 from .utils import (
@@ -840,10 +842,11 @@ def get_student_result_detail(request, attempt_id):
     from ielts.analysis import identify_strengths_and_weaknesses
 
     try:
-        attempt = ExamAttempt.objects.select_related(
-            "student", "exam", "exam__mock_test"
-        ).get(id=attempt_id)
-    except ExamAttempt.DoesNotExist:
+        attempt = get_object_by_uuid_or_id(
+            ExamAttempt.objects.select_related("student", "exam", "exam__mock_test"),
+            attempt_id,
+        )
+    except Http404:
         return Response(
             {"error": "Exam attempt not found or access denied"},
             status=status.HTTP_404_NOT_FOUND,
@@ -934,8 +937,8 @@ def evaluate_writing_submission(request, attempt_id, task_id):
     from ielts.models import ExamAttempt, WritingAttempt
 
     try:
-        attempt = ExamAttempt.objects.get(id=attempt_id)
-    except ExamAttempt.DoesNotExist:
+        attempt = get_object_by_uuid_or_id(ExamAttempt.objects.all(), attempt_id)
+    except Http404:
         return Response(
             {"error": "Exam attempt not found or access denied"},
             status=status.HTTP_404_NOT_FOUND,
@@ -943,8 +946,11 @@ def evaluate_writing_submission(request, attempt_id, task_id):
 
     # Get writing attempt
     try:
-        writing_attempt = WritingAttempt.objects.get(id=task_id, exam_attempt=attempt)
-    except WritingAttempt.DoesNotExist:
+        writing_attempt = get_object_by_uuid_or_id(
+            WritingAttempt.objects.filter(exam_attempt=attempt),
+            task_id,
+        )
+    except Http404:
         return Response(
             {"error": "Writing submission not found"},
             status=status.HTTP_404_NOT_FOUND,

@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from accounts.models import User
 import random
 import string
+import uuid
 
 
 class MockExam(models.Model):
@@ -41,6 +42,16 @@ class MockExam(models.Model):
         "LISTENING_READING_WRITING": 150,  # 30 + 60 + 60
         "FULL_TEST": 164,  # 30 + 60 + 60 + 14
     }
+
+    # Unique identifier for secure URL access
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+        help_text="Unique identifier for secure access",
+    )
 
     title = models.CharField(max_length=255, verbose_name="Exam Title")
     exam_type = models.CharField(
@@ -507,6 +518,16 @@ class ExamAttempt(models.Model):
         ("EVALUATED", "Evaluated"),
     )
 
+    # Unique identifier for secure URL access
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+        help_text="Unique identifier for secure access",
+    )
+
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -674,6 +695,16 @@ class WritingAttempt(models.Model):
         COMPLETED = "COMPLETED", "Completed"
         FAILED = "FAILED", "Failed"
 
+    # Unique identifier for secure URL access
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+        help_text="Unique identifier for secure access",
+    )
+
     exam_attempt = models.ForeignKey(
         ExamAttempt, on_delete=models.CASCADE, related_name="writing_attempts"
     )
@@ -812,6 +843,16 @@ class SpeakingAttempt(models.Model):
         PROCESSING = "PROCESSING", "Processing"
         COMPLETED = "COMPLETED", "Completed"
         FAILED = "FAILED", "Failed"
+
+    # Unique identifier for secure URL access
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+        help_text="Unique identifier for secure access",
+    )
 
     exam_attempt = models.OneToOneField(
         ExamAttempt, on_delete=models.CASCADE, related_name="speaking_attempt"
@@ -996,6 +1037,16 @@ class Exam(models.Model):
         ("ACTIVE", "Active"),
         ("COMPLETED", "Completed"),
         ("CANCELLED", "Cancelled"),
+    )
+
+    # Unique identifier for secure URL access
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+        help_text="Unique identifier for secure access",
     )
 
     # Basic Info

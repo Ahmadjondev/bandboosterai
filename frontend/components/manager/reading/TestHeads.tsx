@@ -78,19 +78,19 @@ export function TestHeads({ passageId, passageTitle }: TestHeadsProps) {
         <div className="flex items-center gap-3 mb-4">
           <button
             onClick={handleBack}
-            className="text-slate-600 hover:text-slate-900 transition-colors"
+            className="text-slate-600 hover:text-slate-900 transition-colors dark:text-slate-300 dark:hover:text-white"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-slate-900">Test Heads</h1>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Test Heads</h1>
             {passageTitle && (
-              <p className="text-sm text-slate-600 mt-1">For passage: {passageTitle}</p>
+              <p className="text-sm text-slate-600 mt-1 dark:text-slate-300">For passage: {passageTitle}</p>
             )}
           </div>
           <button
             onClick={handleCreate}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors inline-flex items-center gap-2"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors inline-flex items-center gap-2 dark:bg-orange-500 dark:hover:bg-orange-600"
           >
             <Plus className="w-5 h-5" />
             New Test Head
@@ -111,49 +111,49 @@ export function TestHeads({ passageId, passageTitle }: TestHeadsProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {testHeads.map((testHead) => (
             <div
-              key={testHead.id}
-              className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-md transition-shadow"
-            >
+                key={testHead.id}
+                className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-md transition-shadow dark:bg-gray-800 dark:border-gray-700"
+              >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <HelpCircle className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{testHead.title}</h3>
-                    <span className="text-xs text-slate-500 uppercase">
-                      {testHead.question_type}
-                    </span>
-                  </div>
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center dark:bg-orange-900/20">
+                      <HelpCircle className="w-5 h-5 text-orange-600 dark:text-orange-300" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100">{testHead.title}</h3>
+                      <span className="text-xs text-slate-500 uppercase dark:text-slate-300">
+                        {testHead.question_type}
+                      </span>
+                    </div>
                 </div>
               </div>
 
               {testHead.description && (
-                <p className="text-sm text-slate-600 mb-4">{testHead.description}</p>
+                  <p className="text-sm text-slate-600 mb-4 dark:text-slate-300">{testHead.description}</p>
               )}
 
               <div className="flex items-center justify-between text-sm text-slate-500 mb-4">
-                <span>{testHead.question_count || 0} questions</span>
-                <span className="text-xs">
-                  {new Date(testHead.created_at).toLocaleDateString()}
-                </span>
+                  <span className="dark:text-slate-300">{testHead.question_count || 0} questions</span>
+                  <span className="text-xs dark:text-slate-300">
+                    {new Date(testHead.created_at).toLocaleDateString()}
+                  </span>
               </div>
 
-              <div className="flex items-center gap-2 pt-4 border-t border-slate-200">
-                <button
-                  onClick={() => handleEdit(testHead.id)}
-                  className="flex-1 px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors inline-flex items-center justify-center gap-2"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(testHead.id)}
-                  className="px-3 py-2 text-sm font-medium text-rose-700 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+                <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-gray-700">
+                  <button
+                    onClick={() => handleEdit(testHead.id)}
+                    className="flex-1 px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors inline-flex items-center justify-center gap-2 dark:text-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(testHead.id)}
+                    className="px-3 py-2 text-sm font-medium text-rose-700 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors dark:text-rose-200 dark:bg-rose-900/10 dark:hover:bg-rose-900/20"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
             </div>
           ))}
         </div>

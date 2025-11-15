@@ -51,7 +51,7 @@ export function useExam() {
 
 interface ExamProviderProps {
   children: React.ReactNode;
-  attemptId: number;
+  attemptId: number | string;
 }
 
 export function ExamProvider({ children, attemptId }: ExamProviderProps) {

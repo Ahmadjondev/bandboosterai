@@ -127,16 +127,16 @@ export function PassageForm({ mode = 'create', id }: PassageFormProps) {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <button onClick={cancel} className="text-slate-600 hover:text-slate-900">
+            <button onClick={cancel} className="text-slate-600 hover:text-slate-900 dark:text-gray-200 dark:hover:text-white">
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h1 className="text-2xl font-bold text-slate-900">{pageTitle}</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{pageTitle}</h1>
           </div>
 
           <button
             onClick={savePassage}
             disabled={saving || !canSubmit}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-orange-500 dark:hover:bg-orange-600"
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
@@ -144,7 +144,7 @@ export function PassageForm({ mode = 'create', id }: PassageFormProps) {
       </div>
 
       {/* Form */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-6 dark:bg-gray-800 dark:border-gray-700">
         <div className="space-y-6">
           {/* Passage Number */}
           <div>
@@ -158,7 +158,7 @@ export function PassageForm({ mode = 'create', id }: PassageFormProps) {
               }
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
                 hasError('passage_number') ? 'border-rose-300' : 'border-slate-300'
-              }`}
+              } dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
             >
               <option value={1}>Passage 1</option>
               <option value={2}>Passage 2</option>
@@ -181,7 +181,7 @@ export function PassageForm({ mode = 'create', id }: PassageFormProps) {
               placeholder="Enter passage title"
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
                 hasError('title') ? 'border-rose-300' : 'border-slate-300'
-              }`}
+              } dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
             />
             {hasError('title') && (
               <p className="mt-1 text-sm text-rose-600">{getFieldError('title')}</p>
@@ -203,7 +203,7 @@ export function PassageForm({ mode = 'create', id }: PassageFormProps) {
               placeholder="Enter passage content..."
               className={`w-full px-3 py-2 border rounded-lg font-mono text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
                 hasError('content') ? 'border-rose-300' : 'border-slate-300'
-              }`}
+              } dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
             />
             {hasError('content') && (
               <p className="mt-1 text-sm text-rose-600">{getFieldError('content')}</p>

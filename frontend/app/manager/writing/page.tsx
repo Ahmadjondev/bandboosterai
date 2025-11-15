@@ -289,7 +289,7 @@ export default function WritingTasksPage() {
   return (
     <div className="space-y-6">
       {/* Enhanced Header */}
-      <div className="bg-linear-to-r from-primary to-primary/80 rounded-xl shadow-lg p-6 text-white">
+    <div className="bg-linear-to-r from-primary to-primary/80 rounded-xl shadow-lg p-6 text-white dark:bg-gradient-to-r dark:from-slate-900 dark:to-slate-800 dark:text-white">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="bg-white/20 backdrop-blur-sm p-3 rounded-lg">
@@ -302,7 +302,7 @@ export default function WritingTasksPage() {
           </div>
           <button
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-primary hover:bg-primary/5 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-primary hover:bg-primary/5 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
           >
             <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
             Add Writing Task
@@ -311,11 +311,11 @@ export default function WritingTasksPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Search */}
           <div>
-            <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+            <label className="flex items-center text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
               <Search className="h-4 w-4 mr-2 text-primary" />
               Search
             </label>
@@ -328,21 +328,21 @@ export default function WritingTasksPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search in prompts..."
-                className="block w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                className="block w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-100"
               />
             </div>
           </div>
 
           {/* Filter by Type */}
           <div>
-            <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+            <label className="flex items-center text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
               <Filter className="h-4 w-4 mr-2 text-primary" />
               Filter by Type
             </label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as any)}
-              className="block w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="block w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
             >
               <option value="all">📝 All Tasks</option>
               <option value="TASK_1">📊 Task 1 (Report Writing)</option>
@@ -354,7 +354,7 @@ export default function WritingTasksPage() {
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 shadow-lg">
+  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 shadow-lg dark:bg-red-900/20 dark:border-red-800">
           <div className="flex items-start">
             <div className="shrink-0">
               <div className="bg-red-100 rounded-full p-2">
@@ -362,8 +362,8 @@ export default function WritingTasksPage() {
               </div>
             </div>
             <div className="ml-4">
-              <h3 className="text-base font-semibold text-red-900">Oops! Something went wrong</h3>
-              <p className="mt-2 text-sm text-red-700">{error}</p>
+              <h3 className="text-base font-semibold text-red-900 dark:text-red-200">Oops! Something went wrong</h3>
+              <p className="mt-2 text-sm text-red-700 dark:text-red-200">{error}</p>
               <button
                 onClick={() => loadTasks()}
                 className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -393,31 +393,31 @@ export default function WritingTasksPage() {
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="group bg-white rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-gray-100 hover:border-primary"
+              className="group bg-white rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-gray-100 hover:border-primary dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-2xl dark:hover:-translate-y-1"
             >
               {/* Image Preview */}
               {task.picture ? (
-                <div className="relative h-52 bg-gray-200 overflow-hidden">
+                <div className="relative h-52 bg-gray-200 overflow-hidden dark:bg-gray-700">
                   <img
                     src={task.picture}
                     alt={`Task ${task.task_type}`}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent"></div>
-                  <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-2">
+                  <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-2 dark:bg-gray-900/70">
                     <ImageIcon className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-gray-800">With Image</span>
+                    <span className="text-xs font-medium text-gray-800 dark:text-gray-200">With Image</span>
                   </div>
                 </div>
               ) : (
-                <div className="relative h-52 bg-linear-to-br from-primary/80 to-primary flex items-center justify-center overflow-hidden">
+                <div className="relative h-52 bg-linear-to-br from-primary/80 to-primary flex items-center justify-center overflow-hidden dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900">
                   <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
                   <FileText className="h-20 w-20 text-white/30" />
                 </div>
               )}
 
               {/* Content */}
-              <div className="p-6">
+              <div className="p-6 dark:text-gray-200">
                 <div className="flex items-center justify-between mb-4">
                   <span
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg ${
@@ -428,17 +428,17 @@ export default function WritingTasksPage() {
                   >
                     {taskTypeDisplay[task.task_type as 'TASK_1' | 'TASK_2']}
                   </span>
-                  <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5">
+                  <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5 dark:bg-gray-700">
                     <Type className="h-3 w-3 text-gray-600" />
-                    <span className="text-xs font-medium text-gray-700">{task.min_words || 0}+ words</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{task.min_words || 0}+ words</span>
                   </div>
                 </div>
 
-                <p className="text-sm text-gray-700 mb-5 leading-relaxed line-clamp-3 min-h-15">
+                <p className="text-sm text-gray-700 mb-5 leading-relaxed line-clamp-3 min-h-15 dark:text-gray-300">
                   {truncateText(task.prompt, 120)}
                 </p>
 
-                <div className="flex items-center text-xs text-gray-500 mb-5 bg-gray-50 rounded-lg px-3 py-2">
+                <div className="flex items-center text-xs text-gray-500 mb-5 bg-gray-50 rounded-lg px-3 py-2 dark:bg-gray-700 dark:text-gray-300">
                   <Calendar className="h-3 w-3 mr-2" />
                   {formatDate(task.created_at)}
                 </div>
@@ -447,7 +447,7 @@ export default function WritingTasksPage() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => openEditModal(task)}
-                    className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-orange-200 rounded-xl text-sm font-semibold bg-orange-50 text-primary hover:bg-orange-100 hover:border-orange-300 transition-all"
+                    className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-orange-200 rounded-xl text-sm font-semibold bg-orange-50 text-primary hover:bg-orange-100 hover:border-orange-300 transition-all dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-800/30"
                   >
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit
@@ -455,7 +455,7 @@ export default function WritingTasksPage() {
                   {deleteConfirmId === task.id ? (
                     <button
                       onClick={() => deleteTask(task.id)}
-                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-300 rounded-xl text-sm font-semibold text-white bg-linear-to-br from-red-600 to-red-700 hover:shadow-xl transition-all"
+                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-300 rounded-xl text-sm font-semibold text-white bg-linear-to-br from-red-600 to-red-700 hover:shadow-xl transition-all dark:hover:shadow-xl"
                     >
                       <Check className="h-4 w-4 mr-2" />
                       Confirm
@@ -463,7 +463,7 @@ export default function WritingTasksPage() {
                   ) : (
                     <button
                       onClick={() => confirmDelete(task.id)}
-                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-200 rounded-xl text-sm font-semibold text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-all"
+                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border-2 border-red-200 rounded-xl text-sm font-semibold text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-all dark:bg-red-900/10 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-800/20"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
@@ -472,11 +472,11 @@ export default function WritingTasksPage() {
                 </div>
                 {deleteConfirmId === task.id && (
                   <button
-                    onClick={cancelDelete}
-                    className="w-full mt-2 text-xs text-gray-600 hover:text-gray-800"
-                  >
-                    Cancel
-                  </button>
+                      onClick={cancelDelete}
+                      className="w-full mt-2 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-300"
+                    >
+                      Cancel
+                    </button>
                 )}
               </div>
             </div>
@@ -503,17 +503,17 @@ export default function WritingTasksPage() {
         size="large"
         footer={
           <>
-            <button
-              onClick={closeModal}
-              disabled={saving}
-              className="px-5 py-2.5 rounded-lg bg-white text-gray-700 font-semibold shadow-sm ring-2 ring-inset ring-gray-200 hover:bg-gray-50 transition-all"
-            >
+              <button
+                onClick={closeModal}
+                disabled={saving}
+                className="px-5 py-2.5 rounded-lg bg-white text-gray-700 font-semibold shadow-sm ring-2 ring-inset ring-gray-200 hover:bg-gray-50 transition-all dark:bg-gray-700 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-600"
+              >
               Cancel
             </button>
             <button
               onClick={saveTask}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white font-semibold shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white font-semibold shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50 dark:hover:bg-primary/80"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{saving ? 'Saving...' : isEditMode ? 'Update Task' : 'Create Task'}</span>
@@ -524,7 +524,7 @@ export default function WritingTasksPage() {
         <div className="space-y-4">
           {/* Task Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-200">
               Task Type <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-2 gap-4">
@@ -533,24 +533,24 @@ export default function WritingTasksPage() {
                 onClick={() => handleTaskTypeChange('TASK_1')}
                 className={`p-4 border-2 rounded-lg transition-all ${
                   formData.task_type === 'TASK_1'
-                    ? 'border-primary bg-orange-50 text-primary'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-primary bg-orange-50 text-primary dark:bg-orange-900/20 dark:text-orange-200'
+                    : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
                 }`}
               >
                 <div className="text-sm font-semibold">Task 1</div>
-                <div className="text-xs text-gray-600 mt-1">Report Writing</div>
+                <div className="text-xs text-gray-600 mt-1 dark:text-gray-300">Report Writing</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleTaskTypeChange('TASK_2')}
                 className={`p-4 border-2 rounded-lg transition-all ${
                   formData.task_type === 'TASK_2'
-                    ? 'border-primary bg-orange-50 text-primary'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-primary bg-orange-50 text-primary dark:bg-orange-900/20 dark:text-orange-200'
+                    : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
                 }`}
               >
                 <div className="text-sm font-semibold">Task 2</div>
-                <div className="text-xs text-gray-600 mt-1">Essay Writing</div>
+                <div className="text-xs text-gray-600 mt-1 dark:text-gray-300">Essay Writing</div>
               </button>
             </div>
             {formErrors.task_type && (
@@ -560,14 +560,14 @@ export default function WritingTasksPage() {
 
           {/* Prompt */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-200">
               Prompt <span className="text-red-500">*</span>
             </label>
             <textarea
               value={formData.prompt}
               onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
               rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
               placeholder="Enter the writing task prompt..."
             />
             {formErrors.prompt && <p className="mt-1 text-sm text-red-600">{formErrors.prompt}</p>}
@@ -575,7 +575,7 @@ export default function WritingTasksPage() {
 
           {/* Minimum Words */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-200">
               Minimum Words <span className="text-red-500">*</span>
             </label>
             <input
@@ -584,7 +584,7 @@ export default function WritingTasksPage() {
               onChange={(e) =>
                 setFormData({ ...formData, min_words: parseInt(e.target.value) || 0 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
             />
             {formErrors.min_words && (
               <p className="mt-1 text-sm text-red-600">{formErrors.min_words}</p>
@@ -610,8 +610,8 @@ export default function WritingTasksPage() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
+              ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500">
                 <input
                   ref={imageInputRef}
                   type="file"
@@ -621,11 +621,11 @@ export default function WritingTasksPage() {
                   id="image-upload"
                 />
                 <label htmlFor="image-upload" className="cursor-pointer">
-                  <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-600">
+                  <ImageIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-300" />
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                     Click to upload or drag and drop
                   </p>
-                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, GIF up to 10MB</p>
                 </label>
               </div>
             )}

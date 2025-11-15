@@ -20,6 +20,7 @@ export type DifficultyLevel = 'EASY' | 'INTERMEDIATE' | 'HARD';
 // Mock Test
 export interface MockTest {
   id: number;
+  uuid: string;
   title: string;
   description: string;
   exam_type: ExamType;
@@ -134,6 +135,7 @@ export interface MockTestStatistics {
 // Recent Attempt
 export interface RecentAttempt {
   id: number;
+  uuid: string;
   student_id: number;
   student_name: string;
   student_email: string;

@@ -53,7 +53,8 @@ class WritingCheckResponseSerializer(serializers.Serializer):
     """Serializer for writing check API response."""
 
     status = serializers.ChoiceField(choices=["processing", "completed", "failed"])
-    writing_attempt_id = serializers.IntegerField(required=False)
+    # May contain UUID string or integer ID depending on deployment state
+    writing_attempt_id = serializers.CharField(required=False)
     inline = serializers.CharField(required=False)
     sentences = SentenceCorrectionSerializer(many=True, required=False)
     summary = serializers.CharField(required=False)
@@ -271,15 +272,26 @@ class TestHeadSerializer(serializers.ModelSerializer):
                         return None
 
                 if isinstance(data, dict):
-                    return data.get("select_count")
+                    return data.get("answer_format")
         return None
 
     def get_picture_url(self, obj):
-        """Get full URL for picture if available."""
+        """
+        Get full URL for picture if available from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
         if obj.picture:
+            file_url = obj.picture.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.picture.url)
+                return request.build_absolute_uri(file_url)
+            return file_url
         return None
 
     def get_view_type(self, obj):
@@ -341,11 +353,23 @@ class ListeningPartSerializer(serializers.ModelSerializer):
         return TestHeadSerializer(test_heads, many=True, context=self.context).data
 
     def get_audio_url(self, obj):
-        """Get full URL for audio file."""
+        """
+        Get full URL for audio file from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
         if obj.audio_file:
+            # Get the URL from the storage backend
+            file_url = obj.audio_file.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.audio_file.url)
+                return request.build_absolute_uri(file_url)
+            return file_url
         return None
 
     def get_total_questions(self, obj):
@@ -428,11 +452,22 @@ class WritingTaskSerializer(serializers.ModelSerializer):
         ]
 
     def get_picture_url(self, obj):
-        """Get full URL for picture if available."""
+        """
+        Get full URL for picture if available from S3 or local storage.
+        S3 URLs are already absolute, local URLs need request context.
+        """
         if obj.picture:
+            file_url = obj.picture.url
+
+            # If it's already an absolute URL (S3), return it directly
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+
+            # Otherwise, build absolute URL for local files
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.picture.url)
+                return request.build_absolute_uri(file_url)
+            return file_url
         return None
 
     def get_user_attempt(self, obj):
@@ -507,6 +542,7 @@ class SpeakingTopicSerializer(serializers.ModelSerializer):
 class ExamAttemptSerializer(serializers.ModelSerializer):
     """Serializer for exam attempts."""
 
+    uuid = serializers.UUIDField(read_only=True)
     exam_title = serializers.CharField(source="exam.mock_test.title", read_only=True)
     exam_type = serializers.CharField(source="exam.mock_test.exam_type", read_only=True)
     time_remaining = serializers.SerializerMethodField()
@@ -516,6 +552,7 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
         model = ExamAttempt
         fields = [
             "id",
+            "uuid",
             "exam",
             "exam_title",
             "exam_type",
@@ -548,6 +585,7 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
 class MockExamSerializer(serializers.ModelSerializer):
     """Serializer for mock exams."""
 
+    uuid = serializers.UUIDField(read_only=True)
     exam_type_display = serializers.CharField(
         source="get_exam_type_display", read_only=True
     )
@@ -562,6 +600,7 @@ class MockExamSerializer(serializers.ModelSerializer):
         model = MockExam
         fields = [
             "id",
+            "uuid",
             "title",
             "exam_type",
             "exam_type_display",

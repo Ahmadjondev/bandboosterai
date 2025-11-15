@@ -110,10 +110,11 @@ function ExamContent() {
 export default function ExamPage() {
   const params = useParams();
   const router = useRouter();
-  const attemptId = Number(params.attemptId);
+  // Accept both UUID string and numeric ID
+  const attemptId = params.attemptId as string;
 
   // Validate attempt ID
-  if (!attemptId || isNaN(attemptId)) {
+  if (!attemptId) {
     router.push("/dashboard");
     return null;
   }

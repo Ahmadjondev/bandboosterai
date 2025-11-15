@@ -148,17 +148,17 @@ export function ReadingTests() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-orange-600" />
+            <BookOpen className="w-8 h-8 text-orange-600 dark:text-orange-400" />
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Reading Tests</h1>
-              <p className="text-sm text-slate-600 mt-1">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Reading Tests</h1>
+              <p className="text-sm text-slate-600 mt-1 dark:text-slate-300">
                 Manage reading passages, test heads, and questions
               </p>
             </div>
           </div>
           <button
             onClick={handleCreatePassage}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors inline-flex items-center gap-2"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors inline-flex items-center gap-2 dark:bg-orange-500 dark:hover:bg-orange-600"
           >
             <Plus className="w-5 h-5" />
             New Passage
@@ -195,31 +195,31 @@ export function ReadingTests() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4 mb-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-4 mb-6 dark:bg-gray-800 dark:border-gray-700">
         <div className="flex flex-wrap items-center gap-4">
           {/* Search */}
           <div className="flex-1 min-w-[250px]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search passages..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
               />
             </div>
           </div>
 
           {/* Passage Number Filter */}
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-slate-600" />
+            <Filter className="w-5 h-5 text-slate-600 dark:text-slate-300" />
             <select
               value={selectedPassageFilter || ''}
               onChange={(e) =>
                 setSelectedPassageFilter(e.target.value ? (parseInt(e.target.value) as PassageNumber) : null)
               }
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
             >
               <option value="">All Passages</option>
               <option value="1">Passage 1</option>
@@ -232,7 +232,7 @@ export function ReadingTests() {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              className="px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-gray-700"
             >
               Clear Filters
             </button>
@@ -255,10 +255,10 @@ export function ReadingTests() {
         />
       ) : (
         <>
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden dark:bg-gray-800 dark:border-gray-700">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 border-b border-slate-200 dark:bg-gray-700 dark:border-gray-600">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
                       Passage
@@ -280,34 +280,34 @@ export function ReadingTests() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
                   {filteredPassages.map((passage) => (
-                    <tr key={passage.id} className="hover:bg-slate-50">
+                    <tr key={passage.id} className="hover:bg-slate-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
                           Passage {passage.passage_number}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-slate-900">
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                           {passage.title}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-600">
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
                           {passage.word_count || 0} words
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <HelpCircle className="w-4 h-4 text-slate-400" />
-                          <span className="text-sm text-slate-600">
+                          <HelpCircle className="w-4 h-4 text-slate-400 dark:text-slate-300" />
+                          <span className="text-sm text-slate-600 dark:text-slate-300">
                             {passage.test_heads?.length || 0}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-600">
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
                           {new Date(passage.created_at).toLocaleDateString()}
                         </div>
                       </td>
@@ -315,21 +315,21 @@ export function ReadingTests() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleViewPassage(passage.id)}
-                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors dark:text-gray-300 dark:hover:text-blue-300 dark:hover:bg-blue-900/20"
                             title="View"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleEditPassage(passage.id)}
-                            className="p-1.5 text-slate-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                            className="p-1.5 text-slate-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors dark:text-gray-300 dark:hover:text-orange-300 dark:hover:bg-orange-900/10"
                             title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeletePassage(passage.id)}
-                            className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors dark:text-gray-300 dark:hover:text-rose-300 dark:hover:bg-rose-900/10"
                             title="Delete"
                           >
                             <Trash2 className="w-4 h-4" />
