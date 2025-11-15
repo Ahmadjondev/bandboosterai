@@ -36,7 +36,7 @@ urlpatterns = [
     path("books/", include("books.urls")),
     # Panel URLs
     path("manager/", include("manager_panel.urls")),
-    path("", include("student_panel.urls")),
+    # path("", include("student_panel.urls")),
 ]
 
 # Serve media and static files in DEBUG mode

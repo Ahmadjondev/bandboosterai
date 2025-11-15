@@ -860,10 +860,7 @@ def next_section(request, attempt_id):
 
     current = attempt.current_section
     exam_type = attempt.exam.mock_test.exam_type
-
-    print(
-        f"[NEXT SECTION] Attempt {attempt_id}: current={current}, exam_type={exam_type}"
-    )
+ 
 
     # Define section flow based on exam type
     section_flows = {

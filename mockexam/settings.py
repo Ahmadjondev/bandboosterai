@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     "accounts",
     "ielts",
     "manager_panel",
-    "student_panel",
     "books",  # Book-based practice system
 ]
 
@@ -223,7 +222,7 @@ if (
     # Use S3 for media files via our custom backend
     # This points to `storage_backends.MediaStorage` so we can set defaults
     # such as location, default_acl, and file_overwrite in one place.
-    DEFAULT_FILE_STORAGE = "storage_backends.MediaStorage"
+    DEFAULT_FILE_STORAGE = "mockexam.storage_backends.MediaStorage"
 
     # Generate public URL for media files
     if AWS_S3_CUSTOM_DOMAIN:
@@ -237,7 +236,7 @@ if (
     # Configure the storage backend
     STORAGES = {
         "default": {
-            "BACKEND": "storage_backends.MediaStorage",
+            "BACKEND": "mockexam.storage_backends.MediaStorage",
             "OPTIONS": {
                 "access_key": AWS_ACCESS_KEY_ID,
                 "secret_key": AWS_SECRET_ACCESS_KEY,
