@@ -66,11 +66,128 @@ const AIContentGenerator: React.FC = () => {
 
   // Edit state
   const [editingItem, setEditingItem] = useState<string | null>(null);
-  const [editBuffer, setEditBuffer] = useState<Record<string, any>>({});
+  
 
   // Save state
   const [isSaving, setIsSaving] = useState(false);
   const [savedItems, setSavedItems] = useState<any[]>([]);
+
+  // Review UI state: expansion and inline edit buffers
+  const [expanded, setExpanded] = useState<{ passages: Set<number>; parts: Set<number> }>({
+    passages: new Set(),
+    parts: new Set(),
+  });
+
+  // Inline edit buffers keyed by editingItem string (e.g. "passage:2" or "question:2-0-1")
+  const [editBuffer, setEditBuffer] = useState<Record<string, any>>({});
+
+  const toggleExpand = (key: 'passages' | 'parts', idx: number) => {
+    setExpanded((prev) => {
+      const next = { ...prev } as any;
+      const set = new Set(next[key]);
+      if (set.has(idx)) set.delete(idx);
+      else set.add(idx);
+      next[key] = set;
+      return next;
+    });
+  };
+
+  const startInlineEdit = (kind: string, id: string | number) => {
+    const editKey = `${kind}:${id}`;
+    // current value snapshot
+    let current: any = null;
+    try {
+      if (kind === 'passage' || kind === 'passages') {
+        current = (extractedData as any)?.passages?.[Number(id)] || {};
+      } else if (kind === 'parts' || kind === 'part') {
+        current = (extractedData as any)?.parts?.[Number(id)] || {};
+      } else if (kind === 'question') {
+        // id expected like "p-g-q" e.g. "2-0-1"
+        const [pIdx, gIdx, qIdx] = String(id).split('-').map((v) => Number(v));
+        current = (extractedData as any)?.passages?.[pIdx]?.question_groups?.[gIdx]?.questions?.[qIdx] || {};
+      }
+    } catch (e) {
+      current = {};
+    }
+    setEditBuffer((prev) => ({ ...prev, [editKey]: JSON.parse(JSON.stringify(current || {})) }));
+    setEditingItem(editKey);
+  };
+
+  const cancelInlineEdit = (kind: string, id: string | number) => {
+    const editKey = `${kind}:${id}`;
+    setEditBuffer((prev) => {
+      const next = { ...prev };
+      delete next[editKey];
+      return next;
+    });
+    cancelEdit();
+  };
+
+  const handleInlineChange = (editKey: string, field: string, value: any) => {
+    setEditBuffer((prev) => ({ ...prev, [editKey]: { ...(prev[editKey] || {}), [field]: value } }));
+  };
+
+  const applyInlineEdit = (editKeyOrCollection: string, idx?: number | string) => {
+    // editKeyOrCollection can be 'passages' (collection) when called from UI, or rely on editingItem
+    const key = editingItem || `${editKeyOrCollection}:${idx}`;
+    const buffer = editBuffer[key];
+    if (!buffer || !extractedData) return cancelEdit();
+
+    const [kind, id] = key.split(':');
+    setExtractedData((prev) => {
+      if (!prev) return prev;
+      const copy = JSON.parse(JSON.stringify(prev));
+      if (kind === 'passage' || kind === 'passages') {
+        const i = Number(id);
+        copy.passages = copy.passages || [];
+        copy.passages[i] = { ...copy.passages[i], ...buffer };
+      } else if (kind === 'parts' || kind === 'part') {
+        const i = Number(id);
+        copy.parts = copy.parts || [];
+        copy.parts[i] = { ...copy.parts[i], ...buffer };
+      } else if (kind === 'question') {
+        const [pIdx, gIdx, qIdx] = String(id).split('-').map((v: string) => Number(v));
+        copy.passages = copy.passages || [];
+        copy.passages[pIdx] = copy.passages[pIdx] || {};
+        copy.passages[pIdx].question_groups = copy.passages[pIdx].question_groups || [];
+        copy.passages[pIdx].question_groups[gIdx] = copy.passages[pIdx].question_groups[gIdx] || {};
+        copy.passages[pIdx].question_groups[gIdx].questions = copy.passages[pIdx].question_groups[gIdx].questions || [];
+        copy.passages[pIdx].question_groups[gIdx].questions[qIdx] = { ...copy.passages[pIdx].question_groups[gIdx].questions[qIdx], ...buffer };
+      }
+      return copy;
+    });
+
+    // cleanup
+    setEditBuffer((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    cancelEdit();
+    showNotification('Edit applied', 'success');
+  };
+
+  const saveAllItems = async () => {
+    if (!extractedData) return;
+
+    setIsSaving(true);
+    try {
+      const payload = JSON.parse(JSON.stringify(extractedData));
+      const response = await managerAPI.saveGeneratedContent(payload.content_type, payload);
+
+      if (response.success) {
+        setSavedItems(response.passages || response.parts || response.tasks || response.topics || []);
+        setCurrentStep(3);
+        showNotification(response.message || 'Saved successfully', 'success');
+      } else {
+        showNotification(response.error || 'Failed to save content', 'error');
+      }
+    } catch (error: any) {
+      showNotification('Save error: ' + error.message, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Notification
   const [notification, setNotification] = useState<Notification | null>(null);
@@ -105,6 +222,85 @@ const AIContentGenerator: React.FC = () => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 5000);
   }, []);
+
+  // Sanitize and process HTML from AI so <strong> and basic tags render safely
+  const processPassageHtml = (rawHtml: string) => {
+    if (!rawHtml) return '';
+    try {
+      // Normalize escaped newlines to actual newlines
+      const normalized = rawHtml.replace(/\\n/g, '\n');
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(normalized, 'text/html');
+
+      const allowedTags = new Set(['P', 'BR', 'STRONG', 'B', 'I', 'EM', 'UL', 'OL', 'LI', 'SPAN', 'DIV']);
+
+      const walk = (node: ChildNode) => {
+        // make a static list because we'll modify children
+        const children = Array.from(node.childNodes);
+        for (const child of children) {
+          if (child.nodeType === Node.ELEMENT_NODE) {
+            const el = child as HTMLElement;
+            if (!allowedTags.has(el.tagName)) {
+              // replace node with its children (unwrap)
+              while (el.firstChild) el.parentNode?.insertBefore(el.firstChild, el);
+              el.parentNode?.removeChild(el);
+              continue;
+            }
+
+            // Keep only safe attributes (none) except class for styling we add
+            const attrs = Array.from(el.attributes || []);
+            for (const a of attrs) {
+              if (a.name !== 'class') el.removeAttribute(a.name);
+            }
+
+            // Style strong/b tags for emphasis
+            if (el.tagName === 'STRONG' || el.tagName === 'B') {
+              el.classList.add('text-orange-600', 'font-semibold');
+            }
+
+            walk(el);
+          } else if (child.nodeType === Node.TEXT_NODE) {
+            // leave text nodes here; newline handling is done in a separate pass below
+          } else {
+            // remove comments etc
+            child.parentNode?.removeChild(child);
+          }
+        }
+      };
+
+      walk(doc.body);
+
+      // Replace literal newlines in text nodes with <br> elements so line breaks are preserved
+      const replaceNewlines = (node: Node) => {
+        const children = Array.from(node.childNodes);
+        for (const child of children) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            const text = child.nodeValue || '';
+            if (text.includes('\n')) {
+              const parts = text.split(/\n/);
+              const frag = doc.createDocumentFragment();
+              parts.forEach((part, i) => {
+                frag.appendChild(doc.createTextNode(part));
+                if (i < parts.length - 1) {
+                  frag.appendChild(doc.createElement('br'));
+                }
+              });
+              child.parentNode?.replaceChild(frag, child);
+            }
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            replaceNewlines(child);
+          }
+        }
+      };
+
+      replaceNewlines(doc.body);
+
+      return doc.body.innerHTML;
+    } catch (e) {
+      return rawHtml;
+    }
+  };
 
   const canProceedToReview = uploadMode === 'pdf' ? selectedFile && !isUploading : selectedJsonFile && !isUploading;
   const canSaveContent = extractedData && extractedData.success;
@@ -545,49 +741,383 @@ const AIContentGenerator: React.FC = () => {
         </div>
       )}
 
-      {/* Step 2: Review (simplified for now - full implementation follows same pattern) */}
+      {/* Step 2: Review */}
       {currentStep === 2 && extractedData && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-6">Review Extracted Content</h2>
-
-            {/* Content preview - simplified */}
-            <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-              <p className="text-sm text-slate-700 dark:text-slate-300">
-                <strong>Content Type:</strong> {extractedData.content_type}
-              </p>
-              <p className="text-sm text-slate-700 dark:text-slate-300 mt-2">
-                <strong>Items Found:</strong>{' '}
-                {extractedData.passages?.length ||
-                  extractedData.parts?.length ||
-                  extractedData.tasks?.length ||
-                  extractedData.topics?.length ||
-                  0}
-              </p>
-              {(extractedData.passages || extractedData.parts) && (
-                <p className="text-sm text-slate-700 dark:text-slate-300 mt-2">
-                  <strong>Total Questions:</strong> {countTotalQuestions(extractedData.passages || extractedData.parts)}
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Review Extracted Content</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Inspect and edit the extracted content before saving to the database.
                 </p>
-              )}
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  <strong>Content Type:</strong> {extractedData.content_type}
+                </div>
+                <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  <strong>Items Found:</strong>{' '}
+                  {extractedData.passages?.length || extractedData.parts?.length || extractedData.tasks?.length || extractedData.topics?.length || 0}
+                </div>
+                <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  <strong>Total Questions:</strong>{' '}
+                  {countTotalQuestions(extractedData.passages || extractedData.parts)}
+                </div>
+              </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-between pt-6 border-t dark:border-slate-700">
-              <button
-                onClick={() => setCurrentStep(1)}
-                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white flex items-center gap-2"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Back
-              </button>
-              <button
-                onClick={handleSaveContent}
-                disabled={!canSaveContent || isSaving}
-                className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <Database className="w-5 h-5" />
-                <span>{isSaving ? 'Saving...' : 'Save to Database'}</span>
-              </button>
+            {/* Controls (minimal) - Back on left, Save on right */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <button
+                  onClick={() => setCurrentStep(1)}
+                  title="Back to upload"
+                  aria-label="Back to upload"
+                  className="p-2 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => saveAllItems()}
+                  disabled={isSaving}
+                  aria-label="Save all extracted content"
+                  title="Save all extracted content"
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Database className="w-4 h-4" />
+                  <span className="text-sm">{isSaving ? 'Saving...' : 'Save All'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Render reading passages */}
+              {extractedData.passages && Array.isArray(extractedData.passages) && (
+                <div>
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-3">Passages</h3>
+                  <div className="space-y-3">
+                    {extractedData.passages.map((passage: any, idx: number) => (
+                      <div key={idx} className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-900">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-slate-900 dark:text-white">{passage.title || `Passage ${idx + 1}`}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">Questions: {countTotalQuestions([passage])}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => toggleExpand('passages', idx)}
+                              className="text-sm px-3 py-1 rounded border bg-white dark:bg-slate-800"
+                            >
+                              {expanded.passages.has(idx) ? 'Collapse' : 'Expand'}
+                            </button>
+                            <button
+                              onClick={() => startInlineEdit('passage', idx)}
+                              className="text-sm px-3 py-1 rounded border bg-white dark:bg-slate-800"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </div>
+
+                        {expanded.passages.has(idx) && (
+                          <div className="mt-3">
+                            {!isEditing(`passage:${idx}`) ? (
+                              <div className="prose max-w-none text-sm text-slate-700 dark:text-slate-300">
+                                <div
+                                  dangerouslySetInnerHTML={{
+                                    __html: processPassageHtml(
+                                      passage.text || passage.body || passage.content || '<p>No passage text available.</p>'
+                                    ),
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div>
+                                <textarea
+                                  value={(editBuffer[`passage:${idx}`] && editBuffer[`passage:${idx}`].text) ?? (passage.text || passage.body || passage.content || '')}
+                                  onChange={(e) => handleInlineChange(`passage:${idx}`, 'text', e.target.value)}
+                                  className="w-full p-2 border rounded bg-white dark:bg-slate-800 dark:text-white"
+                                  rows={6}
+                                />
+                                <div className="flex gap-2 mt-2">
+                                  <button
+                                    onClick={() => applyInlineEdit(`passage:${idx}`)}
+                                    className="px-3 py-1 bg-orange-600 text-white rounded"
+                                  >
+                                    Apply
+                                  </button>
+                                  <button
+                                    onClick={() => cancelInlineEdit('passage', idx)}
+                                    className="px-3 py-1 border rounded"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Questions detailed display */}
+                            {Array.isArray(passage.question_groups) && (
+                              <div className="mt-4 space-y-4">
+                                {passage.question_groups.map((group: any, gidx: number) => (
+                                  <div key={gidx} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-slate-800">
+                                    {/* Group Header */}
+                                    <div className="flex items-start justify-between mb-3">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-xs font-medium rounded">
+                                            {formatQuestionType(group.question_type || group.type || 'UNKNOWN')}
+                                          </span>
+                                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            {Array.isArray(group.questions) ? group.questions.length : 0} questions
+                                          </span>
+                                        </div>
+                                        <h4 className="font-medium text-slate-900 dark:text-white">
+                                          {group.title || group.instructions || `Group ${gidx + 1}`}
+                                        </h4>
+                                        {group.instructions && group.title !== group.instructions && (
+                                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1" dangerouslySetInnerHTML={{ __html: processPassageHtml(group.instructions) }} />
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Questions List */}
+                                    <div className="space-y-3">
+                                      {Array.isArray(group.questions) && group.questions.map((q: any, qidx: number) => (
+                                        <div key={qidx} className="pl-4 border-l-2 border-slate-200 dark:border-slate-700 py-2">
+                                          {!isEditing(`question:${idx}-${gidx}-${qidx}`) ? (
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                {/* Question Text */}
+                                                <p className="text-sm text-slate-700 dark:text-slate-300">
+                                                  <span className="font-medium text-slate-500 dark:text-slate-400">
+                                                    Q{q.order || q.question_number || qidx + 1}:
+                                                  </span>{' '}
+                                                  {q.text || q.question || q.prompt}
+                                                </p>
+
+                                                {/* Correct Answer */}
+                                                <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                                                  <CheckCircle className="w-3 h-3" />
+                                                  Answer: {q.correct_answer || q.answer || 'N/A'}
+                                                </p>
+
+                                                {/* Multiple Choice Options */}
+                                                {q.choices && Array.isArray(q.choices) && q.choices.length > 0 && (
+                                                  <div className="mt-2 space-y-1">
+                                                    {q.choices.map((choice: any, cIdx: number) => (
+                                                      <div key={cIdx} className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                                        <span className="font-medium">{choice.key || String.fromCharCode(65 + cIdx)}.</span>
+                                                        <span>{choice.text || choice}</span>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+
+                                                {/* Options (alternative format) */}
+                                                {q.options && Array.isArray(q.options) && q.options.length > 0 && !q.choices && (
+                                                  <div className="mt-2 space-y-1">
+                                                    {q.options.map((option: any, oIdx: number) => (
+                                                      <div key={oIdx} className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                                        <span className="font-medium">{String.fromCharCode(65 + oIdx)}.</span>
+                                                        <span>{typeof option === 'string' ? option : option.text}</span>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+
+                                                {/* Additional metadata */}
+                                                {q.explanation && (
+                                                  <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 italic">
+                                                    Explanation: {q.explanation}
+                                                  </div>
+                                                )}
+                                              </div>
+
+                                              {/* Edit Button */}
+                                              <button
+                                                onClick={() => startInlineEdit('question', `${idx}-${gidx}-${qidx}`)}
+                                                className="p-1 text-slate-600 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded"
+                                              >
+                                                <Edit2 className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div className="space-y-2">
+                                              <textarea
+                                                value={editBuffer[`question:${idx}-${gidx}-${qidx}`]?.text || ''}
+                                                onChange={(e) => handleInlineChange(`question:${idx}-${gidx}-${qidx}`, 'text', e.target.value)}
+                                                className="w-full px-2 py-1 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                                                rows={2}
+                                                placeholder="Question text"
+                                              />
+                                              <input
+                                                value={editBuffer[`question:${idx}-${gidx}-${qidx}`]?.correct_answer || ''}
+                                                onChange={(e) => handleInlineChange(`question:${idx}-${gidx}-${qidx}`, 'correct_answer', e.target.value)}
+                                                className="w-full px-2 py-1 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                                                placeholder="Correct answer"
+                                              />
+                                              <div className="flex gap-2">
+                                                <button
+                                                  onClick={() => applyInlineEdit('question', `${idx}-${gidx}-${qidx}`)}
+                                                  className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 flex items-center gap-1"
+                                                >
+                                                  <Check className="w-3 h-3" />
+                                                  Save
+                                                </button>
+                                                <button
+                                                  onClick={() => cancelInlineEdit('question', `${idx}-${gidx}-${qidx}`)}
+                                                  className="px-2 py-1 bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs rounded hover:bg-slate-400 dark:hover:bg-slate-500 flex items-center gap-1"
+                                                >
+                                                  <X className="w-3 h-3" />
+                                                  Cancel
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Render listening parts */}
+              {extractedData.parts && Array.isArray(extractedData.parts) && (
+                <div>
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-3">Listening Parts</h3>
+                  <div className="space-y-3">
+                    {extractedData.parts.map((part: any, idx: number) => (
+                      <div key={idx} className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-900">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-slate-900 dark:text-white">{part.title || `Part ${idx + 1}`}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">Questions: {countTotalQuestions([part])}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => toggleExpand('parts', idx)}
+                              className="text-sm px-3 py-1 rounded border bg-white dark:bg-slate-800"
+                            >
+                              {expanded.parts.has(idx) ? 'Collapse' : 'Expand'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {expanded.parts.has(idx) && (
+                          <div className="mt-3">
+                            {part.audio_url && (
+                              <div className="mb-4">
+                                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">Audio:</label>
+                                <audio controls src={part.audio_url} className="w-full" />
+                              </div>
+                            )}
+                            {part.transcript && (
+                              <div className="mb-4 p-3 bg-slate-100 dark:bg-slate-900 rounded text-sm text-slate-600 dark:text-slate-400">
+                                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">Transcript:</label>
+                                <div dangerouslySetInnerHTML={{ __html: processPassageHtml(part.transcript) }} />
+                              </div>
+                            )}
+                            <div className="prose max-w-none text-sm text-slate-700 dark:text-slate-300 mb-4">
+                              <div dangerouslySetInnerHTML={{ __html: processPassageHtml(part.description || part.instructions || '') }} />
+                            </div>
+                            {/* Question Groups with detailed display */}
+                            {Array.isArray(part.question_groups) && (
+                              <div className="space-y-4">
+                                {part.question_groups.map((group: any, gidx: number) => (
+                                  <div key={gidx} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-slate-800">
+                                    {/* Group Header */}
+                                    <div className="flex items-start justify-between mb-3">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-xs font-medium rounded">
+                                            {formatQuestionType(group.question_type || group.type || 'UNKNOWN')}
+                                          </span>
+                                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            {Array.isArray(group.questions) ? group.questions.length : 0} questions
+                                          </span>
+                                        </div>
+                                        <h4 className="font-medium text-slate-900 dark:text-white">
+                                          {group.title || group.instructions || `Group ${gidx + 1}`}
+                                        </h4>
+                                      </div>
+                                    </div>
+
+                                    {/* Questions List */}
+                                    <div className="space-y-3">
+                                      {Array.isArray(group.questions) && group.questions.map((q: any, qidx: number) => (
+                                        <div key={qidx} className="pl-4 border-l-2 border-slate-200 dark:border-slate-700 py-2">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                              {/* Question Text */}
+                                              <p className="text-sm text-slate-700 dark:text-slate-300">
+                                                <span className="font-medium text-slate-500 dark:text-slate-400">
+                                                  Q{q.order || q.question_number || qidx + 1}:
+                                                </span>{' '}
+                                                <span dangerouslySetInnerHTML={{ __html: processPassageHtml(q.text || q.question || q.prompt || '') }} />
+                                              </p>
+
+                                              {/* Correct Answer */}
+                                              <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3" />
+                                                Answer: {q.correct_answer || q.answer || 'N/A'}
+                                              </p>
+
+                                              {/* Multiple Choice Options */}
+                                              {q.choices && Array.isArray(q.choices) && q.choices.length > 0 && (
+                                                <div className="mt-2 space-y-1">
+                                                  {q.choices.map((choice: any, cIdx: number) => (
+                                                    <div key={cIdx} className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                                      <span className="font-medium">{choice.key || String.fromCharCode(65 + cIdx)}.</span>
+                                                      <span>{choice.text || choice}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+
+                                              {/* Options (alternative format) */}
+                                              {q.options && Array.isArray(q.options) && q.options.length > 0 && !q.choices && (
+                                                <div className="mt-2 space-y-1">
+                                                  {q.options.map((option: any, oIdx: number) => (
+                                                    <div key={oIdx} className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                                      <span className="font-medium">{String.fromCharCode(65 + oIdx)}.</span>
+                                                      <span>{typeof option === 'string' ? option : option.text}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
