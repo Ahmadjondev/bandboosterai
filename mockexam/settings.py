@@ -305,7 +305,7 @@ CORS_ALLOWED_ORIGINS = config(
 ).split(",")
 
 # For development, you can use CORS_ALLOW_ALL_ORIGINS = True (NOT for production!)
-CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=False, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=True, cast=bool)
 
 CORS_ALLOW_CREDENTIALS = True  # Required for session/cookie authentication
 
@@ -368,7 +368,7 @@ CSRF_COOKIE_NAME = "csrftoken"  # Explicit CSRF cookie name
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens (not session-based)
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",
-    default="http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000",
+    default="https://api.bandbooster.uz",
 ).split(",")
 
 REST_FRAMEWORK = {
