@@ -31,7 +31,7 @@ export default function ListeningForm({ mode, id }: Props) {
   const [initialAudioUrl, setInitialAudioUrl] = useState<string | null>(null);
   const [initialAudioFilename, setInitialAudioFilename] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
-  const BASE_API_URL = 'http://localhost:8001/manager/api';
+  const BASE_API_URL = 'https://api.bandbooster.uz/manager/api';
   const [form, setForm] = useState<Partial<ListeningPart>>({
     part_number: 1,
     title: '',

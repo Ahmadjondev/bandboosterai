@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 // Read API base from env (set this in your deployment environment)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bandbooster.uz";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,

@@ -15,7 +15,7 @@ import type {
   BulkCreateResponse,
 } from '@/types/reading';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.bandbooster.uz';
 
 // Helper function to get JWT token from localStorage
 function getAccessToken(): string | null {
@@ -34,7 +34,7 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   try {
-    const response = await fetch('http://localhost:8001/accounts/api/token/refresh/', {
+    const response = await fetch(`${API_BASE_URL}/accounts/api/token/refresh/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -81,7 +81,7 @@ class ManagerAPIClient {
 
   constructor() {
     // Use direct Django URL instead of Next.js proxy
-    this.baseURL = 'http://localhost:8001/manager/api';
+    this.baseURL = 'https://api.bandbooster.uz/manager/api';
     this.crossDomain = true; // Now making cross-origin requests
     this.redirecting = false;
     this.isRefreshing = false;

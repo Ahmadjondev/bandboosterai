@@ -37,7 +37,7 @@ class AuthClient {
 
   constructor() {
     // Use direct Django URL instead of Next.js proxy
-    this.baseURL = 'http://localhost:8001/accounts/api';
+    this.baseURL = 'https://api.bandbooster.uz/accounts/api';
   }
 
   /**
