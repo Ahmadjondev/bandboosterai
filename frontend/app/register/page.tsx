@@ -76,7 +76,7 @@ export default function RegisterPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
       });
-
+      console.log(response);
       // JWT tokens and user data are stored in localStorage by registerUser()
       
       // Refresh user state in AuthProvider

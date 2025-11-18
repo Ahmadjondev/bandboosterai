@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -13,6 +15,70 @@ from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
+
+
+def _extract_first_error_message(errors: Any) -> str:
+    """Return a compact human-readable summary of the first validation error."""
+
+    if isinstance(errors, dict):
+        for field, messages in errors.items():
+            if isinstance(messages, dict):
+                nested_message = _extract_first_error_message(messages)
+                if nested_message:
+                    return nested_message
+            if isinstance(messages, (list, tuple)):
+                for message in messages:
+                    if isinstance(message, dict):
+                        nested_message = _extract_first_error_message(message)
+                        if nested_message:
+                            return nested_message
+                    elif message:
+                        message_str = str(message)
+                        return (
+                            message_str
+                            if field == "non_field_errors"
+                            else f"{field}: {message_str}"
+                        )
+            elif messages:
+                message_str = str(messages)
+                return (
+                    message_str
+                    if field == "non_field_errors"
+                    else f"{field}: {message_str}"
+                )
+    elif isinstance(errors, (list, tuple)):
+        for message in errors:
+            nested_message = _extract_first_error_message(message)
+            if nested_message:
+                return nested_message
+    elif errors:
+        return str(errors)
+
+    return "Validation error occurred."
+
+
+def build_error_response(
+    message: str,
+    *,
+    code: str = "validation_error",
+    errors: Dict[str, Any] | None = None,
+):
+    return {
+        "success": False,
+        "code": code,
+        "message": message,
+        "errors": errors or {},
+    }
+
+
+def validation_error_response(
+    errors: Dict[str, Any], status_code=status.HTTP_400_BAD_REQUEST
+):
+    message = _extract_first_error_message(errors)
+    return Response(
+        build_error_response(message, code="validation_error", errors=errors),
+        status=status_code,
+    )
 
 
 @api_view(["POST"])
@@ -40,7 +106,7 @@ def register_view(request):
             status=status.HTTP_201_CREATED,
         )
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return validation_error_response(serializer.errors)
 
 
 @api_view(["POST"])
@@ -54,7 +120,7 @@ def login_view(request):
     serializer = LoginSerializer(data=request.data)
 
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return validation_error_response(serializer.errors)
 
     username_or_email = serializer.validated_data["username"]
     password = serializer.validated_data["password"]
@@ -68,7 +134,11 @@ def login_view(request):
             username = user_obj.username
         except User.DoesNotExist:
             return Response(
-                {"error": "Invalid credentials"},
+                build_error_response(
+                    "username: Invalid credentials",
+                    code="authentication_failed",
+                    errors={"username": ["Invalid credentials"]},
+                ),
                 status=status.HTTP_401_UNAUTHORIZED,
             )
     else:
@@ -93,7 +163,11 @@ def login_view(request):
         )
 
     return Response(
-        {"error": "Invalid credentials"},
+        build_error_response(
+            "username: Invalid credentials",
+            code="authentication_failed",
+            errors={"username": ["Invalid credentials"]},
+        ),
         status=status.HTTP_401_UNAUTHORIZED,
     )
 

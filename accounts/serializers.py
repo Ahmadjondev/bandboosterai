@@ -86,7 +86,9 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
         """Check if username is already taken"""
         if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("This username is already taken.")
+            raise serializers.ValidationError(
+                "A user with that username already exists."
+            )
         return value
 
     def validate(self, attrs):

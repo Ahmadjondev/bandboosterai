@@ -88,67 +88,110 @@ class ApiClient {
    * Make a request to the API with automatic token refresh
    */
   private async request<T>(
-    endpoint: string,
-    options: FetchOptions = {},
-    retryWithRefresh: boolean = true
-  ): Promise<ApiResponse<T>> {
-    const { token, headers: customHeaders, ...restOptions } = options;
+  endpoint: string,
+  options: FetchOptions = {},
+  retryWithRefresh: boolean = true
+): Promise<ApiResponse<T>> {
+  const { token, headers: customHeaders, ...restOptions } = options;
 
-    // Get access token
-    let accessToken = token || getAccessToken();
+  let accessToken = token || getAccessToken();
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(customHeaders as Record<string, string>),
-    };
+const headers: Record<string, string> = {
+  "Content-Type": "application/json",
+  ...(typeof customHeaders === "object" &&
+  customHeaders !== null &&
+  !Array.isArray(customHeaders)
+    ? (customHeaders as Record<string, string>)
+    : {}),
+};
 
-    // Add JWT authorization header if token exists
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        ...restOptions,
-        headers,
-      });
-
-      // If 401 and we haven't retried yet, try to refresh token
-      if (response.status === 401 && retryWithRefresh) {
-        const newAccessToken = await refreshAccessToken();
-        if (newAccessToken) {
-          // Retry request with new token
-          return this.request<T>(endpoint, { ...options, token: newAccessToken }, false);
-        }
-      }
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        const error: ApiError = {
-          message: data?.message || data?.error || data?.detail || 'An error occurred',
-          status: response.status,
-          details: data?.details,
-        };
-        // Include the full response data for field-specific errors
-        (error as any).response = { data };
-        throw error;
-      }
-
-      return {
-        data,
-        status: response.status,
-      };
-    } catch (error) {
-      if (error instanceof Error && 'status' in error) {
-        throw error;
-      }
-      throw {
-        message: error instanceof Error ? error.message : 'Network error',
-        status: 0,
-      } as ApiError;
-    }
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
   }
+
+  try {
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      ...restOptions,
+      headers,
+    });
+
+    // ⛔ 401 → refresh token retry
+    if (response.status === 401 && retryWithRefresh) {
+      const newAccessToken = await refreshAccessToken();
+      if (newAccessToken) {
+        return this.request<T>(
+          endpoint,
+          { ...options, token: newAccessToken },
+          false
+        );
+      }
+    }
+
+    const data = await response.json().catch(() => null);
+
+    // ❗ Validation error inside a 200 response
+    if (
+      response.ok &&
+      data &&
+      (data.success === false || data.code === "validation_error")
+    ) {
+      const errorsField = data.errors || data.details || null;
+
+      let combinedMessage =
+        data?.message || data?.error || data?.detail || undefined;
+
+      if (!combinedMessage && errorsField) {
+        combinedMessage = Object.entries(errorsField)
+          .map(([field, val]) =>
+            Array.isArray(val) ? `${field}: ${val[0]}` : `${field}: ${val}`
+          )
+          .join("; ");
+      }
+
+      const apiError: ApiError = {
+        message: combinedMessage || "Validation error",
+        status: 400,
+        details: data?.details,
+        success: false,
+        code: data?.code,
+        errors: errorsField,
+      };
+
+      (apiError as any).response = { data };
+      throw apiError;
+    }
+
+    // ❗ HTTP ERROR such as 400, 404, 409, 500
+    if (!response.ok) {
+      const apiError: ApiError = {
+        message:
+          data?.message || data?.error || data?.detail || "Request failed",
+        status: response.status,
+        details: data?.details,
+        errors: data?.errors,
+      };
+      (apiError as any).response = { data };
+      throw apiError;
+    }
+
+    return {
+      data,
+      status: response.status,
+    };
+  } catch (err: any) {
+    // 🌐 FAQAT HAQIQIY NETWORK ERROR (fetch o‘zi yiqilganda)
+    if (err instanceof TypeError && err.message === "Failed to fetch") {
+      throw <ApiError>{
+        message: "Network error",
+        status: 0,
+      };
+    }
+
+    // 🔥 Bu — oldin otilgan ApiError → aynan o‘shani qaytaramiz
+    throw err;
+  }
+}
+
 
   /**
    * GET request

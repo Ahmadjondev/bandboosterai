@@ -15,5 +15,12 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   message: string;
   status: number;
-  details?: Record<string, string[]>;
+  details?: Record<string, string[] | string>;
+  endpoint?: string;
+  method?: string;
+  baseUrl?: string;
+  // Unified fields that some backend endpoints return
+  success?: boolean;
+  code?: string;
+  errors?: Record<string, string[] | string>;
 }

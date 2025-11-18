@@ -56,3 +56,5 @@ htmlcov/
 # !*/migrations/__init__.py
 
 *.pyc
+deploy/nginx/api.bandbooster.uz.conf
+deploy/systemd/gunicorn-bandboosterai.service
