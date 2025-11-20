@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { DashboardLayout } from '@/components/DashboardLayout';
 import { TestResults } from '@/types/results';
 import { getTestResults } from '@/lib/exam-api';
 import InlineHighlighter, { ErrorLegend } from '@/components/writing/InlineHighlighter';
+import { SpeakingModal } from '@/components/SpeakingModal';
 
 // Helper to strip custom inline tags like <g>, <v>, <s>, <p>
 const stripInlineTags = (input?: string | null) => {
@@ -28,6 +28,7 @@ function ResultsContent() {
   const [showListeningModal, setShowListeningModal] = useState(false);
   const [showReadingModal, setShowReadingModal] = useState(false);
   const [showWritingModal, setShowWritingModal] = useState(false);
+  const [showSpeakingModal, setShowSpeakingModal] = useState(false);
   
   // (writing AI results are shown inside the Writing dialog/modal)
 
@@ -110,21 +111,18 @@ function ResultsContent() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 dark:text-slate-400">Loading results...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading results...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (error || !results) {
     return (
-      <DashboardLayout>
-        <div className="p-4 sm:p-6 lg:p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl mx-auto text-center py-20">
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
               <span className="text-6xl">❌</span>
@@ -139,8 +137,7 @@ function ResultsContent() {
               Back to Dashboard
             </button>
           </div>
-        </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
@@ -148,13 +145,12 @@ function ResultsContent() {
   const sections = results.sections;
 
   return (
-    <DashboardLayout>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Official IELTS-Style Header */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden mb-8">
-            {/* Top Red Bar (IELTS Brand Color) */}
-            <div className="h-2 bg-linear-to-r from-blue-600 via-blue-500 to-blue-600"></div>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden mb-8 border border-slate-200/50 dark:border-slate-700/50">
+            {/* Top Gradient Bar */}
+            <div className="h-3 bg-gradient-to-r from-blue-600 via-purple-500 to-pink-500"></div>
             
             <div className="p-6 md:p-8">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
@@ -162,12 +158,12 @@ function ResultsContent() {
                 <div className="flex-1">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="shrink-0">
-                      <div className="w-16 h-16 rounded-full bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 flex items-center justify-center shadow-lg animate-pulse">
                         <span className="text-white font-bold text-2xl">📊</span>
                       </div>
                     </div>
                     <div>
-                      <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                      <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent tracking-tight">
                         IELTS Test Report Form
                       </h1>
                       <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
@@ -177,15 +173,15 @@ function ResultsContent() {
                   </div>
                   
                   {/* Exam Details */}
-                  <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 space-y-2">
-                    <div className="flex items-start gap-3">
+                  <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/50 dark:to-slate-800/30 rounded-xl p-4 space-y-2 border border-slate-200/50 dark:border-slate-700/50">
+                    {/* <div className="flex items-start gap-3">
                       <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-24">
                         Test Type:
                       </span>
                       <span className="text-sm font-medium text-slate-900 dark:text-white">
                         {results.exam_title}
                       </span>
-                    </div>
+                    </div> */}
                     <div className="flex items-start gap-3">
                       <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-24">
                         Test Date:
@@ -198,14 +194,7 @@ function ResultsContent() {
                         })}
                       </span>
                     </div>
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-24">
-                        Duration:
-                      </span>
-                      <span className="text-sm text-slate-700 dark:text-slate-300">
-                        {results.duration_minutes} minutes
-                      </span>
-                    </div>
+                  
                     <div className="flex items-start gap-3">
                       <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-24">
                         Candidate ID:
@@ -220,17 +209,23 @@ function ResultsContent() {
                 {/* Right Side - Overall Band Score */}
                 {(
                   <div className="shrink-0">
-                    <div className="bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-900/50 dark:to-slate-800/50 rounded-xl p-6 border-2 border-slate-200 dark:border-slate-700 text-center min-w-[180px]">
-                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">
-                        Overall Band Score
-                      </div>
-                      <div className={`text-6xl font-bold mb-2 bg-linear-to-br ${getBandColor(overallBand || 0.0)} bg-clip-text text-transparent`}>
-                        {overallBand?.toFixed(1) || '0.0'}
-                      </div>
-                      <div className="inline-block px-3 py-1 bg-slate-200 dark:bg-slate-700 rounded-full">
-                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">
-                          {getBandLabel(overallBand || 0.0)}
-                        </span>
+                    <div className="relative bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 border-2 border-transparent bg-clip-padding text-center min-w-[200px] shadow-lg hover:shadow-xl transition-all duration-300">
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 opacity-20 dark:opacity-10"></div>
+                      <div className="relative">
+                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">
+                          Overall Band Score
+                        </div>
+                        <div className="relative inline-block">
+                          <div className="absolute inset-0 blur-xl opacity-50 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500"></div>
+                          <div className={`relative text-7xl font-bold mb-3 bg-gradient-to-br ${getBandColor(overallBand || 0.0)} bg-clip-text text-transparent`}>
+                            {overallBand?.toFixed(1) || '0.0'}
+                          </div>
+                        </div>
+                        {/* <div className="inline-block px-4 py-1.5 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-full shadow-sm">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                            {getBandLabel(overallBand || 0.0)}
+                          </span>
+                        </div> */}
                       </div>
                     </div>
                   </div>
@@ -255,14 +250,14 @@ function ResultsContent() {
           {/* Section Results */}
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 md:p-8 mb-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-1 h-8 bg-linear-to-b from-red-600 to-red-700 rounded-full"></div>
+              <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
               <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
                 Test Scores by Section
               </h2>
             </div>
 
             {/* All Section Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Listening Section */}
               {sections.listening && (
                 <SectionCard
@@ -305,13 +300,15 @@ function ResultsContent() {
               )}
 
               {/* Speaking Section */}
-              {sections.speaking && sections.speaking.overall_band_score && (
+              {sections.speaking && (
                 <SectionCard
                   title="Speaking"
                   icon="🗣️"
-                  score={sections.speaking.overall_band_score}
+                  score={sections.speaking.overall_band_score || 0}
                   color="orange"
+                  onViewDetails={() => setShowSpeakingModal(true)}
                   isSquare
+                  isPending={!sections.speaking.overall_band_score}
                 />
               )}
             </div>
@@ -319,13 +316,13 @@ function ResultsContent() {
 
           {/* Performance Insights */}
           {(results.insights?.strengths || results.insights?.weaknesses) && (
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
               {/* Header */}
-              <div className="border-b border-slate-200 dark:border-slate-700 p-6 md:p-8">
+              <div className="border-b border-slate-200 dark:border-slate-700 p-6 md:p-8 bg-gradient-to-r from-slate-50/50 to-transparent dark:from-slate-900/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-1 h-8 bg-linear-to-b from-blue-600 to-blue-700 rounded-full"></div>
+                  <div className="w-1.5 h-10 bg-gradient-to-b from-blue-600 via-purple-600 to-pink-600 rounded-full shadow-lg"></div>
                   <div>
-                    <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
+                    <h3 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
                       Performance Analysis
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
@@ -474,7 +471,7 @@ function ResultsContent() {
 
           {/* Writing AI feedback is shown inside the Writing modal when viewing task details */}
         </div>
-      </div>
+
 
       {/* Listening Modal */}
       {showListeningModal && sections.listening && (
@@ -503,7 +500,15 @@ function ResultsContent() {
           onClose={() => setShowWritingModal(false)}
         />
       )}
-    </DashboardLayout>
+
+      {/* Speaking Modal */}
+      {showSpeakingModal && sections.speaking && (
+        <SpeakingModal
+          results={sections.speaking}
+          onClose={() => setShowSpeakingModal(false)}
+        />
+      )}
+    </div>
   );
 }
 
@@ -570,59 +575,48 @@ function SectionCard({ title, icon, score, correctAnswers, totalQuestions, color
     orange: 'from-orange-500 to-red-500',
   };
 
-  // Compact square layout for all sections
-  const containerClass = isSquare
-    ? 'bg-white dark:bg-slate-800 rounded-xl border border-slate-600 p-3 hover:shadow-lg transition-shadow flex flex-col aspect-square w-full max-w-[200px]'
-    : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-600 p-4 hover:shadow-xl transition-shadow flex flex-col';
-
-  const iconClass = isSquare ? 'text-xl' : 'text-3xl';
-  const scoreClass = isSquare ? 'text-2xl' : 'text-3xl';
+  const bgColors = {
+    blue: 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800',
+    green: 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800',
+    purple: 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800',
+    orange: 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800',
+  };
 
   return (
-    <div className={containerClass}>
-      <div className="flex items-center justify-center mb-2">
-        <div className={iconClass}>{icon}</div>
+    <div className={`${bgColors[color as keyof typeof bgColors]} rounded-lg border p-4 hover:shadow-md transition-shadow`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-2xl">{icon}</span>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h3>
       </div>
 
-      <h3 className={`font-bold text-slate-900 dark:text-white text-center mb-2 ${isSquare ? 'text-sm' : 'text-lg'}`}>{title}</h3>
-
       {isPending ? (
-        <div className="text-center mb-3">
-          <div className={`font-bold text-amber-600 dark:text-amber-400 mb-1 ${isSquare ? 'text-xl' : 'text-2xl'}`}>⏳</div>
+        <div className="text-center py-4">
+          <div className="text-2xl mb-1 animate-pulse">⏳</div>
           <p className="text-xs text-slate-600 dark:text-slate-400">Evaluating...</p>
         </div>
       ) : (
-        <div className={`${scoreClass} font-bold text-center mb-3 bg-linear-to-r ${colorClasses[color as keyof typeof colorClasses]} bg-clip-text text-transparent`}>
-          {score.toFixed(1)}
+        <div className="text-center mb-3">
+          <div className={`text-3xl font-bold bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} bg-clip-text text-transparent`}>
+            {score.toFixed(1)}
+          </div>
         </div>
       )}
 
       {correctAnswers !== undefined && totalQuestions !== undefined && (
-        <>
-          <p className="text-center text-slate-600 dark:text-slate-400 text-xs mb-3">
-            {correctAnswers}/{totalQuestions} ({Math.round((correctAnswers / totalQuestions) * 100)}%)
+        <div className="text-center mb-3">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            {correctAnswers}/{totalQuestions} correct ({Math.round((correctAnswers / totalQuestions) * 100)}%)
           </p>
-
-          {onViewDetails && (
-            <button
-              onClick={onViewDetails}
-              className={`text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-xs transition-colors text-center ${isSquare ? 'mt-auto' : 'mt-auto'}`}
-            >
-              View Details →
-            </button>
-          )}
-        </>
+        </div>
       )}
 
-      {(correctAnswers === undefined || totalQuestions === undefined) && onViewDetails && (
-        <div className="grow flex items-end">
-          <button
-            onClick={onViewDetails}
-            className="w-full text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-xs transition-colors text-center"
-          >
-            View Details →
-          </button>
-        </div>
+      {onViewDetails && (
+        <button
+          onClick={onViewDetails}
+          className="w-full text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+        >
+          View Details →
+        </button>
       )}
     </div>
   );
@@ -1162,17 +1156,16 @@ function WritingModal({ results, onClose }: any) {
   );
 }
 
+
 export default function ResultsPage() {
   return (
     <Suspense fallback={
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-600 dark:text-slate-400">Loading...</p>
           </div>
-        </div>
-      </DashboardLayout>
+      </div>
     }>
       <ResultsContent />
     </Suspense>

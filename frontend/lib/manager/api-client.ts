@@ -71,6 +71,8 @@ interface RequestConfig extends RequestInit {
   timeout?: number;
 }
 
+import { API_BASE_URL } from '@/config/api';
+
 class ManagerAPIClient {
   private baseURL: string;
   private crossDomain: boolean;
@@ -81,7 +83,7 @@ class ManagerAPIClient {
 
   constructor() {
     // Use direct Django URL instead of Next.js proxy
-    this.baseURL = 'https://api.bandbooster.uz/manager/api';
+    this.baseURL = `${API_BASE_URL}/manager/api`;
     this.crossDomain = true; // Now making cross-origin requests
     this.redirecting = false;
     this.isRefreshing = false;
@@ -547,10 +549,23 @@ class ManagerAPIClient {
   }
 
   async createWritingTask(data: any): Promise<WritingTask> {
+    // Support file uploads via FormData for writing tasks (picture field)
+    if (data instanceof FormData) {
+      return this.uploadFile<WritingTask>('/tests/writing/create/', data);
+    }
+
     return this.post<WritingTask>('/tests/writing/create/', data);
   }
 
   async updateWritingTask(taskId: number, data: any): Promise<WritingTask> {
+    // Support file upload/update via FormData
+    if (data instanceof FormData) {
+      return this.request<WritingTask>(`/tests/writing/${taskId}/update/`, {
+        method: 'PUT',
+        body: data,
+      });
+    }
+
     return this.put<WritingTask>(`/tests/writing/${taskId}/update/`, data);
   }
 
@@ -680,6 +695,10 @@ class ManagerAPIClient {
     return this.get<BookWithStats>(`/books/${bookId}/`);
   }
 
+  async getBookSections(bookId: number): Promise<BookSection[]> {
+    return this.get<BookSection[]>(`/books/${bookId}/sections/`);
+  }
+
   async createBook(data: BookForm): Promise<Book> {
     // Handle file upload if cover_image is a File
     if (data.cover_image instanceof File) {
@@ -757,6 +776,13 @@ class ManagerAPIClient {
 
   async reorderSections(bookId: number, data: ReorderSectionsData): Promise<{ sections: BookSection[] }> {
     return this.post<{ sections: BookSection[] }>(`/books/${bookId}/reorder-sections/`, data);
+  }
+
+  async bulkSaveBookSections(bookId: number, formData: FormData): Promise<any> {
+    return this.request<any>(`/books/${bookId}/sections/bulk-save/`, {
+      method: 'POST',
+      body: formData,
+    });
   }
 
   async getAvailableContent(type: 'reading' | 'listening', search?: string): Promise<{ content: AvailableContent[] }> {

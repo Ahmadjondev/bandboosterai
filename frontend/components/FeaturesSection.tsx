@@ -39,7 +39,7 @@ const features: Feature[] = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-32 bg-white dark:bg-slate-900 relative overflow-hidden">
+    <section id="features" className="py-32 bg-white dark:bg-slate-900 relative overflow-hidden scroll-mt-20">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-linear-to-b from-transparent via-blue-50/30 to-transparent dark:via-blue-950/10"></div>
       

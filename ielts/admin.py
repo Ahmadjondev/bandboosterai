@@ -12,9 +12,11 @@ from .models import (
     Choice,
     WritingTask,
     SpeakingTopic,
+    SpeakingQuestion,
     ExamAttempt,
     WritingAttempt,
     SpeakingAttempt,
+    SpeakingAnswer,
     UserAnswer,
     Exam,
 )
@@ -56,6 +58,13 @@ class TestHeadInline(admin.TabularInline):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.prefetch_related("questions")
+
+
+class SpeakingQuestionInline(admin.TabularInline):
+    model = SpeakingQuestion
+    extra = 1
+    fields = ("order", "question_text", "audio_url")
+    ordering = ("order",)
 
 
 @admin.register(MockExam)
@@ -624,6 +633,7 @@ class SpeakingTopicAdmin(admin.ModelAdmin):
     search_fields = ("topic", "question")
     ordering = ("speaking_type", "-created_at")
     readonly_fields = ("created_at", "updated_at")
+    inlines = [SpeakingQuestionInline]
     list_per_page = 25
 
     fieldsets = (
@@ -691,6 +701,15 @@ class SpeakingTopicAdmin(admin.ModelAdmin):
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     )
+
+
+@admin.register(SpeakingQuestion)
+class SpeakingQuestionAdmin(admin.ModelAdmin):
+    list_display = ("topic", "order", "question_text", "created_at")
+    list_filter = ("topic__speaking_type", "created_at")
+    search_fields = ("question_text", "topic__topic")
+    ordering = ("topic", "order")
+    readonly_fields = ("created_at", "updated_at")
 
 
 # ============================================================================
@@ -990,6 +1009,31 @@ class WritingAttemptAdmin(admin.ModelAdmin):
     get_answer_preview.short_description = "Answer Preview"
 
 
+class SpeakingAnswerInline(admin.TabularInline):
+    model = SpeakingAnswer
+    extra = 0
+    can_delete = False
+    fields = (
+        "question",
+        "get_audio_player",
+        "transcript",
+        "duration_seconds",
+        "submitted_at",
+    )
+    readonly_fields = ("question", "get_audio_player", "submitted_at")
+    ordering = ("question__order",)
+
+    def get_audio_player(self, obj):
+        if obj.audio_file:
+            return format_html(
+                '<audio controls style="max-width: 300px;"><source src="{}" type="audio/wav"></audio>',
+                obj.audio_file.url,
+            )
+        return "No audio"
+
+    get_audio_player.short_description = "Audio"
+
+
 @admin.register(SpeakingAttempt)
 class SpeakingAttemptAdmin(admin.ModelAdmin):
     list_display = (
@@ -997,11 +1041,13 @@ class SpeakingAttemptAdmin(admin.ModelAdmin):
         "band_score",
         "evaluation_status",
         "get_score",
+        "get_answers_count",
         "submitted_at",
     )
     list_filter = ("evaluation_status", "submitted_at")
     search_fields = ("exam_attempt__student__username", "exam_attempt__student__email")
     readonly_fields = ("submitted_at", "evaluated_at", "get_audio_files")
+    inlines = [SpeakingAnswerInline]
     list_per_page = 30
     date_hierarchy = "submitted_at"
 
@@ -1057,6 +1103,14 @@ class SpeakingAttemptAdmin(admin.ModelAdmin):
 
     get_score.short_description = "Score"
 
+    def get_answers_count(self, obj):
+        count = obj.answers.count()
+        if count > 0:
+            return format_html('<span style="color: green;">{} answers</span>', count)
+        return format_html('<span style="color: gray;">0 answers</span>')
+
+    get_answers_count.short_description = "Answers"
+
     def get_audio_files(self, obj):
         if obj.audio_files:
             parts = []
@@ -1066,6 +1120,98 @@ class SpeakingAttemptAdmin(admin.ModelAdmin):
         return "No audio files"
 
     get_audio_files.short_description = "Audio Files"
+
+
+@admin.register(SpeakingAnswer)
+class SpeakingAnswerAdmin(admin.ModelAdmin):
+    list_display = (
+        "get_student",
+        "get_question_info",
+        "get_audio_status",
+        "duration_seconds",
+        "get_transcript_preview",
+        "submitted_at",
+    )
+    list_filter = ("question__topic__speaking_type", "submitted_at")
+    search_fields = (
+        "speaking_attempt__exam_attempt__student__username",
+        "question__question_text",
+    )
+    readonly_fields = ("submitted_at", "updated_at", "get_audio_player")
+    list_per_page = 30
+    date_hierarchy = "submitted_at"
+
+    fieldsets = (
+        (
+            "Basic Information",
+            {"fields": ("speaking_attempt", "question")},
+        ),
+        (
+            "Audio Recording",
+            {"fields": ("audio_file", "get_audio_player", "duration_seconds")},
+        ),
+        (
+            "Transcript & Feedback",
+            {"fields": ("transcript", "feedback"), "classes": ("collapse",)},
+        ),
+        (
+            "Timestamps",
+            {"fields": ("submitted_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related(
+            "speaking_attempt__exam_attempt__student", "question__topic"
+        )
+
+    def get_student(self, obj):
+        student = obj.speaking_attempt.exam_attempt.student
+        return student.get_full_name() or student.username
+
+    get_student.short_description = "Student"
+    get_student.admin_order_field = "speaking_attempt__exam_attempt__student__username"
+
+    def get_question_info(self, obj):
+        part = obj.question.topic.get_speaking_type_display()
+        return format_html(
+            '<strong>{}:</strong> Q{}<br/><span style="color: gray; font-size: 0.9em;">{}</span>',
+            part,
+            obj.question.order,
+            (
+                obj.question.question_text[:50] + "..."
+                if len(obj.question.question_text) > 50
+                else obj.question.question_text
+            ),
+        )
+
+    get_question_info.short_description = "Question"
+
+    def get_audio_status(self, obj):
+        if obj.audio_file:
+            return format_html('<span style="color: green;">✓ Recorded</span>')
+        return format_html('<span style="color: red;">✗ No audio</span>')
+
+    get_audio_status.short_description = "Audio"
+
+    def get_transcript_preview(self, obj):
+        if obj.transcript:
+            preview = obj.transcript[:50]
+            return f"{preview}..." if len(obj.transcript) > 50 else preview
+        return "-"
+
+    get_transcript_preview.short_description = "Transcript"
+
+    def get_audio_player(self, obj):
+        if obj.audio_file:
+            return format_html(
+                '<audio controls style="width: 100%; max-width: 400px;"><source src="{}" type="audio/wav"></audio>',
+                obj.audio_file.url,
+            )
+        return "No audio file"
+
+    get_audio_player.short_description = "Audio Player"
 
 
 # ============================================================================

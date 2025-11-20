@@ -19,7 +19,7 @@ export interface LoginResponse {
     role: string;
     phone?: string;
     is_active: boolean;
-    email_verified: boolean;
+    is_verified: boolean;
   };
   access: string;
   refresh: string;
@@ -32,12 +32,14 @@ export interface AuthError {
   password?: string[];
 }
 
+import { API_BASE_URL } from '@/config/api';
+
 class AuthClient {
   private baseURL: string;
 
   constructor() {
     // Use direct Django URL instead of Next.js proxy
-    this.baseURL = 'https://api.bandbooster.uz/accounts/api';
+    this.baseURL = `${API_BASE_URL}/accounts/api`;
   }
 
   /**

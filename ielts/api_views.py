@@ -3,6 +3,7 @@ API Views for IELTS Mock Test System.
 RESTful API endpoints for Vue.js SPA.
 """
 
+import logging
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -12,10 +13,14 @@ from django.utils import timezone
 from django.db.models import Prefetch, Q, Count
 from collections import defaultdict
 
+logger = logging.getLogger(__name__)
+
 from .models import (
     ExamAttempt,
     MockExam,
     Question,
+    SpeakingQuestion,
+    SpeakingAnswer,
     TestHead,
     UserAnswer,
     WritingAttempt,
@@ -205,30 +210,25 @@ def _calculate_weighted_score(user_answers_queryset):
 def get_available_tests(request):
     """
     Get list of available mock tests.
-
-    Query parameters:
-    - random: if 'true', returns a single randomly selected test
-    - exam_type: filter by specific exam type (e.g., 'FULL_TEST')
     """
-    tests = MockExam.objects.filter(is_active=True)
-
+    # Require email verification to take CD or full mock tests
+    if not request.user.is_verified:
+        return Response(
+            {
+                "error": "Email verification required. Please verify your email to view available tests.",
+                "code": "email_not_verified",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    tests = MockExam.objects.all()  # filter(is_active=True)
+    print("Available tests before filtering:", tests.count())
     # Filter by exam_type if provided
-    exam_type = request.query_params.get("exam_type")
-    if exam_type:
-        tests = tests.filter(exam_type=exam_type)
+    # exam_type = request.query_params.get("exam_type")
+    # if exam_type:
+    #     tests = tests.filter(exam_type=exam_type)
 
-    # Return random test if requested
-    if request.query_params.get("random") == "true":
-        random_test = tests.order_by("?").first()
-        if random_test:
-            serializer = MockExamSerializer(random_test, context={"request": request})
-            return Response([serializer.data])  # Return as array for consistency
-        else:
-            return Response([])
-
-    # Return all tests ordered by creation date
-    tests = tests.order_by("-created_at")
-    serializer = MockExamSerializer(tests, many=True, context={"request": request})
+    tests = tests.order_by("?").first()
+    serializer = MockExamSerializer(tests, context={"request": request})
     return Response(serializer.data)
 
 
@@ -236,6 +236,16 @@ def get_available_tests(request):
 @permission_classes([IsAuthenticated])
 def check_active_attempt(request):
     """Check if user has an active exam attempt in progress."""
+    # Require email verification for checking active attempt
+    if not request.user.is_verified:
+        return Response(
+            {
+                "error": "Email verification required. Please verify your email.",
+                "code": "email_not_verified",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     active_attempt = (
         ExamAttempt.objects.filter(
             student=request.user, status__in=["NOT_STARTED", "IN_PROGRESS"]
@@ -267,6 +277,16 @@ def check_active_attempt(request):
 @permission_classes([IsAuthenticated])
 def get_my_attempts(request):
     """Get all test attempts for the current user."""
+    # Require email verification to access attempts
+    if not request.user.is_verified:
+        return Response(
+            {
+                "error": "Email verification required. Please verify your email.",
+                "code": "email_not_verified",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     attempts = (
         ExamAttempt.objects.filter(student=request.user)
         .select_related("exam", "exam__mock_test")
@@ -360,6 +380,16 @@ def get_my_attempts(request):
 def create_exam_attempt(request, exam_id):
     """Create a new exam attempt for the given exam."""
     from ielts.models import Exam
+
+    # Check if user's email is verified
+    if not request.user.is_verified:
+        return Response(
+            {
+                "error": "Email verification required. Please verify your email before taking exams.",
+                "code": "email_not_verified",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     # Check for existing active attempts (NOT_STARTED or IN_PROGRESS)
     active_attempt = (
@@ -491,13 +521,7 @@ def get_section_data(request, attempt_id, section):
     elif section == "writing":
         return build_writing_data(attempt, request)
     elif section == "speaking":
-        # Speaking section is disabled - will be conducted offline
-        return Response(
-            {
-                "error": "Speaking section is not available online. It will be conducted offline."
-            },
-            status=status.HTTP_403_FORBIDDEN,
-        )
+        return build_speaking_data(attempt, request)
     else:
         return Response(
             {"error": f"Unknown section: {section}"}, status=status.HTTP_400_BAD_REQUEST
@@ -548,12 +572,11 @@ def build_listening_data(attempt, request):
     next_section = section_flows.get(exam_type)
 
     response_data = {
+        "section_name": "listening",
         "parts": serializer.data,
-        # "time_remaining": time_remaining,
+        "time_remaining": time_remaining,
+        "next_section_name": next_section,
     }
-
-    if next_section:
-        response_data["next_section_name"] = next_section
 
     return Response(response_data)
 
@@ -602,12 +625,11 @@ def build_reading_data(attempt, request):
     next_section = section_flows.get(exam_type)
 
     response_data = {
+        "section_name": "reading",
         "passages": serializer.data,
-        # "time_remaining": time_remaining,
+        "time_remaining": time_remaining,
+        "next_section_name": next_section,
     }
-
-    if next_section:
-        response_data["next_section_name"] = next_section
 
     return Response(response_data)
 
@@ -627,7 +649,6 @@ def build_writing_data(attempt, request):
     )
 
     # Determine next section based on exam type
-    # Speaking is disabled (offline only), so writing is the final section
     exam_type = exam.mock_test.exam_type
     section_flows = {
         "LISTENING": None,
@@ -636,17 +657,16 @@ def build_writing_data(attempt, request):
         "SPEAKING": None,
         "LISTENING_READING": None,
         "LISTENING_READING_WRITING": None,
-        "FULL_TEST": None,  # Speaking disabled - writing is now final section
+        "FULL_TEST": "speaking",
     }
     next_section = section_flows.get(exam_type)
 
     response_data = {
+        "section_name": "writing",
         "tasks": serializer.data,
-        # "time_remaining": time_remaining,
+        "time_remaining": time_remaining,
+        "next_section_name": next_section,
     }
-
-    if next_section:
-        response_data["next_section_name"] = next_section
 
     return Response(response_data)
 
@@ -656,37 +676,28 @@ def build_speaking_data(attempt, request):
     exam = attempt.exam
 
     # Get speaking topics for this exam
-    topics = exam.mock_test.speaking_topics.all().order_by("speaking_type")
+    topics = (
+        exam.mock_test.speaking_topics.all()
+        .prefetch_related("questions")
+        .order_by("speaking_type")
+    )
 
-    # Calculate time remaining (11-14 minutes for speaking)
+    # Calculate time remaining (15 minutes for speaking)
     time_remaining = calculate_time_remaining(attempt, 15)
 
     serializer = SpeakingTopicSerializer(
         topics, many=True, context={"request": request, "attempt": attempt}
     )
 
-    # Determine current part based on existing attempts
-    # Since SpeakingAttempt is OneToOne, we check which parts have audio
-    current_part = "PART_1"
-    try:
-        speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
-        if speaking_attempt and speaking_attempt.audio_files:
-            # Find the last completed part
-            if speaking_attempt.audio_files.get("PART_3"):
-                current_part = "PART_3"
-            elif speaking_attempt.audio_files.get("PART_2"):
-                current_part = "PART_3"
-            elif speaking_attempt.audio_files.get("PART_1"):
-                current_part = "PART_2"
-    except SpeakingAttempt.DoesNotExist:
-        pass
+    print(f"DEBUG: Speaking topics data: {serializer.data}")
 
     # Speaking is always the last section, so no next_section_name
     return Response(
         {
+            "section_name": "speaking",
             "topics": serializer.data,
-            "current_part": current_part,
-            # "time_remaining": time_remaining,
+            "time_remaining": time_remaining,
+            "next_section_name": None,
         }
     )
 
@@ -792,19 +803,46 @@ def submit_writing(request, attempt_id):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def submit_speaking(request, attempt_id):
-    """Submit a speaking response (audio file)."""
+    """Submit a speaking response (audio file) for a specific question."""
+    from .models import SpeakingAnswer, SpeakingQuestion
+
     attempt, error_response = get_user_attempt(attempt_id, request.user)
     if error_response:
         return error_response
 
+    print(f"DEBUG: Received speaking submission - Data: {request.data}")
+    print(f"DEBUG: Files: {request.FILES}")
+
     serializer = SpeakingSubmissionSerializer(data=request.data)
     if not serializer.is_valid():
+        print(f"DEBUG: Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    topic_id = serializer.validated_data["topic_id"]
+    question_key = serializer.validated_data["question_key"]
     audio_file = serializer.validated_data["audio_file"]
 
-    topic = get_object_or_404(SpeakingTopic, id=topic_id)
+    print(f"DEBUG: Processing question_key: {question_key}")
+    # Parse question_key to extract speaking_type and question order
+    # Format: speaking_PART_1_q1, speaking_PART_2_q1, etc.
+    try:
+        parts = question_key.split("_")
+        speaking_type = f"{parts[1]}_{parts[2]}"  # PART_1, PART_2, PART_3
+        question_order = int(parts[3][1:])  # Extract number from q1, q2, etc.
+    except (IndexError, ValueError) as e:
+        print(f"DEBUG: Error parsing question_key: {e}")
+        return Response(
+            {"error": "Invalid question_key format"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Get the speaking topic for this exam and speaking type
+    topic = get_object_or_404(
+        SpeakingTopic,
+        mock_tests__in=[attempt.exam.mock_test],
+        speaking_type=speaking_type,
+    )
+
+    # Get the specific question
+    question = get_object_or_404(SpeakingQuestion, topic=topic, order=question_order)
 
     # Get or create speaking attempt (OneToOne with ExamAttempt)
     speaking_attempt, created = SpeakingAttempt.objects.get_or_create(
@@ -815,28 +853,122 @@ def submit_speaking(request, attempt_id):
         },
     )
 
-    # Save the audio file for this specific speaking type
-    # Store the file path in the JSON field
-    if not speaking_attempt.audio_files:
-        speaking_attempt.audio_files = {}
+    print(
+        f"DEBUG: Speaking attempt {'created' if created else 'retrieved'}: {speaking_attempt.id}"
+    )
 
-    # Save the audio file and get its path
+    # Create or update SpeakingAnswer for this specific question
+    speaking_answer, answer_created = SpeakingAnswer.objects.update_or_create(
+        speaking_attempt=speaking_attempt,
+        question=question,
+        defaults={
+            "audio_file": audio_file,
+        },
+    )
+
+    print(
+        f"DEBUG: Speaking answer {'created' if answer_created else 'updated'}: {speaking_answer.id}"
+    )
+
+    # Convert WebM to WAV if needed (for Azure Speech SDK compatibility)
+    import os
+    import subprocess
+    import tempfile
+    from django.core.files import File
     from django.core.files.storage import default_storage
 
-    file_name = f"speaking/{attempt_id}/{topic.speaking_type}_{audio_file.name}"
-    file_path = default_storage.save(file_name, audio_file)
+    file_path = speaking_answer.audio_file.name
+    file_ext = os.path.splitext(file_path)[1].lower()
 
-    # Update the audio_files JSON
-    speaking_attempt.audio_files[topic.speaking_type] = file_path
+    if file_ext in [".webm", ".mp3", ".ogg", ".m4a"]:
+        try:
+            logger.info(f"Converting {file_ext} to WAV for question {question_key}")
+
+            # Download the file to a temporary location
+            with tempfile.NamedTemporaryFile(
+                delete=False, suffix=file_ext
+            ) as temp_input:
+                with default_storage.open(file_path, "rb") as audio_file_obj:
+                    temp_input.write(audio_file_obj.read())
+                temp_input_path = temp_input.name
+
+            # Create temporary WAV file
+            temp_wav_path = temp_input_path.replace(file_ext, ".wav")
+
+            # Convert using ffmpeg
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-i",
+                temp_input_path,
+                "-ar",
+                "16000",  # 16kHz sample rate
+                "-ac",
+                "1",  # mono
+                "-sample_fmt",
+                "s16",  # 16-bit PCM
+                "-y",  # overwrite output file
+                temp_wav_path,
+            ]
+
+            result = subprocess.run(
+                ffmpeg_cmd, capture_output=True, text=True, timeout=30
+            )
+
+            if result.returncode == 0:
+                # Delete the old WebM file
+                default_storage.delete(file_path)
+
+                # Upload the WAV file with the same base name
+                wav_filename = file_path.replace(file_ext, ".wav")
+                with open(temp_wav_path, "rb") as wav_file:
+                    speaking_answer.audio_file.save(
+                        os.path.basename(wav_filename), File(wav_file), save=True
+                    )
+
+                logger.info(
+                    f"Successfully converted and replaced with WAV: {wav_filename}"
+                )
+            else:
+                logger.error(f"ffmpeg conversion failed: {result.stderr}")
+
+            # Clean up temporary files
+            try:
+                os.unlink(temp_input_path)
+                if os.path.exists(temp_wav_path):
+                    os.unlink(temp_wav_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete temp files: {e}")
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"Audio conversion timeout for {question_key}")
+        except FileNotFoundError:
+            logger.error(
+                "ffmpeg not found. Please install ffmpeg to convert audio files."
+            )
+        except Exception as conv_error:
+            logger.error(
+                f"Audio conversion failed for {question_key}: {str(conv_error)}"
+            )
+
+    # Also maintain backward compatibility by updating the JSON field
+    if not speaking_attempt.audio_files:
+        speaking_attempt.audio_files = {}
+    speaking_attempt.audio_files[question_key] = speaking_answer.audio_file.name
     speaking_attempt.save()
+
+    # Build absolute URL for the audio file
+    audio_url = request.build_absolute_uri(speaking_answer.audio_file.url)
 
     return Response(
         {
             "success": True,
-            "topic_id": topic_id,
+            "question_key": question_key,
             "speaking_attempt_id": speaking_attempt.id,
-            "audio_url": request.build_absolute_uri(default_storage.url(file_path)),
-        }
+            "speaking_answer_id": speaking_answer.id,
+            "audio_url": audio_url,
+            "message": "Speaking answer saved successfully",
+        },
+        status=status.HTTP_201_CREATED if answer_created else status.HTTP_200_OK,
     )
 
 
@@ -850,6 +982,7 @@ def submit_speaking(request, attempt_id):
 def next_section(request, attempt_id):
     """Move to the next section of the exam."""
     from django.db import transaction
+    from ielts.tasks import evaluate_speaking_attempt_task
 
     attempt, error_response = get_user_attempt(attempt_id, request.user)
     if error_response:
@@ -860,7 +993,6 @@ def next_section(request, attempt_id):
 
     current = attempt.current_section
     exam_type = attempt.exam.mock_test.exam_type
- 
 
     # Define section flow based on exam type
     section_flows = {
@@ -929,6 +1061,32 @@ def next_section(request, attempt_id):
             f"[NEXT SECTION] Saved: current_section={attempt.current_section}, status={attempt.status}"
         )
 
+    # Trigger speaking evaluation if moving from speaking section
+    if current == "speaking" and next_section == "COMPLETED":
+        try:
+            speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
+
+            # Check if there are any speaking answers
+            speaking_answers_count = SpeakingAnswer.objects.filter(
+                speaking_attempt=speaking_attempt
+            ).count()
+
+            if speaking_answers_count > 0:
+                # Set status to PENDING before queuing
+                speaking_attempt.evaluation_status = (
+                    SpeakingAttempt.EvaluationStatus.PENDING
+                )
+                speaking_attempt.save(update_fields=["evaluation_status"])
+
+                # Queue Celery task for AI evaluation
+                evaluate_speaking_attempt_task.delay(str(speaking_attempt.uuid))
+
+                logger.info(
+                    f"Queued speaking evaluation after completing speaking section for attempt {attempt.id}"
+                )
+        except SpeakingAttempt.DoesNotExist:
+            logger.info(f"No speaking attempt found for exam attempt {attempt.id}")
+
     return Response(
         {
             "success": True,
@@ -942,7 +1100,7 @@ def next_section(request, attempt_id):
 @permission_classes([IsAuthenticated])
 def submit_test(request, attempt_id):
     """Submit the entire test and mark as completed."""
-    from ielts.tasks import process_writing_check_task
+    from ielts.tasks import process_writing_check_task, evaluate_speaking_attempt_task
 
     attempt, error_response = get_user_attempt(attempt_id, request.user)
     if error_response:
@@ -980,6 +1138,36 @@ def submit_test(request, attempt_id):
 
             # Queue Celery task for AI analysis (use UUID for task identifier)
             process_writing_check_task.delay(str(writing_attempt.uuid))
+
+    # Automatically trigger AI speaking evaluation if exam has speaking section
+    if exam_type in [
+        "SPEAKING",
+        "FULL_TEST",
+    ]:
+        try:
+            speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
+
+            # Check if there are any speaking answers
+            speaking_answers_count = SpeakingAnswer.objects.filter(
+                speaking_attempt=speaking_attempt
+            ).count()
+
+            if speaking_answers_count > 0:
+                # Set status to PENDING before queuing
+                speaking_attempt.evaluation_status = (
+                    SpeakingAttempt.EvaluationStatus.PENDING
+                )
+                speaking_attempt.save(update_fields=["evaluation_status"])
+
+                # Queue Celery task for AI evaluation (use UUID for task identifier)
+                evaluate_speaking_attempt_task.delay(str(speaking_attempt.uuid))
+
+                logger.info(
+                    f"Queued speaking evaluation for attempt {attempt.id}, "
+                    f"speaking_attempt {speaking_attempt.id}"
+                )
+        except SpeakingAttempt.DoesNotExist:
+            logger.info(f"No speaking attempt found for exam attempt {attempt.id}")
 
     return Response(
         {

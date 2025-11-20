@@ -97,6 +97,7 @@ from .api.books import (
     create_section,
     update_section,
     delete_section,
+    bulk_save_sections_manager,
     reorder_sections,
     get_available_content,
     get_book_stats,
@@ -348,6 +349,11 @@ urlpatterns = [
         "books/<int:book_id>/reorder-sections/",
         reorder_sections,
         name="reorder_sections",
+    ),
+    path(
+        "books/<int:book_id>/sections/bulk-save/",
+        bulk_save_sections_manager,
+        name="bulk_save_sections_manager",
     ),
     # Book Sections Management
     path("sections/", get_sections_manager, name="sections_list"),

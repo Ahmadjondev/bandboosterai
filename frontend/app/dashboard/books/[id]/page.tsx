@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DashboardLayout } from '@/components/DashboardLayout';
+
 import { BookDetailResponse, BookSection } from '@/types/books';
 import {
   getBookDetail,
@@ -53,20 +53,20 @@ export default function BookDetailPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600 dark:text-gray-400">Loading book details...</p>
           </div>
         </div>
-      </DashboardLayout>
+      
     );
   }
 
   if (error || !book) {
     return (
-      <DashboardLayout>
+      
         <div className="p-4 sm:p-6 lg:p-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
             <h3 className="text-red-800 dark:text-red-200 font-semibold mb-2">Error loading book</h3>
@@ -79,7 +79,7 @@ export default function BookDetailPage() {
             </div>
           </div>
         </div>
-      </DashboardLayout>
+      
     );
   }
 
@@ -89,7 +89,7 @@ export default function BookDetailPage() {
     : 0;
 
   return (
-    <DashboardLayout>
+    
       <div className="p-4 sm:p-6 lg:p-8">
       {/* Back Button */}
       <Link
@@ -207,7 +207,7 @@ export default function BookDetailPage() {
         )}
       </div>
       </div>
-    </DashboardLayout>
+    
   );
 }
 

@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from './AuthProvider';
+import { LandingNavbar } from './LandingNavbar';
 
 export function HeroSection() {
   const { user, loading } = useAuth();
@@ -11,57 +11,7 @@ export function HeroSection() {
   return (
     <section className="relative min-h-screen flex flex-col overflow-hidden bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:via-indigo-950 dark:to-slate-950">
       {/* Navigation Bar */}
-      <nav className="relative z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-3">
-              <Image 
-                src="/logo.svg" 
-                alt="BandBooster Logo" 
-                width={40} 
-                height={40}
-                className="w-10 h-10"
-              />
-              <span className="text-2xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                BandBooster
-              </span>
-            </Link>
-
-            {/* Nav Links */}
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-              {!loading && (
-                <>
-                  {user ? (
-                    <Link
-                      href="/dashboard"
-                      className="px-6 py-2 rounded-full bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:scale-105 transition-all"
-                    >
-                      Go to Dashboard
-                    </Link>
-                  ) : (
-                    <>
-                      <Link
-                        href="/login"
-                        className="px-6 py-2 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
-                      >
-                        Sign In
-                      </Link>
-                      <Link
-                        href="/register"
-                        className="px-6 py-2 rounded-full bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:scale-105 transition-all"
-                      >
-                        Get Started
-                      </Link>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
+      <LandingNavbar />
 
       {/* Hero Content */}
       <div className="relative flex-1 flex items-center justify-center">
@@ -93,13 +43,13 @@ export function HeroSection() {
           </div>
 
           {/* Main Heading with improved typography */}
-          <div className="space-y-6">
+          <div className="space-y-1">
             <h1 className="text-6xl md:text-8xl font-bold tracking-tight leading-tight">
               <span className="block text-slate-900 dark:text-white mb-4">
-                Conquer Your
+                Own Your
               </span>
               <span className="block bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
-                IELTS Journey
+                IELTS Success
               </span>
             </h1>
 
@@ -110,7 +60,7 @@ export function HeroSection() {
         </div>
 
           {/* Enhanced CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             {!loading && (
               <>
                 {user ? (
@@ -155,10 +105,10 @@ export function HeroSection() {
           </div>
 
           {/* Trust indicators with icons */}
-          <div className="pt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
+          <div className=" grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
             <div className="space-y-3 p-6 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
               <div className="text-4xl">📚</div>
-              <div className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white">1000+</div>
+              <div className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white">500+</div>
               <div className="text-sm font-medium text-slate-600 dark:text-slate-400">Practice Questions</div>
             </div>
             <div className="space-y-3 p-6 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
@@ -173,7 +123,7 @@ export function HeroSection() {
             </div>
             <div className="space-y-3 p-6 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
               <div className="text-4xl">👥</div>
-              <div className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white">10K+</div>
+              <div className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white">1K+</div>
               <div className="text-sm font-medium text-slate-600 dark:text-slate-400">Active Students</div>
             </div>
           </div>

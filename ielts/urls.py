@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views, api_views
-from .api_views_dashboard import get_dashboard_stats
+from .api_views_dashboard import get_dashboard_stats, clear_dashboard_cache
 
 app_name = "ielts"
 
@@ -9,6 +9,11 @@ urlpatterns = [
     path("api/ping/", api_views.ping, name="api_ping"),
     # Dashboard stats
     path("api/dashboard/stats/", get_dashboard_stats, name="api_dashboard_stats"),
+    path(
+        "api/dashboard/clear-cache/",
+        clear_dashboard_cache,
+        name="api_clear_dashboard_cache",
+    ),
     # Web views for exam interface (use 'attempt' prefix to avoid conflicts)
     # Support both UUID and integer ID for public-facing URLs
     path("attempt/<str:attempt_id>/", views.exam_view, name="exam"),

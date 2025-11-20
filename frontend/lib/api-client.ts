@@ -1,6 +1,8 @@
 import type { ApiResponse, ApiError } from '@/types/api';
+import { API_BASE_URL } from '@/config/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.bandbooster.uz';
+// Specialized error thrown when API requires email verification
+// EmailNotVerifiedError defined at top of file
 
 interface FetchOptions extends RequestInit {
   token?: string;
@@ -96,8 +98,12 @@ class ApiClient {
 
   let accessToken = token || getAccessToken();
 
+  // Check if body is FormData - if so, don't set Content-Type
+  const isFormData = restOptions.body instanceof FormData;
+
 const headers: Record<string, string> = {
-  "Content-Type": "application/json",
+  // Only set Content-Type for non-FormData requests
+  ...(!isFormData && { "Content-Type": "application/json" }),
   ...(typeof customHeaders === "object" &&
   customHeaders !== null &&
   !Array.isArray(customHeaders)
@@ -128,6 +134,14 @@ const headers: Record<string, string> = {
     }
 
     const data = await response.json().catch(() => null);
+
+    // If backend indicates email is not verified, throw a specific error
+    if (data && data.code === 'email_not_verified') {
+      // Throw the exported EmailNotVerifiedError instance so callers can use
+      // `instanceof EmailNotVerifiedError` to handle verification state.
+      const err = new EmailNotVerifiedError(data?.error || 'Email verification required', data);
+      throw err;
+    }
 
     // ❗ Validation error inside a 200 response
     if (
@@ -208,10 +222,15 @@ const headers: Record<string, string> = {
     data?: unknown,
     options?: FetchOptions
   ): Promise<ApiResponse<T>> {
+    // Check if data is FormData - if so, don't stringify and let browser set Content-Type
+    const isFormData = data instanceof FormData;
+    
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: isFormData ? data as FormData : (data ? JSON.stringify(data) : undefined),
+      // If FormData, remove Content-Type header to let browser set it with boundary
+      ...(isFormData && { headers: { ...options?.headers } }),
     });
   }
 
@@ -257,6 +276,28 @@ export const apiClient = new ApiClient();
 
 // Export token management functions for use in auth.ts
 export { getAccessToken, getRefreshToken, setTokens, clearTokens };
+
+// Export a helper type/class for catching verification errors
+// Export a helper class for catching verification errors. Use a global guard
+// to avoid "the name X is defined multiple times" errors during Next.js
+// hot-reloads where modules may be evaluated multiple times.
+// See: https://nextjs.org/docs/messages/duplicate-global
+const __globalAny: any = globalThis as any;
+if (!__globalAny.__EmailNotVerifiedError) {
+  class EmailNotVerifiedErrorClass extends Error {
+    response?: any;
+    constructor(message: string = 'Email verification required', response?: any) {
+      super(message);
+      this.name = 'EmailNotVerifiedError';
+      this.response = response;
+    }
+  }
+
+  __globalAny.__EmailNotVerifiedError = EmailNotVerifiedErrorClass;
+}
+
+export const EmailNotVerifiedError = __globalAny.__EmailNotVerifiedError as unknown as
+  new (message?: string, response?: any) => Error;
 
 // ============================================================================
 // WRITING CHECKER API

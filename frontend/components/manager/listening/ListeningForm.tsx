@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/manager/auth-client';
+import { API_BASE_URL } from '@/config/api';
 import { managerAPI } from '@/lib/manager/api-client';
 import AudioUploader from './AudioUploader';
 import { uploadWithProgress } from '@/lib/manager/upload';
@@ -31,7 +32,7 @@ export default function ListeningForm({ mode, id }: Props) {
   const [initialAudioUrl, setInitialAudioUrl] = useState<string | null>(null);
   const [initialAudioFilename, setInitialAudioFilename] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
-  const BASE_API_URL = 'https://api.bandbooster.uz/manager/api';
+  const BASE_API_URL = `${API_BASE_URL}/manager/api`;
   const [form, setForm] = useState<Partial<ListeningPart>>({
     part_number: 1,
     title: '',

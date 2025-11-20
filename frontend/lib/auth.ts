@@ -189,21 +189,6 @@ export async function verifyCode(code: string): Promise<{ message: string }> {
 }
 
 /**
- * Check email verification status
- */
-export async function checkVerificationStatus(): Promise<{ email_verified: boolean; email: string; has_email: boolean }> {
-  try {
-    const response = await apiClient.get<{ email_verified: boolean; email: string; has_email: boolean }>('/accounts/api/verification-status/');
-    if (!response.data) {
-      throw new Error('No response data');
-    }
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-}
-
-/**
  * Purchase CD exam for 50,000 UZS
  */
 export async function purchaseCDExam(): Promise<{ new_balance: number; amount_paid: number }> {

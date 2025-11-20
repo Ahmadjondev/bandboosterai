@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/DashboardLayout';
+
 import { useAuth } from '@/components/AuthProvider';
 import { apiClient } from '@/lib/api-client';
 import { Toast } from '@/components/Toast';
@@ -106,19 +106,19 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <DashboardLayout>
+      
         <div className="p-4 sm:p-6 lg:p-8 flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-600 dark:text-slate-400">Loading profile...</p>
           </div>
         </div>
-      </DashboardLayout>
+      
     );
   }
 
   return (
-    <DashboardLayout>
+    <div>
       {/* Toast Notification */}
       <Toast
         show={toast.show}
@@ -167,16 +167,16 @@ export default function ProfilePage() {
               
               {/* Email Verification Status */}
               <div className={`px-4 py-3 rounded-xl mb-4 ${
-             user.email_verified 
+             user.is_verified 
                   ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                   : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
               }`}>
                 <div className="flex items-center justify-center gap-2 text-sm">
                   <span className="text-lg">
-                {user.email_verified ? '✅' : '⚠️'}
+                {user.is_verified ? '✅' : '⚠️'}
                   </span>
-                  <span className={user.email_verified ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'}>
-                {user.email_verified ? 'Email Verified' : 'Email Not Verified'}
+                  <span className={user.is_verified ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'}>
+                {user.is_verified ? 'Email Verified' : 'Email Not Verified'}
                   </span>
                 </div>
               </div>
@@ -320,7 +320,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
 

@@ -78,6 +78,7 @@ class BookSectionSerializer(serializers.ModelSerializer):
         source="get_section_type_display", read_only=True
     )
     title = serializers.SerializerMethodField()
+    # file urls removed - managed by content objects
     # content = serializers.SerializerMethodField()
     user_status = serializers.SerializerMethodField()
 
@@ -171,6 +172,8 @@ class BookSectionSerializer(serializers.ModelSerializer):
             "attempt_count": attempt_count,
             "is_accessible": is_accessible,
         }
+
+    # file url methods removed; files are now managed via content objects such as ReadingPassage/ListeningPart
 
 
 class BookSectionDetailSerializer(BookSectionSerializer):

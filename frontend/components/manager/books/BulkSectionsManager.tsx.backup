@@ -1,0 +1,539 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { managerAPI } from "@/lib/manager";
+import type { BookSection } from "@/types/books";
+import { LoadingSpinner, Alert } from "@/components/manager/shared";
+import type { AvailableContent } from '@/types/manager/books';
+
+interface SectionEditRow extends Partial<BookSection> {
+  temp_id?: string; // used for new rows
+  _deleted?: boolean;
+  _collapsed?: boolean;
+  _validationErrors?: string[];
+}
+
+interface Props {
+  bookId: number;
+}
+
+export default function BulkSectionsManager({ bookId }: Props) {
+  const [items, setItems] = useState<SectionEditRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [availableContent, setAvailableContent] = useState<Record<string, AvailableContent[]>>({
+    READING: [],
+    LISTENING: [],
+  });
+  const [searchQueries, setSearchQueries] = useState<Record<string, string>>({ READING: '', LISTENING: '' });
+
+  useEffect(() => {
+    fetchSections();
+    // Prefetch both types for default search
+    fetchAvailableContent('READING');
+    fetchAvailableContent('LISTENING');
+  }, [bookId]);
+
+  const fetchSections = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await managerAPI.getSections({ book_id: bookId });
+      // managerAPI returns paginated response: { sections, pagination }
+      const list = data.sections || [];
+      setItems(
+        list.map((s) => ({
+          ...s,
+        }))
+      );
+    } catch (err: any) {
+      setError(err.message || "Failed to load sections");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addRows = (n: number) => {
+    const maxOrder = items.length ? Math.max(...items.map((s) => s.order || 0)) : 0;
+    const newRows: SectionEditRow[] = Array.from({ length: n }).map((_, i) => ({
+      temp_id: Math.random().toString(36).substring(2, 9),
+      book: bookId,
+      section_type: "READING",
+      title: "",
+      description: "",
+      order: maxOrder + (i + 1),
+      is_locked: false,
+    }));
+    setItems((prev) => [...prev, ...newRows]);
+  };
+
+  const fetchAvailableContent = async (type: 'READING' | 'LISTENING', query: string = '') => {
+    try {
+      const res = await managerAPI.getAvailableContent(type === 'READING' ? 'reading' : 'listening', query);
+      setAvailableContent((prev) => ({ ...prev, [type]: res.content || [] }));
+    } catch (err) {
+      // Ignore failures for available content
+    }
+  };
+
+  const deleteRow = (index: number) => {
+    const row = items[index];
+    if (row && (row.id || confirm("Delete this new section?"))) {
+      // If existing, mark deleted; if new, remove
+      setItems((prev) => {
+        const copy = [...prev];
+        if (row.id) {
+          copy[index]._deleted = true;
+          return copy;
+        }
+        copy.splice(index, 1);
+        return copy;
+      });
+    }
+  };
+
+  const updateField = (index: number, key: string, value: any) => {
+    setItems((prev) => {
+      const copy = [...prev];
+      (copy[index] as any)[key] = value;
+      return copy;
+    });
+  };
+
+  // Debounced search for available content per type
+  useEffect(() => {
+    const ids = Object.keys(searchQueries) as Array<'READING' | 'LISTENING'>;
+    const timers: Record<string, any> = {};
+    ids.forEach((id) => {
+      const q = searchQueries[id];
+      timers[id] = setTimeout(() => {
+        fetchAvailableContent(id, q);
+      }, 450);
+    });
+    return () => ids.forEach((id) => clearTimeout(timers[id]));
+  }, [searchQueries]);
+
+  const moveUp = (index: number) => {
+    if (index <= 0) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      copy.splice(index - 1, 0, item);
+      // Update orders
+      copy.forEach((c, i) => (c.order = i + 1));
+      return copy;
+    });
+  };
+
+  const moveDown = (index: number) => {
+    if (index >= items.length - 1) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      copy.splice(index + 1, 0, item);
+      copy.forEach((c, i) => (c.order = i + 1));
+      return copy;
+    });
+  };
+
+  const handleDragStart = (index: number) => {
+    setDragIndex(index);
+  };
+
+  const handleDropAt = (index: number) => {
+    if (dragIndex === null) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(dragIndex, 1);
+      copy.splice(index, 0, item);
+      copy.forEach((c, i) => (c.order = i + 1));
+      return copy;
+    });
+    setDragIndex(null);
+  };
+
+  // File uploads are handled on content objects (reading/listening) and not on sections
+
+  const validateBeforeSave = () => {
+    const errors: string[] = [];
+    const updatedItems = [...items];
+    
+    items.forEach((row, idx) => {
+      const rowErrors: string[] = [];
+      if (row._deleted) return;
+      
+      if (!row.section_type) rowErrors.push('Section type is required');
+      
+      if (row.section_type === 'READING' && !row.reading_passage) {
+        rowErrors.push('Select a Reading passage');
+      }
+
+      if (row.section_type === 'LISTENING' && !row.listening_part) {
+        rowErrors.push('Select a Listening part');
+      }
+      
+      if (!row.id && !row.title) rowErrors.push('Title is required for new sections');
+      
+      if (rowErrors.length) {
+        errors.push(`Row ${idx + 1}: ${rowErrors.join(', ')}`);
+        updatedItems[idx]._validationErrors = rowErrors;
+      } else {
+        updatedItems[idx]._validationErrors = [];
+      }
+    });
+    
+    setItems(updatedItems);
+    return errors;
+  };
+
+  const saveAll = async () => {
+    setSuccess(null);
+    setError(null);
+
+    const validation = validateBeforeSave();
+    if (validation.length) {
+      setError(validation.join("\n"));
+      return;
+    }
+
+    const formData = new FormData();
+
+    // Build sections payload and files
+    const sectionsPayload: any[] = [];
+    const deletedIds: number[] = [];
+
+    items.forEach((row, index) => {
+      if (row._deleted) {
+        if (row.id) deletedIds.push(row.id);
+        return;
+      }
+
+      const item: any = {
+        id: row.id,
+        section_type: row.section_type,
+        title: row.title,
+        description: row.description,
+        order: row.order || index + 1,
+        duration_minutes: row.duration_minutes || null,
+        is_locked: !!row.is_locked,
+        reading_passage: (row as any).reading_passage?.id || (row as any).reading_passage || null,
+        listening_part: (row as any).listening_part?.id || (row as any).listening_part || null,
+      };
+
+      if (!row.id) item.temp_id = row.temp_id;
+
+      sectionsPayload.push(item);
+
+      // Attach files: keys either by id or temp id
+      const keyBase = row.id ? row.id : row.temp_id;
+      // No files upload from sections
+    });
+
+    formData.append("sections", JSON.stringify(sectionsPayload));
+    if (deletedIds.length) formData.append("deleted_ids", JSON.stringify(deletedIds));
+
+    try {
+      setSaving(true);
+      const resp = await managerAPI.bulkSaveBookSections(bookId, formData);
+      setSuccess("Saved successfully");
+      // Refresh list
+      fetchSections();
+    } catch (err: any) {
+      setError(err.message || 'Failed to save sections');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetAll = () => {
+    fetchSections();
+    setSuccess(null);
+    setError(null);
+  };
+
+  const toggleCollapse = (index: number) => {
+    setItems((prev) => {
+      const copy = [...prev];
+      copy[index]._collapsed = !copy[index]._collapsed;
+      return copy;
+    });
+  };
+
+  const collapseAll = () => {
+    setItems((prev) => prev.map((item) => ({ ...item, _collapsed: true })));
+  };
+
+  const expandAll = () => {
+    setItems((prev) => prev.map((item) => ({ ...item, _collapsed: false })));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Action Bar */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Add Buttons */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Add:</span>
+            <button 
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+              onClick={() => addRows(1)}
+            >
+              <span>+</span>
+              <span>1 Row</span>
+            </button>
+            <button 
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+              onClick={() => addRows(5)}
+            >
+              <span>+</span>
+              <span>5 Rows</span>
+            </button>
+            <button 
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+              onClick={() => addRows(20)}
+            >
+              <span>+</span>
+              <span>20 Rows</span>
+            </button>
+          </div>
+
+          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+          {/* View Controls */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">View:</span>
+            <button 
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors"
+              onClick={expandAll}
+            >
+              Expand All
+            </button>
+            <button 
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors"
+              onClick={collapseAll}
+            >
+              Collapse All
+            </button>
+          </div>
+
+          {/* Save/Reset Actions */}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={resetAll}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors text-sm font-medium"
+            >
+              Reset Changes
+            </button>
+            <button
+              onClick={saveAll}
+              disabled={saving}
+              className="px-5 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <span>💾</span>
+                  <span>Save All Changes</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500 dark:text-gray-400">Total Sections:</span>
+            <span className="font-semibold text-gray-900 dark:text-white">{items.filter(i => !i._deleted).length}</span>
+          </div>
+          {items.filter(i => !i.id && !i._deleted).length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 dark:text-gray-400">New:</span>
+              <span className="font-semibold text-blue-600">{items.filter(i => !i.id && !i._deleted).length}</span>
+            </div>
+          )}
+          {items.filter(i => i._deleted).length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 dark:text-gray-400">To Delete:</span>
+              <span className="font-semibold text-red-600">{items.filter(i => i._deleted).length}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {error && <Alert type="error" message={error} />}
+      {success && <Alert type="success" message={success} />}
+
+      <div className="space-y-2">
+        {items.length === 0 ? (
+          <div className="p-6 text-center bg-white dark:bg-gray-800 rounded">No sections</div>
+        ) : (
+          items.map((row, idx) => (
+            <div
+              key={row.id || row.temp_id}
+              className={`flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded ${row._deleted ? 'opacity-50 line-through' : ''} ${dragIndex === idx ? 'ring-2 ring-blue-300' : ''}`}
+              draggable
+              onDragStart={() => handleDragStart(idx)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDropAt(idx)}
+            >
+              <div className="w-10 text-sm text-slate-500">#{row.order || idx + 1}</div>
+
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500">Type</label>
+                  <select
+                    value={row.section_type}
+                    onChange={(e) => {
+                      const newType = e.target.value as 'READING' | 'LISTENING';
+                      updateField(idx, 'section_type', newType);
+                      // clear the other content
+                      if (newType === 'READING') {
+                        updateField(idx, 'listening_part', null);
+                      } else {
+                        updateField(idx, 'reading_passage', null);
+                      }
+                    }}
+                    className="w-full px-2 py-1 rounded border"
+                  >
+                    <option value="READING">Reading</option>
+                    <option value="LISTENING">Listening</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500">Title</label>
+                  <input
+                    className="w-full px-2 py-1 rounded border"
+                    value={row.title || ''}
+                    onChange={(e) => updateField(idx, 'title', e.target.value)}
+                    placeholder="Title"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500">Description</label>
+                  <input
+                    className="w-full px-2 py-1 rounded border"
+                    value={row.description || ''}
+                    onChange={(e) => updateField(idx, 'description', e.target.value)}
+                    placeholder="Short description"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500">Content</label>
+                  {row.section_type === 'READING' ? (
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Search passages..."
+                        value={searchQueries.READING}
+                        onChange={(e) => setSearchQueries((s) => ({ ...s, READING: e.target.value }))}
+                        className="w-full px-2 py-1 rounded border mb-1"
+                      />
+                      <select
+                        value={(row as any).reading_passage?.id || (row as any).reading_passage || ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value) : null;
+                          updateField(idx, 'reading_passage', val);
+                          const selected = availableContent.READING?.find((c) => c.id === val);
+                          if (selected && !row.title) {
+                            updateField(idx, 'title', selected.title);
+                          }
+                        }}
+                        className="w-full px-2 py-1 rounded border"
+                      >
+                        <option value="">-- Select passage --</option>
+                        {availableContent.READING?.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {`Passage ${p.passage_number || ''} — ${p.title}`}
+                          </option>
+                        ))}
+                      </select>
+                      {(row as any).reading_passage && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          Linked: {availableContent.READING?.find((c) => c.id === ((row as any).reading_passage?.id || (row as any).reading_passage))?.title || 'Unknown'}
+                          <button onClick={() => updateField(idx, 'reading_passage', null)} className="ml-2 text-blue-600">Clear</button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Search parts..."
+                        value={searchQueries.LISTENING}
+                        onChange={(e) => setSearchQueries((s) => ({ ...s, LISTENING: e.target.value }))}
+                        className="w-full px-2 py-1 rounded border mb-1"
+                      />
+                      <select
+                        value={(row as any).listening_part?.id || (row as any).listening_part || ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value) : null;
+                          updateField(idx, 'listening_part', val);
+                          const selected = availableContent.LISTENING?.find((c) => c.id === val);
+                          if (selected && !row.title) {
+                            updateField(idx, 'title', selected.title);
+                          }
+                        }}
+                        className="w-full px-2 py-1 rounded border"
+                      >
+                        <option value="">-- Select part --</option>
+                        {availableContent.LISTENING?.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {`Part ${p.part_number || ''} — ${p.title}`}
+                          </option>
+                        ))}
+                      </select>
+                      {(row as any).listening_part && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          Linked: {availableContent.LISTENING?.find((c) => c.id === ((row as any).listening_part?.id || (row as any).listening_part))?.title || 'Unknown'}
+                          <button onClick={() => updateField(idx, 'listening_part', null)} className="ml-2 text-blue-600">Clear</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500">Files</label>
+                    <div className="text-xs text-gray-400">Use linked Reading/Listening content to add files</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                  <button className="px-2 py-1 text-xs rounded bg-gray-100" onClick={() => moveUp(idx)}>▲</button>
+                  <button className="px-2 py-1 text-xs rounded bg-gray-100" onClick={() => moveDown(idx)}>▼</button>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => deleteRow(idx)} className="px-3 py-1 text-sm rounded bg-red-500 text-white">Delete</button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

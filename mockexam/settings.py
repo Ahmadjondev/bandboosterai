@@ -15,7 +15,6 @@ DEBUG = config("DEBUG", default=True, cast=bool)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
 
 
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -107,7 +106,6 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 
-
 AUTH_PASSWORD_VALIDATORS = [
     # {
     #     "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -124,7 +122,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "Asia/Tashkent"
@@ -132,7 +129,6 @@ TIME_ZONE = "Asia/Tashkent"
 USE_I18N = True
 
 USE_TZ = True
-
 
 
 STATIC_URL = "/static/"
@@ -176,14 +172,15 @@ AWS_MEDIA_LOCATION = "media"  # Media files subfolder in bucket
 AWS_STATIC_LOCATION = "static"  # Static files subfolder (if using S3 for static)
 
 # Media files configuration
-USE_S3_STORAGE = config("USE_S3_STORAGE", default=True, cast=bool)
-
-if (
-    USE_S3_STORAGE
+# Use S3 storage in production (DEBUG=False) if credentials are available
+USE_S3_STORAGE = (
+    not DEBUG
     and AWS_ACCESS_KEY_ID
     and AWS_SECRET_ACCESS_KEY
     and AWS_STORAGE_BUCKET_NAME
-):
+)
+
+if USE_S3_STORAGE:
     # Use S3 for media files via our custom backend
     # This points to `storage_backends.MediaStorage` so we can set defaults
     # such as location, default_acl, and file_overwrite in one place.
@@ -252,6 +249,13 @@ else:
                 "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
             },
         }
+
+# Print storage configuration on startup
+print(f"[STORAGE CONFIG] DEBUG={DEBUG}, USE_S3_STORAGE={USE_S3_STORAGE}")
+if USE_S3_STORAGE:
+    print(f"[STORAGE CONFIG] Using Timeweb S3: {AWS_STORAGE_BUCKET_NAME}")
+else:
+    print(f"[STORAGE CONFIG] Using local file storage: {MEDIA_ROOT}")
 
 # Login URLs
 # LOGIN_URL = "/login/"
@@ -398,6 +402,47 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@cdielts.com")
 
 # Frontend URL for email verification links
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
+
+# ============================================================================
+# TELEGRAM BOT CONFIGURATION
+# ============================================================================
+TELEGRAM_BOT_TOKEN = config("TELEGRAM_BOT_TOKEN", default=None)
+TELEGRAM_BOT_USERNAME = config("TELEGRAM_BOT_USERNAME", default=None)
+
+# ============================================================================
+# GOOGLE OAUTH CONFIGURATION
+# ============================================================================
+GOOGLE_OAUTH_CLIENT_ID = config("GOOGLE_OAUTH_CLIENT_ID", default=None)
+
+# ============================================================================
+# REDIS CACHE CONFIGURATION
+# ============================================================================
+REDIS_URL = config("REDIS_URL", default="redis://localhost:6379")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",  # Use database 1 for caching
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "mockexam_cache",
+        "TIMEOUT": 300,  # Default timeout: 5 minutes
+    },
+    "dashboard": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/2",  # Use database 2 for dashboard cache
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "dashboard",
+        "TIMEOUT": 900,  # Dashboard cache: 15 minutes
+    },
+}
+
+# Cache key versioning
+CACHE_MIDDLEWARE_KEY_PREFIX = "mockexam"
+CACHE_MIDDLEWARE_SECONDS = 600  # 10 minutes
 
 # ============================================================================
 # CELERY CONFIGURATION

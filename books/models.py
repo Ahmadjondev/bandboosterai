@@ -139,6 +139,8 @@ class BookSection(models.Model):
     description = models.TextField(
         null=True, blank=True, verbose_name="Description", help_text="Section overview"
     )
+    # NOTE: file fields were removed (audio, pdf, image). Files should be linked to
+    # content objects (e.g., ListeningPart) instead of BookSection to avoid duplication.
     total_questions = models.PositiveIntegerField(
         default=0,
         verbose_name="Total Questions",

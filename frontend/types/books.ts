@@ -83,6 +83,7 @@ export interface BookSection {
     attempt_count: number;
     is_accessible: boolean;
   };
+  // file fields removed from BookSection - use ReadingPassage/ListeningPart for media
 }
 
 /**

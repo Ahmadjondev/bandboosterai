@@ -1,53 +1,85 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import Link from "next/link";
-import { DashboardLayout } from "@/components/DashboardLayout";
-import BooksMotivationWidget from "@/components/BooksMotivationWidget";
-import { getDashboardStats, type DashboardStats } from "@/lib/exam-api";
-import { BookOpen, Clock, Target, TrendingUp } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+import { getDashboardStats, clearDashboardCache, type DashboardStats } from "@/lib/exam-api";
+import { BookOpen, Clock, Target, TrendingUp, RefreshCw } from "lucide-react";
+
+// Lazy load heavy components for better initial load performance
+const BooksMotivationWidget = lazy(() => import("@/components/BooksMotivationWidget"));
+const AchievementsWidget = lazy(() => import("@/components/dashboard/AchievementsWidget"));
+const WeeklyProgressChart = lazy(() => import("@/components/dashboard/WeeklyProgressChart"));
+const RecommendationsWidget = lazy(() => import("@/components/dashboard/RecommendationsWidget"));
+const PerformanceInsights = lazy(() => import("@/components/dashboard/PerformanceInsights"));
+const ScoreHistoryChart = lazy(() => import("@/components/dashboard/ScoreHistoryChart"));
+const ActivityHeatmapWidget = lazy(() => import("@/components/dashboard/ActivityHeatmapWidget"));
+const MotivationalBanner = lazy(() => import("@/components/dashboard/MotivationalBanner"));
+const SkillGapsWidget = lazy(() => import("@/components/dashboard/SkillGapsWidget"));
+const LearningVelocityCard = lazy(() => import("@/components/dashboard/LearningVelocityCard"));
+const QuickStatsPanel = lazy(() => import("@/components/dashboard/QuickStatsPanel"));
+
+// Component loading fallback
+const ComponentLoader = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 animate-pulse">
+    <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
+  </div>
+);
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadStats = async () => {
+    try {
+      const data = await getDashboardStats();
+      setStats(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await clearDashboardCache();
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to refresh dashboard");
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadStats() {
-      try {
-        const data = await getDashboardStats();
-        setStats(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load dashboard");
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadStats();
   }, []);
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (error || !stats) {
     return (
-      <DashboardLayout>
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
           <h3 className="text-red-800 dark:text-red-300 font-semibold mb-2">Error Loading Dashboard</h3>
           <p className="text-red-600 dark:text-red-400">{error || "Unknown error occurred"}</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
@@ -67,24 +99,46 @@ export default function DashboardPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-8 p-4 sm:p-6 lg:p-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Dashboard
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Track your IELTS preparation progress
-            </p>
+    <div className="space-y-8 p-4 sm:p-6 lg:p-8">
+        {/* Email Verification Banner */}
+        {/* {user && !user.is_verified && (
+          <EmailVerificationBanner email={user.email} />
+        )} */}
+
+        {/* Hero Header */}
+        <div className="relative overflow-hidden rounded-2xl bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-white">
+          <div className="absolute inset-0 bg-black/10">
+            <div className="absolute inset-0 opacity-20">
+              <div className="absolute top-0 left-0 w-96 h-96 bg-white/20 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+            </div>
           </div>
-          <Link
-            href="/dashboard/cd-exam"
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-          >
-            Take New Test
-          </Link>
+
+          <div className="relative flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex-1">
+              <h1 className="text-4xl font-bold mb-2">
+                Welcome back, {user?.first_name || "Student"}! 👋
+              </h1>
+              <p className="text-white/90 text-lg">
+                Your IELTS journey continues - track progress, earn achievements, and reach your goals!
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="px-4 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <Link
+                href="/dashboard/cd-exam"
+                className="px-6 py-3 bg-white text-blue-600 hover:bg-gray-100 rounded-lg transition-colors font-medium shadow-lg"
+              >
+                Start New Test
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* Overview Stats */}
@@ -124,7 +178,9 @@ export default function DashboardPage() {
         {/* Books Motivation Widget */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <BooksMotivationWidget />
+            <Suspense fallback={<ComponentLoader />}>
+              <BooksMotivationWidget />
+            </Suspense>
           </div>
           
           {/* Section Performance */}
@@ -290,29 +346,80 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Quick Actions */}
-        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <ActionCard
-            title="Practice Tests"
-            description="Take full-length IELTS mock exams"
-            href="/dashboard/tests"
-            buttonText="Start Test"
-          />
-          <ActionCard
-            title="Test History"
-            description="Review your past test performances"
-            href="/dashboard/history"
-            buttonText="View History"
-          />
-          <ActionCard
-            title="Study Materials"
-            description="Access preparation resources"
-            href="/dashboard/materials"
-            buttonText="Explore"
-          />
-        </div> */}
-      </div>
-    </DashboardLayout>
+        {/* Motivational Banner */}
+        {stats.motivational_message && (
+          <Suspense fallback={<ComponentLoader />}>
+            <MotivationalBanner message={stats.motivational_message} />
+          </Suspense>
+        )}
+
+        {/* Quick Stats Panel */}
+        {stats.quick_stats && (
+          <Suspense fallback={<ComponentLoader />}>
+            <QuickStatsPanel stats={stats.quick_stats} />
+          </Suspense>
+        )}
+
+        {/* Score History & Learning Velocity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {stats.score_history && (
+              <Suspense fallback={<ComponentLoader />}>
+                <ScoreHistoryChart history={stats.score_history} />
+              </Suspense>
+            )}
+          </div>
+          <div>
+            {stats.learning_velocity && (
+              <Suspense fallback={<ComponentLoader />}>
+                <LearningVelocityCard velocity={stats.learning_velocity} />
+              </Suspense>
+            )}
+          </div>
+        </div>
+
+        {/* Activity Heatmap & Achievements */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {stats.activity_heatmap && (
+            <Suspense fallback={<ComponentLoader />}>
+              <ActivityHeatmapWidget heatmap={stats.activity_heatmap} />
+            </Suspense>
+          )}
+          {stats.achievements && (
+            <Suspense fallback={<ComponentLoader />}>
+              <AchievementsWidget achievements={stats.achievements} />
+            </Suspense>
+          )}
+        </div>
+
+        {/* Skill Gaps & Weekly Progress */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {stats.skill_gaps && (
+            <Suspense fallback={<ComponentLoader />}>
+              <SkillGapsWidget gaps={stats.skill_gaps} />
+            </Suspense>
+          )}
+          {stats.weekly_progress && (
+            <Suspense fallback={<ComponentLoader />}>
+              <WeeklyProgressChart weeklyProgress={stats.weekly_progress} />
+            </Suspense>
+          )}
+        </div>
+
+        {/* Performance Insights - Full Width */}
+        {stats.performance_insights && (
+          <Suspense fallback={<ComponentLoader />}>
+            <PerformanceInsights insights={stats.performance_insights} />
+          </Suspense>
+        )}
+
+        {/* Recommendations */}
+        {stats.recommendations && (
+          <Suspense fallback={<ComponentLoader />}>
+            <RecommendationsWidget recommendations={stats.recommendations} />
+          </Suspense>
+        )}
+    </div>
   );
 }
 

@@ -120,6 +120,12 @@ export default function BookDetailPage() {
               Edit Book
             </button>
             <button
+              onClick={() => router.push(`/manager/books/${bookId}/sections`)}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Bulk Manage Sections
+            </button>
+            <button
               onClick={() => router.push('/manager/books')}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >

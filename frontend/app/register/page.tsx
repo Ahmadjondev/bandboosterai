@@ -10,6 +10,7 @@ import { registerUser, sendVerificationCode } from '@/lib/auth';
 import { validateRegisterForm } from '@/lib/validation';
 import { Mail, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,7 +20,6 @@ export default function RegisterPage() {
     lastName: '',
     email: '',
     password: '',
-    confirmPassword: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -53,7 +53,7 @@ export default function RegisterPage() {
     const validation = validateRegisterForm(
       formData.email,
       formData.password,
-      formData.confirmPassword,
+      formData.password,
       formData.firstName,
       formData.lastName
     );
@@ -124,11 +124,6 @@ export default function RegisterPage() {
             ? apiErrors.password[0] 
             : apiErrors.password;
         }
-        if (apiErrors.confirm_password) {
-          newErrors.confirmPassword = Array.isArray(apiErrors.confirm_password) 
-            ? apiErrors.confirm_password[0] 
-            : apiErrors.confirm_password;
-        }
         
         // If we have field-specific errors, set them
         if (Object.keys(newErrors).length > 0) {
@@ -151,7 +146,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-hidden">
       {/* Left side - Image/Gradient */}
       <div className="hidden lg:flex flex-1 bg-linear-to-br from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
         <div className="absolute inset-0 bg-linear-to-br from-indigo-600/90 via-purple-600/90 to-pink-600/90"></div>
@@ -166,7 +161,7 @@ export default function RegisterPage() {
         <div className="relative z-10 flex flex-col items-center justify-center text-center text-white p-12 space-y-8">
           <div className="space-y-6">
             <h2 className="text-5xl font-bold">
-              Join 10,000+ Students
+              Join 1,000+ Students
               <span className="block mt-2">Achieving Success</span>
             </h2>
             <p className="text-xl text-indigo-100 max-w-md mx-auto">
@@ -195,7 +190,7 @@ export default function RegisterPage() {
               </div>
               <div>
                 <div className="font-semibold">Instant Access</div>
-                <div className="text-sm text-indigo-100">1000+ practice questions</div>
+                <div className="text-sm text-indigo-100">500+ practice questions</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -214,8 +209,8 @@ export default function RegisterPage() {
       </div>
 
       {/* Right side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-slate-900">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex-1 flex items-center justify-center p-4 lg:p-6 bg-white dark:bg-slate-900 overflow-y-auto">
+        <div className="w-full max-w-md space-y-4 my-6">
           {/* Logo and Header */}
           <div className="text-center space-y-2">
             <Link href="/" className="inline-flex items-center justify-center gap-2">
@@ -230,7 +225,7 @@ export default function RegisterPage() {
                 BandBooster
               </h1>
             </Link>
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mt-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-4">
               Create Account
             </h2>
             <p className="text-slate-600 dark:text-slate-400">
@@ -335,7 +330,7 @@ export default function RegisterPage() {
           ) : (
             <>
               {/* Registration Form */}
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input
                 type="text"
@@ -379,60 +374,66 @@ export default function RegisterPage() {
             <Input
               type="password"
               label="Password"
-              placeholder="Create a strong password"
+              placeholder="At least 8 characters"
               value={formData.password}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
               error={errors.password}
-              helperText="At least 8 characters with letters and numbers"
               required
               autoComplete="new-password"
               showPasswordToggle
             />
 
-            <Input
-              type="password"
-              label="Confirm Password"
-              placeholder="Re-enter your password"
-              value={formData.confirmPassword}
-              onChange={(e) =>
-                setFormData({ ...formData, confirmPassword: e.target.value })
-              }
-              error={errors.confirmPassword}
-              required
-              autoComplete="new-password"
-              showPasswordToggle
-            />
-
-            <div className="flex items-start gap-2">
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 required
-                className="mt-1 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
-              <label className="text-sm text-slate-600 dark:text-slate-400">
-                I agree to the{' '}
-                <Link href="/terms" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-semibold">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-semibold">
-                  Privacy Policy
-                </Link>
+              <label className="text-xs text-slate-600 dark:text-slate-400">
+                I agree to <Link href="/terms" className="text-indigo-600 hover:underline">Terms</Link> and <Link href="/privacy" className="text-indigo-600 hover:underline">Privacy</Link>
               </label>
             </div>
 
             <Button
               type="submit"
               variant="primary"
-              size="lg"
               fullWidth
               disabled={isLoading}
             >
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              {isLoading ? 'Creating...' : 'Create Account'}
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-700"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white dark:bg-slate-900 text-slate-500">
+                Or register with
+              </span>
+            </div>
+          </div>
+
+          {/* Google Sign-In */}
+          <GoogleSignInButton 
+            text="Continue with Google"
+            onError={(error) => setGeneralError(error)}
+          />
+
+          {/* Telegram Registration */}
+          <Link
+            href="/register/telegram"
+            className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-linear-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+            </svg>
+            Register with Telegram
+          </Link>
 
           {/* Divider */}
           <div className="relative">

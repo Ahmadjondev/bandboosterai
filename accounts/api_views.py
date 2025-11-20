@@ -226,7 +226,7 @@ def update_profile_view(request):
         "username",
         "password",
         "role",
-        "email_verified",
+        "is_verified",
         "verification_code",
         "code_expires_at",
     ]
@@ -269,7 +269,7 @@ def send_verification_code(request):
     """
     user = request.user
 
-    if user.email_verified:
+    if user.is_verified:
         return Response(
             {"message": "Email is already verified"}, status=status.HTTP_400_BAD_REQUEST
         )
@@ -345,7 +345,7 @@ def verify_code(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if user.email_verified:
+    if user.is_verified:
         return Response(
             {"message": "Email is already verified"},
             status=status.HTTP_400_BAD_REQUEST,
@@ -380,7 +380,7 @@ def check_verification_status(request):
     """
     return Response(
         {
-            "email_verified": request.user.email_verified,
+            "is_verified": request.user.is_verified,
             "email": request.user.email,
             "has_email": bool(request.user.email),
         },

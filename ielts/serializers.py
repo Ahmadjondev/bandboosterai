@@ -11,12 +11,14 @@ from .models import (
     ListeningPart,
     WritingTask,
     SpeakingTopic,
+    SpeakingQuestion,
     TestHead,
     Question,
     Choice,
     UserAnswer,
     WritingAttempt,
     SpeakingAttempt,
+    SpeakingAnswer,
 )
 
 
@@ -491,12 +493,111 @@ class WritingTaskSerializer(serializers.ModelSerializer):
 # ============================================================================
 
 
+class SpeakingAnswerSerializer(serializers.ModelSerializer):
+    """Serializer for individual speaking answers."""
+
+    audio_url = serializers.SerializerMethodField()
+    question_text = serializers.CharField(
+        source="question.question_text", read_only=True
+    )
+
+    class Meta:
+        model = SpeakingAnswer
+        fields = [
+            "id",
+            "question",
+            "question_text",
+            "audio_file",
+            "audio_url",
+            "transcript",
+            "duration_seconds",
+            "submitted_at",
+        ]
+        read_only_fields = ["submitted_at"]
+
+    def get_audio_url(self, obj):
+        """Get full URL for audio file."""
+        if obj.audio_file:
+            file_url = obj.audio_file.url
+            if file_url.startswith("http://") or file_url.startswith("https://"):
+                return file_url
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(file_url)
+            return file_url
+        return None
+
+
+class SpeakingQuestionSerializer(serializers.ModelSerializer):
+    """Serializer for speaking questions."""
+
+    question_key = serializers.SerializerMethodField()
+    preparation_time = serializers.SerializerMethodField()
+    response_time = serializers.SerializerMethodField()
+    user_answer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SpeakingQuestion
+        fields = [
+            "id",
+            "question_text",
+            "audio_url",
+            "order",
+            "question_key",
+            "preparation_time",
+            "response_time",
+            "user_answer",
+        ]
+
+    def get_question_key(self, obj):
+        """Generate question key for frontend."""
+        return f"speaking_{obj.topic.speaking_type}_q{obj.order}"
+
+    def get_preparation_time(self, obj):
+        """Get preparation time based on part type."""
+        # Part 2 has 1 minute preparation time
+        if obj.topic.speaking_type == "PART_2":
+            return 60
+        return 0
+
+    def get_response_time(self, obj):
+        """Get response time based on part type."""
+        # Part 1: 30 seconds per question
+        # Part 2: 2 minutes (120 seconds)
+        # Part 3: 45 seconds per question
+        if obj.topic.speaking_type == "PART_1":
+            return 30
+        elif obj.topic.speaking_type == "PART_2":
+            return 120
+        elif obj.topic.speaking_type == "PART_3":
+            return 45
+        return 60  # default
+
+    def get_user_answer(self, obj):
+        """Get user's answer for this question if available."""
+        attempt = self.context.get("attempt")
+        if attempt:
+            try:
+                speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
+                speaking_answer = SpeakingAnswer.objects.filter(
+                    speaking_attempt=speaking_attempt, question=obj
+                ).first()
+                if speaking_answer:
+                    return SpeakingAnswerSerializer(
+                        speaking_answer, context=self.context
+                    ).data
+            except SpeakingAttempt.DoesNotExist:
+                pass
+        return None
+
+
 class SpeakingTopicSerializer(serializers.ModelSerializer):
     """Serializer for speaking topics."""
 
     part_display = serializers.CharField(
         source="get_speaking_type_display", read_only=True
     )
+    questions = SpeakingQuestionSerializer(many=True, read_only=True)
     user_attempt = serializers.SerializerMethodField()
 
     class Meta:
@@ -507,6 +608,7 @@ class SpeakingTopicSerializer(serializers.ModelSerializer):
             "part_display",
             "topic",
             "question",
+            "questions",
             "cue_card",
             "user_attempt",
         ]
@@ -707,11 +809,12 @@ class WritingSubmissionSerializer(serializers.Serializer):
 class SpeakingSubmissionSerializer(serializers.Serializer):
     """Serializer for speaking submissions."""
 
-    topic_id = serializers.IntegerField()
+    question_key = serializers.CharField()
     audio_file = serializers.FileField()
 
-    def validate_topic_id(self, value):
-        """Validate that topic exists."""
-        if not SpeakingTopic.objects.filter(id=value).exists():
-            raise serializers.ValidationError("Speaking topic does not exist.")
+    def validate_question_key(self, value):
+        """Validate question_key format and extract speaking type."""
+        # Expected format: speaking_PART_1_q1, speaking_PART_2_q1, etc.
+        if not value.startswith("speaking_"):
+            raise serializers.ValidationError("Invalid question_key format.")
         return value

@@ -9,6 +9,7 @@ import { Button } from '@/components/Button';
 import { loginUser } from '@/lib/auth';
 import { validateLoginForm } from '@/lib/validation';
 import { useAuth } from '@/components/AuthProvider';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -59,7 +60,7 @@ export default function LoginPage() {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Check if email is verified for students
-      if (response.user.role === 'STUDENT' && !response.user.email_verified) {
+      if (response.user.role === 'STUDENT' && !response.user.is_verified) {
         console.log('[Login] Email not verified, redirecting to verification page...');
         router.push('/verify-email');
         return;
@@ -117,10 +118,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-hidden">
       {/* Left side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-slate-900">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex-1 flex items-center justify-center p-4 lg:p-6 bg-white dark:bg-slate-900 overflow-y-auto">
+        <div className="w-full max-w-md space-y-5 my-6">
           {/* Logo and Header */}
           <div className="text-center space-y-2">
             <Link href="/" className="inline-flex items-center justify-center gap-2">
@@ -135,7 +136,7 @@ export default function LoginPage() {
                 BandBooster
               </h1>
             </Link>
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mt-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-4">
               Welcome Back
             </h2>
             <p className="text-slate-600 dark:text-slate-400">
@@ -173,7 +174,7 @@ export default function LoginPage() {
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               type="text"
               label="Username or Email"
@@ -222,7 +223,6 @@ export default function LoginPage() {
             <Button
               type="submit"
               variant="primary"
-              size="lg"
               fullWidth
               disabled={isLoading}
             >
@@ -237,22 +237,48 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-4 bg-white dark:bg-slate-900 text-slate-500">
-                Or
+                Or sign in with
+              </span>
+            </div>
+          </div>
+
+          {/* Google Sign-In */}
+          <GoogleSignInButton 
+            text="Sign in with Google"
+            onError={(error) => setGeneralError(error)}
+          />
+
+          {/* Telegram Login */}
+          <Link
+            href="/register/telegram"
+            className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-linear-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+            </svg>
+            Sign in with Telegram
+          </Link>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-700"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white dark:bg-slate-900 text-slate-500">
+                New here?
               </span>
             </div>
           </div>
 
           {/* Sign Up Link */}
           <div className="text-center">
-            <p className="text-slate-600 dark:text-slate-400">
-              Don't have an account?{' '}
-              <Link
-                href="/register"
-                className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-              >
-                Create an account
-              </Link>
-            </p>
+            <Link
+              href="/register"
+              className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Create an account
+            </Link>
           </div>
         </div>
       </div>
@@ -282,7 +308,7 @@ export default function LoginPage() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8 mt-12">
             <div className="space-y-2">
-              <div className="text-4xl font-bold">1000+</div>
+              <div className="text-4xl font-bold">500+</div>
               <div className="text-blue-100">Questions</div>
             </div>
             <div className="space-y-2">
@@ -290,7 +316,7 @@ export default function LoginPage() {
               <div className="text-blue-100">Authentic Mock Tests</div>
             </div>
             <div className="space-y-2">
-              <div className="text-4xl font-bold">10K+</div>
+              <div className="text-4xl font-bold">1K+</div>
               <div className="text-blue-100">Students</div>
             </div>
           </div>

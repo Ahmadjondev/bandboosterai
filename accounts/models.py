@@ -35,12 +35,41 @@ class User(AbstractUser):
     )
 
     # Email Verification
-    email_verified = models.BooleanField(default=False, verbose_name="Email Verified")
+    is_verified = models.BooleanField(default=False, verbose_name="Is Verified")
     verification_code = models.CharField(
-        max_length=4, null=True, blank=True, verbose_name="Verification Code"
+        max_length=6, null=True, blank=True, verbose_name="Verification Code"
     )
     code_expires_at = models.DateTimeField(
         null=True, blank=True, verbose_name="Code Expires At"
+    )
+
+    # Telegram Integration
+    telegram_id = models.BigIntegerField(
+        unique=True, null=True, blank=True, verbose_name="Telegram ID"
+    )
+    telegram_username = models.CharField(
+        max_length=100, null=True, blank=True, verbose_name="Telegram Username"
+    )
+    telegram_phone = models.CharField(
+        max_length=20, null=True, blank=True, verbose_name="Telegram Phone"
+    )
+
+    # Google Integration
+    google_id = models.CharField(
+        max_length=255, unique=True, null=True, blank=True, verbose_name="Google ID"
+    )
+
+    # Registration Method
+    REGISTRATION_METHOD_CHOICES = (
+        ("EMAIL", "Email/Password"),
+        ("TELEGRAM", "Telegram"),
+        ("GOOGLE", "Google"),
+    )
+    registration_method = models.CharField(
+        max_length=20,
+        choices=REGISTRATION_METHOD_CHOICES,
+        default="EMAIL",
+        verbose_name="Registration Method",
     )
 
     # Balance (in UZS)
@@ -81,10 +110,12 @@ class User(AbstractUser):
         """Return the full name of the user"""
         return f"{self.first_name} {self.last_name}".strip() or self.username
 
-    def generate_verification_code(self):
-        """Generate a 4-digit verification code that expires in 2 minutes"""
-        self.verification_code = str(random.randint(1000, 9999))
-        self.code_expires_at = timezone.now() + timedelta(minutes=2)
+    def generate_verification_code(self, digits=4, expiry_minutes=2):
+        """Generate a verification code that expires in specified minutes"""
+        min_val = 10 ** (digits - 1)
+        max_val = (10**digits) - 1
+        self.verification_code = str(random.randint(min_val, max_val))
+        self.code_expires_at = timezone.now() + timedelta(minutes=expiry_minutes)
         self.save(update_fields=["verification_code", "code_expires_at"])
         return self.verification_code
 
@@ -100,13 +131,83 @@ class User(AbstractUser):
 
     def verify_email(self):
         """Mark email as verified and clear verification code"""
-        self.email_verified = True
+        self.is_verified = True
         self.verification_code = None
         self.code_expires_at = None
-        self.save(
-            update_fields=["email_verified", "verification_code", "code_expires_at"]
-        )
+        self.save(update_fields=["is_verified", "verification_code", "code_expires_at"])
 
     def calculate_candidate_id(self):
         """Generate a candidate ID based on user ID"""
         return f"CAND-{5000 + self.id}"
+
+
+class TelegramVerification(models.Model):
+    """
+    Temporary storage for Telegram verification codes
+    """
+
+    telegram_id = models.BigIntegerField(unique=True, verbose_name="Telegram ID")
+    phone_number = models.CharField(max_length=20, verbose_name="Phone Number")
+    username = models.CharField(
+        max_length=100, null=True, blank=True, verbose_name="Telegram Username"
+    )
+    first_name = models.CharField(
+        max_length=100, null=True, blank=True, verbose_name="First Name"
+    )
+    last_name = models.CharField(
+        max_length=100, null=True, blank=True, verbose_name="Last Name"
+    )
+    verification_code = models.CharField(max_length=6, verbose_name="Verification Code")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    expires_at = models.DateTimeField(verbose_name="Expires At")
+    is_used = models.BooleanField(default=False, verbose_name="Is Used")
+
+    class Meta:
+        db_table = "telegram_verifications"
+        verbose_name = "Telegram Verification"
+        verbose_name_plural = "Telegram Verifications"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Telegram {self.telegram_id} - {self.phone_number}"
+
+    def is_expired(self):
+        """Check if verification code is expired"""
+        return timezone.now() > self.expires_at
+
+    def is_valid(self, code):
+        """Check if code is valid and not expired"""
+        return (
+            not self.is_used
+            and not self.is_expired()
+            and self.verification_code == code
+        )
+
+    @classmethod
+    def cleanup_expired(cls):
+        """Remove expired verification codes"""
+        cls.objects.filter(expires_at__lt=timezone.now()).delete()
+
+    @classmethod
+    def create_verification(
+        cls, telegram_id, phone_number, username=None, first_name=None, last_name=None
+    ):
+        """Create a new verification with a 6-digit code that expires in 10 minutes"""
+        # Generate 6-digit code
+        code = str(random.randint(100000, 999999))
+
+        # Delete any existing verification for this telegram_id
+        cls.objects.filter(telegram_id=telegram_id).delete()
+
+        # Create new verification
+        verification = cls.objects.create(
+            telegram_id=telegram_id,
+            phone_number=phone_number,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            verification_code=code,
+            expires_at=timezone.now() + timedelta(minutes=10),
+        )
+
+        return verification

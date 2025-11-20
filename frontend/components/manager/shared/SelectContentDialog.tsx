@@ -114,21 +114,33 @@ export function SelectContentDialog({
     return item.title || item.prompt || item.topic || item.question || "Untitled";
   };
 
-  const getMetaLine = (item: any) => {
-    if (!type) return "";
+  const getDetailedInfo = (item: any) => {
+    if (!type) return null;
+
+    const info: { label: string; value: string }[] = [];
 
     switch (type) {
       case "reading":
-        return item.word_count ? `${item.word_count} words` : "";
+        if (item.passage_number) info.push({ label: "Passage", value: `#${item.passage_number}` });
+        if (item.word_count) info.push({ label: "Words", value: `${item.word_count}` });
+        if (item.questions_count) info.push({ label: "Questions", value: `${item.questions_count}` });
+        if (item.difficulty) info.push({ label: "Level", value: item.difficulty });
+        break;
       case "listening":
-        return item.duration ? `${item.duration} minutes` : "";
+        if (item.part_number) info.push({ label: "Part", value: `#${item.part_number}` });
+        if (item.duration) info.push({ label: "Duration", value: `${item.duration} min` });
+        if (item.questions_count) info.push({ label: "Questions", value: `${item.questions_count}` });
+        if (item.difficulty) info.push({ label: "Level", value: item.difficulty });
+        break;
       case "writing":
-        return item.task_type || "";
+        if (item.task_type) info.push({ label: "Type", value: item.task_type });
+        break;
       case "speaking":
-        return item.topic || item.question || "";
-      default:
-        return "";
+        if (item.topic) info.push({ label: "Topic", value: item.topic });
+        break;
     }
+
+    return info;
   };
 
   const handleSelect = (item: any) => {
@@ -182,32 +194,56 @@ export function SelectContentDialog({
           )}
 
           {!loading &&
-            filteredItems.map((item: any) => (
-              <button
-                key={item.id}
-                onClick={() => handleSelect(item)}
-                className="w-full text-left p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 dark:text-white truncate">
-                      {getDisplayTitle(item)}
-                    </p>
-                    {getMetaLine(item) && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {getMetaLine(item)}
+            filteredItems.map((item: any) => {
+              const detailedInfo = getDetailedInfo(item);
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleSelect(item)}
+                  className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-400 dark:hover:border-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-md transition-all group"
+                >
+                  <div className="space-y-3">
+                    {/* Title and Badge */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {getDisplayTitle(item)}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <Badge
+                          text={item.difficulty || item.difficulty_display || "MEDIUM"}
+                          color="blue"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Detailed Information Grid */}
+                    {detailedInfo && detailedInfo.length > 0 && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {detailedInfo.map((info, idx) => (
+                          <div key={idx} className="flex flex-col gap-0.5">
+                            <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
+                              {info.label}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                              {info.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Additional Description if available */}
+                    {item.description && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                        {item.description}
                       </p>
                     )}
                   </div>
-                  <div className="shrink-0">
-                    <Badge
-                      text={item.difficulty || item.difficulty_display || "MEDIUM"}
-                      color="blue"
-                    />
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
         </div>
       </div>
     </Modal>

@@ -56,7 +56,7 @@ def get_mock_tests(request):
 
     # Build query
     tests_qs = MockExam.objects.all()
-
+    print(tests_qs)
     # Apply filters
     status_filter = request.GET.get("status", "")
     if status_filter == "active":

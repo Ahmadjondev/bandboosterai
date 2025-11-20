@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from '@/components/DashboardLayout';
-import VerificationGuard from '@/components/VerificationGuard';
+
 import { getAvailableTests, createFullTestAttempt, checkActiveAttempt } from "@/lib/exam-api";
+import { EmailNotVerifiedError } from '@/lib/api-client';
 import { purchaseCDExam, getCurrentUser } from "@/lib/auth";
 import { useAuth } from '@/components/AuthProvider';
 import { PaymentDialog } from "@/components/PaymentDialog";
@@ -41,8 +41,13 @@ export default function CDExamPage() {
         setActiveAttempt(result.active_attempt);
       }
     } catch (err: any) {
+      // If user's email is not verified, redirect to verification flow.
+      if (err instanceof EmailNotVerifiedError) {
+        // Redirect unverified user to verification page
+        router.push('/verify-email');
+        return;
+      }
       console.error("Failed to check active attempt:", err);
-      // Don't show error for this check, just log it
     }
   }
 
@@ -54,25 +59,27 @@ export default function CDExamPage() {
         examType: "FULL_TEST" 
       });
       
-      if (tests && tests.length > 0) {
-        const randomTest = tests[0]; // API returns array with single random test
-        setFullTestExam(randomTest);
-        console.log("Selected random test:", randomTest.title);
-      } else {
-        // If no FULL_TEST available, try LISTENING_READING_WRITING
-        const alternativeTests = await getAvailableTests({ 
-          random: true, 
-          examType: "LISTENING_READING_WRITING" 
-        });
-        
-        if (alternativeTests && alternativeTests.length > 0) {
-          setFullTestExam(alternativeTests[0]);
-          console.log("Selected alternative test:", alternativeTests[0].title);
+        if (tests && (Array.isArray(tests) ? tests.length > 0 : true)) {
+          // API may return a single object or an array. Normalize to a single test.
+          const selected = Array.isArray(tests) ? tests[0] : tests;
+          setFullTestExam(selected);
+          console.log("Selected random test:", selected.title);
         } else {
-          setError("No Full IELTS Test available at this time. Please contact your administrator.");
+            // If FULL_TEST not available, try a shorter full (Listening+Reading+Writing)
+            const alternativeTests = await getAvailableTests({ random: true, examType: 'LISTENING_READING_WRITING' });
+            if (alternativeTests && (Array.isArray(alternativeTests) ? alternativeTests.length > 0 : true)) {
+              const selectedAlt = Array.isArray(alternativeTests) ? alternativeTests[0] : alternativeTests;
+              setFullTestExam(selectedAlt);
+              console.log('Selected alternative test:', selectedAlt.title);
+            } else {
+              setError("No Full IELTS Test available at this time. Please contact your administrator.");
+            }
         }
-      }
     } catch (err: any) {
+      if (err instanceof EmailNotVerifiedError) {
+        router.push('/verify-email');
+        return;
+      }
       console.error("Failed to load full test:", err);
       setError("Failed to load exam information. Please try again later.");
     }
@@ -144,9 +151,18 @@ export default function CDExamPage() {
       // Create exam attempt
       const { attemptId, attemptUuid } = await createFullTestAttempt(fullTestExam.id);
       
-      // Redirect to exam page using UUID if available
-      router.push(`/dashboard/exam/${attemptUuid || attemptId}`);
+      // Strictly require UUID - if not present, show error
+      if (!attemptUuid) {
+        throw new Error("Exam attempt created but UUID is missing. Please contact support.");
+      }
+      
+      // Redirect to exam page using UUID only
+      router.push(`/exam/${attemptUuid}`);
     } catch (err: any) {
+      if (err instanceof EmailNotVerifiedError) {
+        router.push('/verify-email');
+        return;
+      }
       console.error("Failed to start test:", err);
       
       // Check if error response contains active attempt info
@@ -162,13 +178,12 @@ export default function CDExamPage() {
 
   function handleResumeTest() {
     if (activeAttempt) {
-      router.push(`/dashboard/exam/${activeAttempt.attempt_id}`);
+      router.push(`/exam/${activeAttempt.attempt_uuid}`);
     }
   }
 
   return (
-    <VerificationGuard>
-      <DashboardLayout>
+    <div>
         {/* Payment Dialog */}
         <PaymentDialog
           show={showPaymentDialog}
@@ -410,8 +425,7 @@ export default function CDExamPage() {
             </div>
           </div>
         </div>
-      </div>
-    </DashboardLayout>
-    </VerificationGuard>
+        </div>
+    </div>
   );
 }

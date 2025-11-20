@@ -408,10 +408,19 @@ class ManagerAPI {
     }
 
     async createWritingTask(data) {
+        if (data instanceof FormData) {
+            return this.uploadFile('/tests/writing/create/', data);
+        }
         return this.post('/tests/writing/create/', data);
     }
 
     async updateWritingTask(taskId, data) {
+        if (data instanceof FormData) {
+            return this.request(`/tests/writing/${taskId}/update/`, {
+                method: 'PUT',
+                body: data,
+            });
+        }
         return this.put(`/tests/writing/${taskId}/update/`, data);
     }
 

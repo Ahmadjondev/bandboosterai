@@ -23,13 +23,17 @@ class UserSerializer(serializers.ModelSerializer):
             "date_of_birth",
             "profile_image",
             "profile_image_url",
-            "email_verified",
+            "is_verified",
+            "google_id",
+            "registration_method",
             "balance",
             "created_at",
         ]
         read_only_fields = [
             "id",
-            "email_verified",
+            "is_verified",
+            "google_id",
+            "registration_method",
             "balance",
             "created_at",
             "profile_image_url",
@@ -112,6 +116,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
             role="STUDENT",  # All registrations are students by default
+            registration_method="EMAIL",  # Email/password registration
         )
         return user
 

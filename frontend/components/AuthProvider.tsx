@@ -100,7 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     console.log('[AuthProvider] Redirect logic - user:', user?.username || 'null', 'pathname:', pathname);
 
-    const publicPaths = ["/", "/login", "/register", "/verify-email", "/forgot-password"];
+    const publicPaths = ["/", "/login", "/register", "/verify-email", "/forgot-password","/register/telegram"];
     const isPublicPath = publicPaths.includes(pathname);
 
     if (!user && !isPublicPath) {
@@ -115,6 +115,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         router.push("/manager");
       } else {
         router.push("/dashboard");
+      }
+    } else if (user && !user.is_verified) {
+      // Check if email verification is required for this route
+      const allowedPathsForUnverified = ['/dashboard', '/verify-email', '/logout', '/profile'];
+      const isAllowedPath = allowedPathsForUnverified.some(path => pathname.startsWith(path));
+      
+      if (!isAllowedPath && pathname !== '/verify-email') {
+        console.log('[AuthProvider] Redirecting unverified user to verify-email page');
+        router.push('/verify-email');
       }
     } else {
       console.log('[AuthProvider] No redirect needed');

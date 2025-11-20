@@ -50,7 +50,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <Navbar user={user} onMenuClick={toggleSidebar} />
 
         {/* Email Verification Banner */}
-        {user && user.email_verified === false && (
+        {user && user.is_verified === false && (
           <div className="px-4 pt-4">
             <EmailVerificationBanner email={user.email} />
           </div>

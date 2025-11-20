@@ -167,24 +167,27 @@ export interface WritingSection {
 // ============================================================================
 
 export interface SpeakingQuestion {
-  question_key: string;
+  id: number;
   question_text: string;
+  audio_url?: string;
+  order: number;
+  question_key?: string;
   preparation_time?: number;
-  response_time: number;
-}
-
-export interface SpeakingPart {
-  part_number: 1 | 2 | 3;
-  title: string;
-  description?: string;
-  questions: SpeakingQuestion[];
+  response_time?: number;
 }
 
 export interface SpeakingTopic {
   id: number;
+  speaking_type: "PART_1" | "PART_2" | "PART_3";
+  part_display: string;
   topic: string;
-  cue_card?: string;
-  parts: SpeakingPart[];
+  question?: string;
+  questions: SpeakingQuestion[];
+  cue_card?: any;
+  user_attempt?: {
+    id: number;
+    audio_url: string;
+  };
 }
 
 export interface SpeakingSection {

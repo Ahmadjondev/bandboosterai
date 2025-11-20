@@ -17,6 +17,8 @@ from .serializers import (
 )
 from ielts.models import Question, TestHead
 from ielts.analysis import calculate_band_score
+from django.db import transaction
+import json
 
 
 # ============================================================================
@@ -410,12 +412,259 @@ def get_book_sections(request, book_id):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    sections = BookSection.objects.filter(book=book).order_by("order")
+    sections = (
+        BookSection.objects.filter(book=book)
+        .select_related("reading_passage", "listening_part")
+        .order_by("order")
+    )
     serializer = BookSectionSerializer(
         sections, many=True, context={"request": request}
     )
 
     return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def bulk_save_book_sections(request, book_id):
+    """
+    Bulk create, update, delete and reorder book sections in a single operation.
+
+    Payload expected (multipart/form-data or JSON):
+
+    - sections: JSON list of section objects. New sections omit `id`.
+      Field names: id?, section_type, order, title, description, reading_passage, listening_part, duration_minutes, is_locked
+    - deleted_ids: optional list of ids to delete
+
+    Files may be uploaded in the same multipart request. File field names should use a simple convention:
+    audio_<index_or_id>, pdf_<index_or_id>, image_<index_or_id>
+
+    Returns created/updated/deleted lists and the updated serialized sections.
+    """
+
+    book = get_object_or_404(Book, id=book_id)
+
+    # Allow both JSON and multipart form
+    sections_data = request.data.get("sections")
+    if sections_data is None:
+        sections_list = []
+    else:
+        try:
+            # If sections is a string (sent in multipart), parse JSON
+            if isinstance(sections_data, str):
+                sections_list = json.loads(sections_data)
+            else:
+                sections_list = sections_data
+        except Exception:
+            return Response(
+                {"error": "Invalid sections JSON"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+    deleted_ids = request.data.get("deleted_ids")
+    try:
+        if isinstance(deleted_ids, str):
+            deleted_ids = json.loads(deleted_ids)
+    except Exception:
+        deleted_ids = []
+
+    created = []
+    updated = []
+    deleted = []
+
+    # Validate section payloads
+    valid_section_types = [choice[0] for choice in BookSection.SECTION_TYPE_CHOICES]
+
+    with transaction.atomic():
+        # Delete operations
+        if deleted_ids:
+            sections_to_delete = BookSection.objects.filter(
+                book=book, id__in=deleted_ids
+            )
+            deleted_count = sections_to_delete.count()
+            if deleted_count:
+                sections_to_delete.delete()
+                deleted = deleted_ids
+
+        # Process upserts
+        # We'll track new_order mapping and normalize duplicates after loop.
+        for idx, s in enumerate(sections_list):
+            # Validate section type
+            stype = s.get("section_type")
+            if not stype or stype not in valid_section_types:
+                return Response(
+                    {"error": f"Invalid section_type for item at index {idx}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Use id for existing
+            if s.get("id"):
+                try:
+                    sec = BookSection.objects.select_for_update().get(
+                        book=book, id=s.get("id")
+                    )
+                except BookSection.DoesNotExist:
+                    return Response(
+                        {"error": f"Section with id {s.get('id')} not found"},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                # Update fields
+                sec.section_type = stype
+                sec.title = s.get("title", sec.title)
+                sec.description = s.get("description", sec.description)
+                sec.order = s.get("order", sec.order)
+                sec.duration_minutes = s.get("duration_minutes", sec.duration_minutes)
+                sec.is_locked = s.get("is_locked", sec.is_locked)
+
+                # Link content
+                reading_passage = s.get("reading_passage")
+                listening_part = s.get("listening_part")
+                sec.reading_passage_id = reading_passage if reading_passage else None
+                sec.listening_part_id = listening_part if listening_part else None
+
+                # Validate required linked content by type
+                if sec.section_type == "READING" and not sec.reading_passage_id:
+                    return Response(
+                        {
+                            "error": f"Reading passage is required for section id {sec.id}"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if sec.section_type == "LISTENING" and not sec.listening_part_id:
+                    return Response(
+                        {
+                            "error": f"Listening part is required for section id {sec.id}"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # No more file fields for sections; files live on content objects
+
+                sec.save()
+                updated.append(sec.id)
+            else:
+                # Create new section
+                sec = BookSection(
+                    book=book,
+                    section_type=stype,
+                    title=s.get("title", ""),
+                    description=s.get("description", ""),
+                    order=s.get("order", 0) or 0,
+                    duration_minutes=s.get("duration_minutes"),
+                    is_locked=s.get("is_locked", False),
+                )
+
+                # Link content ids
+                if s.get("reading_passage"):
+                    sec.reading_passage_id = s.get("reading_passage")
+                if s.get("listening_part"):
+                    sec.listening_part_id = s.get("listening_part")
+
+                # Validate for new section
+                if sec.section_type == "READING" and not sec.reading_passage_id:
+                    return Response(
+                        {
+                            "error": f"Reading passage is required for new section at index {idx}"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if sec.section_type == "LISTENING" and not sec.listening_part_id:
+                    return Response(
+                        {
+                            "error": f"Listening part is required for new section at index {idx}"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                sec.save()
+
+                # Handle files for created ones - files can be keyed by index or by temp id if provided
+                temp_key = s.get("temp_id") or idx
+                for field_name in ("audio", "pdf", "image"):
+                    file_key = f"{field_name}_{temp_key}"
+                    if file_key in request.FILES:
+                        setattr(sec, field_name + "_file", request.FILES[file_key])
+
+                sec.save()
+                created.append(sec.id)
+
+        # Normalize ordering for the book - ensure contiguous orders starting at 1
+        all_sections = list(
+            BookSection.objects.filter(book=book).order_by("order", "id")
+        )
+        # Reassign sequential order
+        for i, sec in enumerate(all_sections, start=1):
+            if sec.order != i:
+                sec.order = i
+                sec.save(update_fields=["order"])
+
+        # Update book's section count
+        book.update_total_sections()
+
+    # Return serialized sections
+    sections = (
+        BookSection.objects.filter(book=book)
+        .order_by("order")
+        .select_related("reading_passage", "listening_part")
+    )
+    serializer = BookSectionSerializer(
+        sections, many=True, context={"request": request}
+    )
+
+    return Response(
+        {
+            "created": created,
+            "updated": updated,
+            "deleted": deleted,
+            "sections": serializer.data,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def reorder_sections(request, book_id):
+    """Reorder sections using an array of {id, order} pairs"""
+    book = get_object_or_404(Book, id=book_id)
+    data = request.data
+    try:
+        orderings = data.get("orderings") or []
+        if isinstance(orderings, str):
+            orderings = json.loads(orderings)
+    except Exception:
+        return Response(
+            {"error": "Invalid orderings payload"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    with transaction.atomic():
+        # Validate all ids belong to the book
+        section_ids = [o.get("id") for o in orderings if o.get("id")]
+        existing = BookSection.objects.filter(
+            book=book, id__in=section_ids
+        ).values_list("id", flat=True)
+        if set(section_ids) - set(existing):
+            return Response(
+                {"error": "Some sections do not belong to this book"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        for o in orderings:
+            BookSection.objects.filter(book=book, id=o.get("id")).update(
+                order=o.get("order", 0)
+            )
+
+        # normalize orders
+        secs = BookSection.objects.filter(book=book).order_by("order", "id")
+        for i, sec in enumerate(secs, start=1):
+            if sec.order != i:
+                sec.order = i
+                sec.save(update_fields=["order"])
+
+    sections = BookSection.objects.filter(book=book).order_by("order")
+    serializer = BookSectionSerializer(
+        sections, many=True, context={"request": request}
+    )
+    return Response({"sections": serializer.data})
 
 
 @api_view(["GET"])
@@ -425,6 +674,16 @@ def get_section_detail(request, section_id):
     Get detailed information about a specific section including content
     """
     print("Fetching section detail for section_id:", section_id)
+    # Require email verification to access book sections
+    if not request.user.is_verified:
+        return Response(
+            {
+                "error": "Email verification required. Please verify your email before accessing this content.",
+                "code": "email_not_verified",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     section = get_object_or_404(
         BookSection.objects.select_related(
             "book", "reading_passage", "listening_part"
@@ -509,10 +768,19 @@ def get_book_progress(request, book_id):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def submit_section_result(request, section_id):
-
     """
     Submit user's answers for a section and get results
     """
+    # Check if user's email is verified
+    if not request.user.is_verified:
+        return Response(
+            {
+                "error": "Email verification required. Please verify your email before submitting answers.",
+                "code": "email_not_verified",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     section = get_object_or_404(BookSection, id=section_id)
 
     # Validate request data
@@ -731,6 +999,16 @@ def start_section_practice(request, section_id):
     """
     from ielts.models import ExamAttempt, Exam, MockTest
     from django.utils import timezone
+
+    # Check if user's email is verified
+    if not request.user.is_verified:
+        return Response(
+            {
+                "error": "Email verification required. Please verify your email before starting practice.",
+                "code": "email_not_verified",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     section = get_object_or_404(
         BookSection.objects.select_related("book", "reading_passage", "listening_part"),

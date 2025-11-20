@@ -110,17 +110,35 @@ function ExamContent() {
 export default function ExamPage() {
   const params = useParams();
   const router = useRouter();
-  // Accept both UUID string and numeric ID
-  const attemptId = params.attemptId as string;
+  const attemptUuid = params.attemptUuid as string;
 
-  // Validate attempt ID
-  if (!attemptId) {
-    router.push("/dashboard");
-    return null;
+  // UUID validation regex (strict format check)
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isValidUuid = attemptUuid && UUID_REGEX.test(attemptUuid);
+
+  // Redirect invalid UUIDs to dashboard
+  useEffect(() => {
+    if (!isValidUuid) {
+      console.error('Invalid exam UUID:', attemptUuid);
+      router.push("/dashboard");
+    }
+  }, [isValidUuid, attemptUuid, router]);
+
+  // Show error state for invalid UUID
+  if (!isValidUuid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Invalid Exam Link</h2>
+          <p className="text-slate-400 mb-4">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <ExamProvider attemptId={attemptId}>
+    <ExamProvider attemptId={attemptUuid}>
       <ExamContent />
     </ExamProvider>
   );

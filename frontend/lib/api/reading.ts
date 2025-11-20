@@ -15,7 +15,7 @@ import type {
   BulkCreateResponse,
 } from '@/types/reading';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.bandbooster.uz';
+import { API_BASE_URL } from '@/config/api';
 
 // Helper function to get JWT token from localStorage
 function getAccessToken(): string | null {

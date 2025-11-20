@@ -28,7 +28,7 @@ export default function VerifyEmailPage() {
       return;
     }
 
-    if (user.email_verified) {
+    if (user.is_verified) {
       router.push("/dashboard");
       return;
     }

@@ -57,6 +57,7 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
   return (
     <Link
       href={href}
+      prefetch={true}
       onClick={(e) => {
         // When the sidebar is collapsed, stop propagation so parent layout
         // click handlers (which might open/expand the sidebar) don't run.
@@ -178,7 +179,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         {/* Logo */}
         <div
           className={classNames(
-            'p-6 border-b border-slate-200 dark:border-slate-800 flex items-center',
+            'px-4 py-2 md:px-6 md:py-3 border-b border-slate-200 dark:border-slate-800 flex items-center h-[57px] md:h-[57px]',
             isCollapsed ? 'justify-center' : 'justify-between'
           )}
         >
@@ -204,7 +205,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         {/* Navigation */}
         <nav
           className={classNames(
-            'flex-1 p-4 space-y-6 overflow-y-auto',
+            'flex-1 p-3 md:p-4 space-y-6 overflow-y-auto',
             isCollapsed && 'overflow-x-hidden' // 🔥 Key fix
           )}
         >

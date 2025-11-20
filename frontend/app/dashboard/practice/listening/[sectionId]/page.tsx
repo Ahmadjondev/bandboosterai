@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import VerificationGuard from '@/components/VerificationGuard';
 import QuestionRenderer from '@/components/exam/QuestionRenderer';
 import TextHighlighter from '@/components/exam/TextHighlighter';
 import PracticeHeader from '@/components/practice/PracticeHeader';
 import PracticeQuestionPalette from '@/components/practice/PracticeQuestionPalette';
 import AudioStartDialog from '@/components/practice/AudioStartDialog';
 import { getSectionDetail, submitSectionAnswers } from '@/lib/api/books';
+import { EmailNotVerifiedError } from '@/lib/api-client';
 import type { SectionDetailResponse } from '@/types/books';
 
 export default function ListeningPracticePage() {
@@ -68,6 +68,10 @@ export default function ListeningPracticePage() {
 
       setData(sectionData);
     } catch (err: any) {
+      if (err instanceof EmailNotVerifiedError) {
+        router.push('/verify-email');
+        return;
+      }
       setError(err?.message || 'Failed to load section');
     } finally {
       setLoading(false);
@@ -121,6 +125,10 @@ export default function ListeningPracticePage() {
       // Navigate to results page - results page will fetch data from API
       router.push(`/dashboard/practice/listening/${sectionId}/results`);
     } catch (err: any) {
+      if (err instanceof EmailNotVerifiedError) {
+        router.push('/verify-email');
+        return;
+      }
       alert(err?.message || 'Failed to submit answers');
       setSubmitting(false);
     }
@@ -190,33 +198,29 @@ export default function ListeningPracticePage() {
 
   if (loading) {
     return (
-      <VerificationGuard>
-        <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading listening section...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading listening section...</p>
         </div>
-      </VerificationGuard>
+      </div>
     );
   }
 
   if (error || !data) {
     return (
-      <VerificationGuard>
-        <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 max-w-md">
-            <h3 className="text-red-800 dark:text-red-200 font-semibold mb-2">Error</h3>
-            <p className="text-red-600 dark:text-red-300 mb-4">{error || 'Section not found'}</p>
-            <button
-              onClick={() => router.back()}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
-              Go Back
-            </button>
-          </div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 max-w-md">
+          <h3 className="text-red-800 dark:text-red-200 font-semibold mb-2">Error</h3>
+          <p className="text-red-600 dark:text-red-300 mb-4">{error || 'Section not found'}</p>
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            Go Back
+          </button>
         </div>
-      </VerificationGuard>
+      </div>
     );
   }
 
@@ -251,9 +255,8 @@ export default function ListeningPracticePage() {
   ) || [];
 
   return (
-    <VerificationGuard>
-      <>
-        {/* Audio Start Dialog */}
+    <>
+      {/* Audio Start Dialog */}
       <AudioStartDialog
         isOpen={showStartDialog}
         onStart={handleStartAudio}
@@ -333,6 +336,5 @@ export default function ListeningPracticePage() {
         />
       </div>
     </>
-    </VerificationGuard>
   );
 }

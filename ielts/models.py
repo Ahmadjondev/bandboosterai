@@ -500,6 +500,27 @@ class SpeakingTopic(models.Model):
         return f"{self.get_speaking_type_display()}: {self.topic}"
 
 
+class SpeakingQuestion(models.Model):
+    topic = models.ForeignKey(
+        SpeakingTopic, related_name="questions", on_delete=models.CASCADE
+    )
+    question_text = models.TextField()
+
+    # audio is generated with Microsoft TTS
+    audio_url = models.URLField(null=True, blank=True)
+
+    order = models.PositiveIntegerField(default=1)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["topic", "order"]
+
+    def __str__(self):
+        return f"Q{self.order} - {self.topic.topic}"
+
+
 class ExamAttempt(models.Model):
     """
     Represents a student's attempt at an exam
@@ -957,6 +978,69 @@ class SpeakingAttempt(models.Model):
 
     def __str__(self):
         return f"Speaking Attempt by {self.exam_attempt.student.username}"
+
+
+class SpeakingAnswer(models.Model):
+    """
+    Stores individual speaking answer (audio file) for a specific question.
+    Links SpeakingAttempt with SpeakingQuestion.
+    """
+
+    speaking_attempt = models.ForeignKey(
+        SpeakingAttempt,
+        on_delete=models.CASCADE,
+        related_name="answers",
+        verbose_name="Speaking Attempt",
+    )
+    question = models.ForeignKey(
+        SpeakingQuestion,
+        on_delete=models.CASCADE,
+        related_name="user_answers",
+        verbose_name="Question",
+    )
+
+    # Audio file for this specific question
+    audio_file = models.FileField(
+        upload_to="speaking_answers/", help_text="Audio recording for this question"
+    )
+
+    # Transcript (can be generated later via STT)
+    transcript = models.TextField(
+        null=True, blank=True, help_text="Transcript of the audio answer"
+    )
+
+    # Duration in seconds
+    duration_seconds = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Duration of the audio recording in seconds"
+    )
+
+    # Individual question feedback (optional, for detailed analysis)
+    feedback = models.JSONField(
+        null=True, blank=True, help_text="AI feedback for this specific answer"
+    )
+
+    # Timestamps
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "speaking_answers"
+        verbose_name = "Speaking Answer"
+        verbose_name_plural = "Speaking Answers"
+        unique_together = ("speaking_attempt", "question")
+        ordering = ["question__order"]
+        indexes = [
+            models.Index(fields=["speaking_attempt", "question"]),
+        ]
+
+    def __str__(self):
+        return f"Answer for {self.question} by {self.speaking_attempt.exam_attempt.student.username}"
+
+    def get_audio_url(self):
+        """Get the full URL for the audio file."""
+        if self.audio_file:
+            return self.audio_file.url
+        return None
 
 
 class UserAnswer(models.Model):

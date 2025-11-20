@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import VerificationGuard from '@/components/VerificationGuard';
 import QuestionRenderer from '@/components/exam/QuestionRenderer';
 import TextHighlighter from '@/components/exam/TextHighlighter';
 import PracticeHeader from '@/components/practice/PracticeHeader';
 import PracticeQuestionPalette from '@/components/practice/PracticeQuestionPalette';
 import { formatPassageContent } from '@/lib/exam-utils';
 import { getSectionDetail, submitSectionAnswers } from '@/lib/api/books';
+import { EmailNotVerifiedError } from '@/lib/api-client';
 import type { SectionDetailResponse } from '@/types/books';
 
 export default function ReadingPracticePage() {
@@ -60,6 +60,10 @@ export default function ReadingPracticePage() {
 
       setData(sectionData);
     } catch (err: any) {
+      if (err instanceof EmailNotVerifiedError) {
+        router.push('/verify-email');
+        return;
+      }
       setError(err?.message || 'Failed to load section');
     } finally {
       setLoading(false);
@@ -101,6 +105,10 @@ export default function ReadingPracticePage() {
       // Navigate to results page - results page will fetch data from API
       router.push(`/dashboard/practice/reading/${sectionId}/results`);
     } catch (err: any) {
+      if (err instanceof EmailNotVerifiedError) {
+        router.push('/verify-email');
+        return;
+      }
       alert(err?.message || 'Failed to submit answers');
       setSubmitting(false);
     }

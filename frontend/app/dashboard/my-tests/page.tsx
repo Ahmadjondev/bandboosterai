@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DashboardLayout } from '@/components/DashboardLayout';
 import { getMyAttempts } from '@/lib/exam-api';
+import { EmailNotVerifiedError } from '@/lib/api-client';
 import type { TestAttemptHistory, ExamType, ExamStatus } from '@/types/exam';
 
 export default function MyTestsPage() {
@@ -23,6 +23,11 @@ export default function MyTestsPage() {
       const data = await getMyAttempts();
       setAttempts(data);
     } catch (err: any) {
+      if (err instanceof EmailNotVerifiedError) {
+        // Redirect to verification flow
+        router.push('/verify-email');
+        return;
+      }
       console.error('Error loading attempts:', err);
       setError(err.message || 'Failed to load test attempts');
     } finally {
@@ -68,120 +73,117 @@ export default function MyTestsPage() {
   };
 
   const handleAttemptClick = (attempt: TestAttemptHistory) => {
-    // Use UUID if available, fallback to ID for backward compatibility
-    const identifier = attempt.uuid || attempt.id;
+    // Strictly require UUID for exam navigation
+    if (!attempt.uuid) {
+      console.error('Attempt missing UUID:', attempt);
+      return;
+    }
     
     if (attempt.status === 'COMPLETED' || attempt.status === 'SUBMITTED') {
-      router.push(`/dashboard/results?attempt=${identifier}`);
+      router.push(`/dashboard/results?attempt=${attempt.uuid}`);
     } else if (attempt.status === 'IN_PROGRESS') {
-      router.push(`/exam/${identifier}`);
+      router.push(`/exam/${attempt.uuid}`);
     }
   };
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-slate-600 dark:text-slate-400">Loading...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="p-4 sm:p-6 lg:p-8">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center">
-            <h3 className="text-xl font-semibold text-red-900 dark:text-red-100 mb-2">Failed to Load Tests</h3>
-            <p className="text-red-700 dark:text-red-300 mb-4">{error}</p>
-            <button onClick={loadAttempts} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Try Again</button>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+          <h3 className="text-red-800 dark:text-red-300 font-semibold mb-2">Error</h3>
+          <p className="text-red-600 dark:text-red-400">{error}</p>
+          <button onClick={loadAttempts} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Try Again</button>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">My Tests</h1>
-          <p className="text-slate-600 dark:text-slate-400">View all your practice test attempts</p>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">My Tests</h1>
+        <p className="text-slate-600 dark:text-slate-400">View all your practice test attempts</p>
+      </div>
 
-        {attempts.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <span className="text-4xl">📝</span>
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No tests yet</h3>
-            <p className="text-slate-600 dark:text-slate-400 mb-6">Start your IELTS preparation by taking your first test</p>
-            <button onClick={() => router.push('/dashboard/cd-exam')} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:shadow-lg transition-all">
-              Take Your First Test
-            </button>
+      {attempts.length === 0 ? (
+        <div className="text-center py-20">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+            <span className="text-4xl">📝</span>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {attempts.map((attempt) => (
-              <div key={attempt.id} onClick={() => handleAttemptClick(attempt)}
-                className={`bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 transition-all ${(attempt.status === 'COMPLETED' || attempt.status === 'SUBMITTED' || attempt.status === 'IN_PROGRESS') ? 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md' : 'opacity-60'}`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-slate-900 dark:text-white truncate">{attempt.exam_title}</h3>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No tests yet</h3>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">Start your IELTS preparation by taking your first test</p>
+          <button onClick={() => router.push('/dashboard/cd-exam')} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:shadow-lg transition-all">
+            Take Your First Test
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {attempts.map((attempt) => (
+            <div key={attempt.id} onClick={() => handleAttemptClick(attempt)}
+              className={`bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 transition-all ${(attempt.status === 'COMPLETED' || attempt.status === 'SUBMITTED' || attempt.status === 'IN_PROGRESS') ? 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md' : 'opacity-60'}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-slate-900 dark:text-white truncate">{attempt.exam_title}</h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs">{getExamTypeLabel(attempt.exam_type)}</span>
+                    {getStatusBadge(attempt.status)}
+                    <span className="text-slate-500 dark:text-slate-400">{formatDate(attempt.completed_at || attempt.started_at)}</span>
+                  </div>
+                </div>
+
+                {(attempt.status === 'COMPLETED' || attempt.status === 'SUBMITTED') && attempt.overall_score !== null && (
+                  <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex items-center gap-3 text-sm">
+                      {attempt.listening_score !== null && (
+                        <div className="text-center">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">L</div>
+                          <div className={`font-semibold ${getBandScoreColor(attempt.listening_score)}`}>{attempt.listening_score.toFixed(1)}</div>
+                        </div>
+                      )}
+                      {attempt.reading_score !== null && (
+                        <div className="text-center">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">R</div>
+                          <div className={`font-semibold ${getBandScoreColor(attempt.reading_score)}`}>{attempt.reading_score.toFixed(1)}</div>
+                        </div>
+                      )}
+                      {attempt.writing_score !== null && (
+                        <div className="text-center">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">W</div>
+                          <div className={`font-semibold ${getBandScoreColor(attempt.writing_score)}`}>{attempt.writing_score.toFixed(1)}</div>
+                        </div>
+                      )}
+                      {attempt.speaking_score !== null && (
+                        <div className="text-center">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">S</div>
+                          <div className={`font-semibold ${getBandScoreColor(attempt.speaking_score)}`}>{attempt.speaking_score.toFixed(1)}</div>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs">{getExamTypeLabel(attempt.exam_type)}</span>
-                      {getStatusBadge(attempt.status)}
-                      <span className="text-slate-500 dark:text-slate-400">{formatDate(attempt.completed_at || attempt.started_at)}</span>
+
+                    <div className="text-center pl-4 border-l border-slate-200 dark:border-slate-700">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Overall</div>
+                      <div className={`text-2xl font-bold ${getBandScoreColor(attempt.overall_score)}`}>{attempt.overall_score.toFixed(1)}</div>
                     </div>
                   </div>
-
-                  {(attempt.status === 'COMPLETED' || attempt.status === 'SUBMITTED') && attempt.overall_score !== null && (
-                    <div className="flex items-center gap-4">
-                      <div className="hidden sm:flex items-center gap-3 text-sm">
-                        {attempt.listening_score !== null && (
-                          <div className="text-center">
-                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">L</div>
-                            <div className={`font-semibold ${getBandScoreColor(attempt.listening_score)}`}>{attempt.listening_score.toFixed(1)}</div>
-                          </div>
-                        )}
-                        {attempt.reading_score !== null && (
-                          <div className="text-center">
-                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">R</div>
-                            <div className={`font-semibold ${getBandScoreColor(attempt.reading_score)}`}>{attempt.reading_score.toFixed(1)}</div>
-                          </div>
-                        )}
-                        {attempt.writing_score !== null && (
-                          <div className="text-center">
-                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">W</div>
-                            <div className={`font-semibold ${getBandScoreColor(attempt.writing_score)}`}>{attempt.writing_score.toFixed(1)}</div>
-                          </div>
-                        )}
-                        {attempt.speaking_score !== null && (
-                          <div className="text-center">
-                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">S</div>
-                            <div className={`font-semibold ${getBandScoreColor(attempt.speaking_score)}`}>{attempt.speaking_score.toFixed(1)}</div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="text-center pl-4 border-l border-slate-200 dark:border-slate-700">
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Overall</div>
-                        <div className={`text-2xl font-bold ${getBandScoreColor(attempt.overall_score)}`}>{attempt.overall_score.toFixed(1)}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </DashboardLayout>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

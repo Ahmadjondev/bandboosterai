@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { SWRProvider } from "@/components/SWRProvider";
 import "./globals.css";
 
 /**
@@ -36,6 +37,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Google Sign-In Library */}
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
         {/* Inline CSS to prevent flash - applied immediately */}
         <style
           dangerouslySetInnerHTML={{
@@ -94,9 +97,11 @@ export default function RootLayout({
           storageKey="app-theme"
           disableTransitionOnChange={false}
         >
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <SWRProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </SWRProvider>
         </ThemeProvider>
       </body>
     </html>

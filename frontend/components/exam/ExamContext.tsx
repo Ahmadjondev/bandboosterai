@@ -303,10 +303,14 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
       // No next section - finish test
       if (!nextSection) {
         if (!skipConfirmation) {
+          const isSpeaking = currentSection === SectionName.SPEAKING;
+          const message = isSpeaking
+            ? "You have completed the Speaking section. Are you sure you want to submit your test?"
+            : "Are you sure you want to finish the test?";
+
           const confirmed = await showConfirm({
             title: "Finish Test",
-            message:
-              "Are you sure you want to finish the test? Speaking section will be conducted offline.",
+            message,
             confirmText: "Finish Test",
             confirmClass: "bg-emerald-600 hover:bg-emerald-700",
           });

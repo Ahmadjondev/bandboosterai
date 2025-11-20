@@ -18,6 +18,9 @@ from .utils import (
     paginate_queryset,
 )
 
+import json
+from django.db import transaction
+
 
 # ============================================================================
 # BOOKS CRUD
@@ -371,6 +374,141 @@ def reorder_sections(request, book_id):
     serializer = BookSectionSerializer(sections, many=True)
 
     return Response({"sections": serializer.data})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def bulk_save_sections_manager(request, book_id):
+    """Bulk create/update/delete for manager panel."""
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    book = get_object_or_404(Book, id=book_id)
+
+    sections_data = request.data.get("sections")
+    if isinstance(sections_data, str):
+        try:
+            sections_list = json.loads(sections_data)
+        except Exception:
+            return Response(
+                {"error": "Invalid sections payload"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    else:
+        sections_list = sections_data or []
+
+    deleted_ids = request.data.get("deleted_ids")
+    try:
+        if isinstance(deleted_ids, str):
+            deleted_ids = json.loads(deleted_ids)
+    except Exception:
+        deleted_ids = []
+
+    created = []
+    updated = []
+    deleted = []
+
+    valid_types = [c[0] for c in BookSection.SECTION_TYPE_CHOICES]
+
+    with transaction.atomic():
+        if deleted_ids:
+            BookSection.objects.filter(book=book, id__in=deleted_ids).delete()
+            deleted = deleted_ids
+
+        for idx, s in enumerate(sections_list):
+            if s.get("section_type") not in valid_types:
+                return Response(
+                    {"error": f"Invalid section_type at index {idx}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if s.get("id"):
+                try:
+                    sec = BookSection.objects.select_for_update().get(
+                        book=book, id=s.get("id")
+                    )
+                except BookSection.DoesNotExist:
+                    return Response(
+                        {"error": f"Section {s.get('id')} not found"},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                sec.title = s.get("title", sec.title)
+                sec.description = s.get("description", sec.description)
+                sec.section_type = s.get("section_type", sec.section_type)
+                sec.order = s.get("order", sec.order)
+                sec.duration_minutes = s.get("duration_minutes", sec.duration_minutes)
+                sec.is_locked = s.get("is_locked", sec.is_locked)
+                sec.reading_passage_id = s.get("reading_passage") or None
+                sec.listening_part_id = s.get("listening_part") or None
+                # Validate presence of content based on section type
+                if sec.section_type == "READING" and not sec.reading_passage_id:
+                    return Response(
+                        {"error": f"Reading content required for section id {sec.id}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if sec.section_type == "LISTENING" and not sec.listening_part_id:
+                    return Response(
+                        {
+                            "error": f"Listening content required for section id {sec.id}"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # File attachments are handled by linked content (reading/listening)
+
+                sec.save()
+                updated.append(sec.id)
+            else:
+                sec = BookSection.objects.create(
+                    book=book,
+                    section_type=s.get("section_type"),
+                    title=s.get("title", ""),
+                    description=s.get("description", ""),
+                    order=s.get("order") or 0,
+                    duration_minutes=s.get("duration_minutes"),
+                    is_locked=s.get("is_locked", False),
+                    reading_passage_id=s.get("reading_passage") or None,
+                    listening_part_id=s.get("listening_part") or None,
+                )
+
+                if sec.section_type == "READING" and not sec.reading_passage_id:
+                    return Response(
+                        {
+                            "error": f"Reading content required for new section index {idx}"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if sec.section_type == "LISTENING" and not sec.listening_part_id:
+                    return Response(
+                        {
+                            "error": f"Listening content required for new section index {idx}"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # No file handling here; files should be uploaded to content objects
+                sec.save()
+                created.append(sec.id)
+
+        # Normalize order
+        all_secs = BookSection.objects.filter(book=book).order_by("order", "id")
+        for i, sec in enumerate(all_secs, start=1):
+            if sec.order != i:
+                sec.order = i
+                sec.save(update_fields=["order"])
+
+        book.update_total_sections()
+
+    sections = BookSection.objects.filter(book=book).order_by("order")
+    serializer = BookSectionSerializer(sections, many=True)
+    return Response(
+        {
+            "created": created,
+            "updated": updated,
+            "deleted": deleted,
+            "sections": serializer.data,
+        }
+    )
 
 
 # ============================================================================

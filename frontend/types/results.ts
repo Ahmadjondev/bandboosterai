@@ -115,11 +115,40 @@ export interface WritingResults {
 // SPEAKING SECTION RESULTS
 // ============================================================================
 
+export interface SpeakingCriterionDetail {
+  score: number;
+  feedback: string;
+}
+
 export interface SpeakingCriteria {
   fluency_and_coherence: number | null;
   lexical_resource: number | null;
   grammatical_range_and_accuracy: number | null;
   pronunciation: number | null;
+}
+
+export interface PronunciationImprovements {
+  specific_words?: string[];
+  phonetic_tips?: string[];
+  practice_exercises?: string[];
+}
+
+export interface SpeakingFeedback {
+  fluency_and_coherence?: SpeakingCriterionDetail;
+  lexical_resource?: SpeakingCriterionDetail;
+  grammatical_range_and_accuracy?: SpeakingCriterionDetail;
+  pronunciation?: SpeakingCriterionDetail;
+  overall_feedback?: string;
+  strengths?: string[];
+  areas_for_improvement?: string[];
+  weaknesses?: string[]; // Legacy field
+  suggestions?: string[]; // Legacy field
+  pronunciation_improvements?: PronunciationImprovements;
+  azure_scores?: {
+    pronunciation?: number;
+    fluency?: number;
+    accuracy?: number;
+  };
 }
 
 export interface SpeakingPartResult {
@@ -131,10 +160,10 @@ export interface SpeakingPartResult {
 }
 
 export interface SpeakingResults {
-  parts: SpeakingPartResult[];
+  parts?: SpeakingPartResult[];
   overall_band_score: number | null;
-  criteria: SpeakingCriteria;
-  feedback: WritingFeedback; // Same structure as writing feedback
+  criteria?: SpeakingCriteria;
+  feedback?: SpeakingFeedback;
 }
 
 // ============================================================================

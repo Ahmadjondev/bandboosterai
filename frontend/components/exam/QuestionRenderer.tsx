@@ -1459,50 +1459,83 @@ const renderFormCompletion = (
   // Track current question index across all items
   let currentQuestionIndex = 0;
 
-  // Process each item and replace <input> with actual input fields
-  const processedItems = formData.items.map((item, itemIdx) => {
-    if (!item.includes("<input>")) {
-      return item;
+  // Recursive function to render items (handles nested objects/sections)
+  const renderItem = (item: any, idx: number, level: number = 0): React.ReactNode => {
+    // Handle nested object (sections)
+    if (typeof item === 'object' && item !== null) {
+      return (
+        <div key={`section-${level}-${idx}`} className={`${level > 0 ? 'ml-4 mt-1' : ''} space-y-1`}>
+          {item.prefix && (
+            <div className="font-medium text-slate-700 dark:text-slate-300">
+              {item.prefix}
+            </div>
+          )}
+          {item.items && Array.isArray(item.items) && (
+            <div className="space-y-1">
+              {item.items.map((subItem: any, subIdx: number) => 
+                renderItem(subItem, subIdx, level + 1)
+              )}
+            </div>
+          )}
+        </div>
+      );
     }
 
-    const parts = item.split("<input>");
-    const elements: React.ReactNode[] = [];
+    // Handle string items
+    if (typeof item === 'string') {
+      if (!item.includes("<input>")) {
+        return (
+           <div key={`item-${level}-${idx}`} className="py-1 leading-relaxed">
+             <span className="text-slate-900 dark:text-slate-100">{item}</span>
+           </div>
+        );
+      }
 
-    for (let idx = 0; idx < parts.length; idx++) {
-      elements.push(<React.Fragment key={`text-${idx}`}>{parts[idx]}</React.Fragment>);
+      const parts = item.split("<input>");
+      const elements: React.ReactNode[] = [];
 
-      if (idx < parts.length - 1) {
-        const question = questionMap[currentQuestionIndex];
-        if (!question) {
-          elements.push(
-            <span key={`missing-${idx}`} className="text-red-500">
-              [Missing]
-            </span>
-          );
-          currentQuestionIndex++;
-        } else {
-          const currentAnswer = userAnswers[question.id] || "";
-          elements.push(
-            <input
-              key={`input-${question.id}`}
-              type="text"
-              id={`q-${question.id}`}
-              data-question-id={question.id}
-              value={currentAnswer}
-              onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
-              onFocus={() => onFocus?.(question.id)}
-              placeholder={question.order.toString()}
-              autoComplete="off"
-              className="inline-block w-32 px-2 border-2 rounded-md border-slate-400 dark:border-slate-500 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-center focus:border-slate-600 dark:focus:border-slate-400 focus:outline-none transition-colors"
-            />
-          );
-          currentQuestionIndex++;
+      for (let i = 0; i < parts.length; i++) {
+        elements.push(<React.Fragment key={`text-${i}`}>{parts[i]}</React.Fragment>);
+
+        if (i < parts.length - 1) {
+          const question = questionMap[currentQuestionIndex];
+          if (!question) {
+             elements.push(
+               <span key={`missing-${i}`} className="text-red-500 mx-1 font-bold">
+                 [?]
+               </span>
+             );
+             currentQuestionIndex++;
+          } else {
+             const currentAnswer = userAnswers[question.id] || "";
+             elements.push(
+               <input
+                  key={`input-${question.id}`}
+                  type="text"
+                  id={`q-${question.id}`}
+                  data-question-id={question.id}
+                  value={currentAnswer}
+                  onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
+                  onFocus={() => onFocus?.(question.id)}
+                  placeholder={question.order.toString()}
+                  autoComplete="off"
+                  className="inline-block w-32 mx-1 px-2 py-0.5 border-2 rounded-md border-slate-400 dark:border-slate-500 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-center focus:border-indigo-600 dark:focus:border-indigo-400 focus:outline-none transition-colors"
+               />
+             );
+             currentQuestionIndex++;
+          }
         }
       }
+      
+      return (
+        <div key={`item-${level}-${idx}`} className="py-1 leading-relaxed">
+           <span className="text-slate-900 dark:text-slate-100">{elements}</span>
+        </div>
+      );
     }
-
-    return <div key={itemIdx}>{elements}</div>;
-  });
+    
+    return null;
+  };
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-lg border-2 border-slate-400 dark:border-slate-600 p-6">
@@ -1512,11 +1545,7 @@ const renderFormCompletion = (
         </h3>
       )}
       <div className="space-y-1.5">
-        {processedItems.map((item, idx) => (
-          <div key={idx} className="py-1 leading-relaxed">
-            <span className="text-slate-900 dark:text-slate-100">{item}</span>
-          </div>
-        ))}
+        {formData.items.map((item, idx) => renderItem(item, idx))}
       </div>
     </div>
   );

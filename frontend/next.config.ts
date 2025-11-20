@@ -1,10 +1,23 @@
 import type { NextConfig } from "next";
+import { API_BASE_URL } from '@/config/api';
 
-// Read API base from env (set this in your deployment environment)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bandbooster.uz";
+// Read API base from centralized config (falls back to env or default inside config)
+const API_URL = API_BASE_URL;
 
 const nextConfig: NextConfig = {
+  // Enable React Compiler for automatic optimizations
   reactCompiler: true,
+
+  // Optimize production builds
+  productionBrowserSourceMaps: false,
+  poweredByHeader: false,
+  compress: true,
+
+  // Experimental features for better performance
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts'],
+    scrollRestoration: true,
+  },
 
   // Allow images from Django backend (development + production host)
   images: {

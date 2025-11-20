@@ -52,7 +52,7 @@ export async function getAvailableTests(options?: {
   if (options?.random) {
     params.append('random', 'true');
   }
-  
+
   if (options?.examType) {
     params.append('exam_type', options.examType);
   }
@@ -60,11 +60,25 @@ export async function getAvailableTests(options?: {
   const queryString = params.toString();
   const url = `${API_BASE}/tests/${queryString ? `?${queryString}` : ''}`;
   
-  const response = await apiClient.get<any[]>(url);
+  // API may return a plain object for a single random test. Use generic `any`
+  // and normalize to an array below.
+  const response = await apiClient.get<any>(url);
   if (!response.data) {
     throw new Error("No data received from server");
   }
-  return response.data;
+  
+  // Normalize the response: if we requested `random` and backend returned an
+  // object, wrap it in an array. Otherwise, return the array as-is.
+  if (options?.random) {
+    if (!Array.isArray(response.data)) {
+      return [response.data];
+    }
+    return response.data;
+  }
+
+  if (Array.isArray(response.data)) return response.data;
+
+  return [response.data];
 }
 
 /**
@@ -130,7 +144,7 @@ export async function createFullTestAttempt(examId: number): Promise<{
   if (!response.data || !response.data.attempt_id) {
     throw new Error("Failed to create exam attempt");
   }
-  
+  console.log("Create attempt response:", response.data);
   return { 
     attemptId: response.data.attempt_id,
     attemptUuid: response.data.attempt_uuid
@@ -149,10 +163,13 @@ export async function getSectionData(
   attemptId: number | string,
   section: SectionName
 ): Promise<SectionData> {
-  const response = await apiClient.get<SectionData>(
-    `${API_BASE}/attempt/${attemptId}/section/${section}/`
-  );
-  console.log(response.data + " <- Section Data");
+  const url = `${API_BASE}/attempt/${attemptId}/section/${section}/`;
+  console.log('[getSectionData] Fetching:', url);
+  
+  const response = await apiClient.get<SectionData>(url);
+  
+  console.log('[getSectionData] Response:', response.data);
+  
   if (!response.data) {
     throw new Error("No section data received from server");
   }
@@ -205,15 +222,21 @@ export async function submitSpeaking(
   formData.append("question_key", submission.question_key);
   formData.append("audio_file", submission.audio_file, `${submission.question_key}.webm`);
 
+  console.log('[submitSpeaking] Submitting:', {
+    attemptId,
+    question_key: submission.question_key,
+    audio_size: submission.audio_file.size,
+    audio_type: submission.audio_file.type
+  });
+
+  // Don't set Content-Type header - let the browser set it automatically with boundary
   const response = await apiClient.post<{ success: boolean; message?: string }>(
     `${API_BASE}/attempt/${attemptId}/submit-speaking/`,
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    }
+    formData
   );
+  
+  console.log('[submitSpeaking] Response:', response.data);
+  
   return response.data || { success: false, message: "No response from server" };
 }
 
@@ -317,6 +340,98 @@ export function revokeAudioBlobUrl(blobUrl: string): void {
 // DASHBOARD ENDPOINTS
 // ============================================================================
 
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  progress: number;
+}
+
+export interface WeeklyData {
+  week_start: string;
+  week_end: string;
+  tests_completed: number;
+  average_score: number | null;
+}
+
+export interface WeeklyProgress {
+  weekly_data: WeeklyData[];
+  trend: "improving" | "stable" | "declining";
+}
+
+export interface Recommendation {
+  type: "focus_area" | "general";
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  action: string;
+}
+
+export interface PerformanceInsights {
+  strongest_section: string | null;
+  improvement_needed: string | null;
+  total_study_time: number;
+  consistency_score: number;
+}
+
+export interface ScoreHistoryItem {
+  date: string;
+  scores: {
+    listening: number | null;
+    reading: number | null;
+    writing: number | null;
+    speaking: number | null;
+  };
+  overall: number | null;
+  test_name: string;
+}
+
+export interface LearningVelocity {
+  velocity: number;
+  trend: "improving" | "declining" | "stable" | "insufficient_data";
+  improvement_rate: number;
+  recent_avg?: number;
+  previous_avg?: number;
+}
+
+export interface ActivityHeatmapDay {
+  date: string;
+  count: number;
+  level: number;
+}
+
+export interface ActivityHeatmap {
+  data: ActivityHeatmapDay[];
+  total_active_days: number;
+  most_active_day: string | null;
+  current_streak: number;
+}
+
+export interface MotivationalMessage {
+  type: "streak" | "achievement" | "encouragement" | "milestone" | "welcome";
+  title: string;
+  message: string;
+  color: string;
+}
+
+export interface SkillGap {
+  section: string;
+  current_score: number;
+  target_score: number;
+  gap: number;
+  priority: "high" | "medium" | "low";
+  estimated_practice_needed: number;
+}
+
+export interface QuickStats {
+  best_score: number;
+  average_improvement: number;
+  practice_consistency: number;
+  tests_this_month: number;
+}
+
 export interface DashboardStats {
   overview: {
     total_tests: number;
@@ -333,6 +448,16 @@ export interface DashboardStats {
     speaking: SectionStat;
   };
   recent_tests: RecentTest[];
+  achievements: Achievement[];
+  weekly_progress: WeeklyProgress;
+  recommendations: Recommendation[];
+  performance_insights: PerformanceInsights;
+  score_history: ScoreHistoryItem[];
+  learning_velocity: LearningVelocity;
+  activity_heatmap: ActivityHeatmap;
+  motivational_message: MotivationalMessage;
+  skill_gaps: SkillGap[];
+  quick_stats: QuickStats;
 }
 
 export interface SectionStat {
@@ -354,12 +479,26 @@ export interface RecentTest {
 }
 
 /**
- * Get dashboard statistics including overview, section stats, and recent tests
+ * Get dashboard statistics including overview, section stats, recent tests,
+ * achievements, weekly progress, recommendations, and performance insights
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
   const response = await apiClient.get<DashboardStats>(`${API_BASE}/dashboard/stats/`);
   if (!response.data) {
     throw new Error("Failed to fetch dashboard stats");
+  }
+  return response.data;
+}
+
+/**
+ * Clear dashboard cache to force refresh of statistics
+ */
+export async function clearDashboardCache(): Promise<{ success: boolean; message: string }> {
+  const response = await apiClient.post<{ success: boolean; message: string }>(
+    `${API_BASE}/dashboard/clear-cache/`
+  );
+  if (!response.data) {
+    throw new Error("Failed to clear dashboard cache");
   }
   return response.data;
 }

@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { DashboardLayout } from '@/components/DashboardLayout';
-import VerificationGuard from '@/components/VerificationGuard';
 import { Book } from '@/types/books';
 import { getBooks, calculateProgress, getLevelBadgeColor } from '@/lib/api/books';
 import { Button } from '@/components/Button';
@@ -42,21 +40,18 @@ export default function BooksPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading books...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading books...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="p-4 sm:p-6 lg:p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
             <h3 className="text-red-800 dark:text-red-200 font-semibold mb-2">Error loading books</h3>
             <p className="text-red-600 dark:text-red-300">{error}</p>
@@ -65,14 +60,11 @@ export default function BooksPage() {
             </Button>
           </div>
         </div>
-      </DashboardLayout>
     );
   }
 
   return (
-    <VerificationGuard>
-      <DashboardLayout>
-        <div className="p-4 sm:p-6 lg:p-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
@@ -154,9 +146,7 @@ export default function BooksPage() {
           ))}
         </div>
       )}
-      </div>
-    </DashboardLayout>
-    </VerificationGuard>
+    </div>
   );
 }
 

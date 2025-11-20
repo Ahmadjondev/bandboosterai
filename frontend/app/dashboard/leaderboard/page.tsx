@@ -1,8 +1,8 @@
-import { DashboardLayout } from '@/components/DashboardLayout';
+
 
 export default function LeaderboardPage() {
   return (
-    <DashboardLayout>
+    
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
@@ -53,6 +53,6 @@ export default function LeaderboardPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    
   );
 }

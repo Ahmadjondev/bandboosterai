@@ -8,7 +8,9 @@ export interface User {
   phone?: string;
   date_of_birth?: string;
   profile_image?: string;
-  email_verified: boolean;
+  is_verified: boolean;
+  google_id?: string;
+  registration_method?: 'EMAIL' | 'TELEGRAM' | 'GOOGLE';
   balance?: number;
   created_at: string;
 }

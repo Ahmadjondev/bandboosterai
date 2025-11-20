@@ -12,6 +12,16 @@ urlpatterns = [
         api_views.get_book_sections,
         name="get_book_sections",
     ),
+    path(
+        "api/books/<int:book_id>/sections/bulk-save/",
+        api_views.bulk_save_book_sections,
+        name="bulk_save_book_sections",
+    ),
+    path(
+        "api/books/<int:book_id>/reorder-sections/",
+        api_views.reorder_sections,
+        name="reorder_sections",
+    ),
     # Sections
     path(
         "api/sections/<int:section_id>/",
