@@ -40,8 +40,12 @@ export default function WritingSection() {
     if (task2?.user_attempt) setTask2Text(task2.user_attempt);
   }, [task1, task2]);
 
-  // Auto-focus textarea when switching tasks
+  // Auto-focus textarea and scroll to top when switching tasks
   useEffect(() => {
+    // Scroll to top of page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Focus textarea
     if (textareaRef.current) {
       textareaRef.current.focus();
     }

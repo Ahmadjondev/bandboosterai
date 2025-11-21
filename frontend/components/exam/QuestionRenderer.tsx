@@ -955,6 +955,17 @@ const renderSummaryCompletion = (
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+      {/* Display image if available */}
+      {group.picture_url && (
+        <div className="mb-6">
+          <img
+            src={group.picture_url}
+            alt="Summary reference"
+            className="w-full max-w-2xl mx-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-md"
+          />
+        </div>
+      )}
+      
       {processedPrefix.length > 0 && (
         <div
           className="text-slate-700 dark:text-slate-300 font-medium mb-3"

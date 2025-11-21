@@ -123,9 +123,12 @@ export default function SpeakingSection() {
     }
   }, [allQuestions, status]);
 
-  // Watch for question change to auto-play
+  // Watch for question change to auto-play and scroll to top
   useEffect(() => {
     if (currentQuestion) {
+      // Scroll to top when question changes
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
       // Reset states
       setRecordingDuration(0);
       setCountdown(0);

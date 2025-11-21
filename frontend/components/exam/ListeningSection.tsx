@@ -150,6 +150,13 @@ export default function ListeningSection() {
     };
   }, []);
 
+  // Auto-scroll to top when part changes
+  useEffect(() => {
+    if (questionsContainerRef.current) {
+      questionsContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activePart]);
+
   // Format time helper
   const formatTime = (seconds: number) => {
     if (isNaN(seconds) || seconds === 0) return '0:00';

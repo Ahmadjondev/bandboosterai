@@ -404,7 +404,7 @@ class TestHeadAdmin(admin.ModelAdmin):
         "get_data_status",
     )
     list_filter = ("question_type", "listening__part_number", "reading__passage_number")
-    search_fields = ("title", "description", "instruction")
+    search_fields = ("title", "description")
     ordering = ("listening__part_number", "reading__passage_number", "title")
     inlines = [QuestionInline]
     list_per_page = 30
@@ -412,7 +412,7 @@ class TestHeadAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             "Basic Information",
-            {"fields": ("title", "question_type", "description", "instruction")},
+            {"fields": ("title", "question_type", "description")},
         ),
         (
             "Section Assignment",
@@ -426,12 +426,10 @@ class TestHeadAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "question_data",
-                    "question_body",
                     "picture",
-                    "answer_format",
                 ),
                 "classes": ("collapse",),
-                "description": "Advanced configuration for specific question types",
+                "description": "Advanced configuration for specific question types (JSON data and optional image)",
             },
         ),
     )
@@ -479,8 +477,8 @@ class TestHeadAdmin(admin.ModelAdmin):
         status = []
         if obj.question_data:
             status.append("📊 Data")
-        if obj.question_body:
-            status.append("📝 Body")
+        if obj.description:
+            status.append("📝 Description")
         if obj.picture:
             status.append("🖼️ Image")
         return " ".join(status) if status else "-"

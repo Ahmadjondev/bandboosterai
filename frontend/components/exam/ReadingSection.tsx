@@ -46,6 +46,16 @@ export default function ReadingSection() {
     };
   }, []);
 
+  // Auto-scroll to top when passage changes
+  useEffect(() => {
+    if (passageContainerRef.current) {
+      passageContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    if (questionsContainerRef.current) {
+      questionsContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentPassage]);
+
   if (!readingData || passages.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
