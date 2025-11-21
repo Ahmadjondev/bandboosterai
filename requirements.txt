@@ -3,6 +3,7 @@ annotated-types==0.7.0
 anyio==4.9.0
 asgiref==3.8.1
 async-timeout==5.0.1
+audioop-lts==0.2.2
 azure-cognitiveservices-speech==1.45.0
 azure-core==1.35.0
 billiard==4.2.1
@@ -26,7 +27,7 @@ django-allauth==0.57.0
 django-cors-headers==4.6.0
 django-email-verification==0.3.3
 django-jazzmin==3.0.1
-django-redis==5.4.0
+django-redis==6.0.0
 django-storages==1.14.6
 django-tailwind==3.6.0
 django-widget-tweaks==1.5.0
@@ -68,7 +69,7 @@ python-dateutil==2.9.0.post0
 python-decouple==3.8
 python-dotenv==1.1.1
 python-environ==0.4.54
-python-telegram-bot==21.10
+python-telegram-bot==22.5
 python3-openid==3.2.0
 qrcode==7.4.2
 redis==6.2.0
