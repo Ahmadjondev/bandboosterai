@@ -772,60 +772,99 @@ const renderMatching = (
   userAnswers: UserAnswers,
   onAnswer?: (questionId: number, answer: string, immediate: boolean) => void
 ): React.ReactNode => {
-  // Parse matching options from question_data
-  let options: Array<{ key: string; text: string }> = [];
+  // Common interface for all dropdown options
+  interface DropdownOption {
+    key: string;
+    text: string;
+  }
+  
+  // Parse matching data from question_data
+  let headings: DropdownOption[] = [];
+  let dropdownOptions: DropdownOption[] = [];
+  
   if (group.question_data) {
     try {
       const data = typeof group.question_data === 'string' 
         ? JSON.parse(group.question_data) 
         : group.question_data;
-      options = data.options || [];
+      
+      // For MH (Matching Headings), use headings array
+      if (group.question_type === 'MH' && data.headings) {
+        headings = data.headings.map((h: any) => ({
+          key: h.key || '',
+          text: h.text || ''
+        }));
+        dropdownOptions = headings;
+      } else {
+        // For MI, MF, use options array and normalize structure
+        const rawOptions = data.options || [];
+        dropdownOptions = rawOptions.map((opt: any) => ({
+          key: opt.key || opt.value || '',
+          text: opt.text || opt.label || ''
+        }));
+      }
     } catch (e) {
-      console.error("Failed to parse matching options:", e);
+      console.error("Failed to parse matching data:", e);
     }
   }
 
-  const typeLabels: Record<string, string> = {
-    'MH': 'Matching Headings',
-    'MI': 'Matching Information',
-    'MF': 'Matching Features'
-  };
-
   return (
-    <div className="space-y-4">
-      {group.questions.map((question) => {
-        const currentAnswer = userAnswers[question.id] || "";
-        return (
-          <div
-            key={question.id}
-            className="pb-4 border-b border-slate-100 dark:border-slate-700 last:border-b-0"
-          >
-            <div className="flex items-start gap-3">
-              <span className="inline-flex items-center justify-center w-6 h-6 bg-indigo-600 dark:bg-indigo-500 text-white text-xs font-bold rounded-full shrink-0">
-                {question.order}
-              </span>
-              <div className="flex-1">
-                <div style={{ fontSize: "inherit" }}>{renderQuestionText(question.question_text)}</div>
-                <select
-                  id={`select-${question.id}`}
-                  data-question-id={question.id}
-                  value={currentAnswer}
-                  onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
-                  className="w-full max-w-md px-3 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:border-indigo-600 focus:outline-none transition-colors bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
-                  style={{ fontSize: "inherit" }}
-                >
-                  <option key={`placeholder-${question.id}`} value="">Select...</option>
-                  {options.map((option, optionIdx) => (
-                    <option key={`${question.id}-option-${optionIdx}`} value={option.key}>
-                      {option.key}. {option.text}
-                    </option>
-                  ))}
-                </select>
+    <div className="space-y-6">
+      {/* Display headings list for MH questions */}
+      {group.question_type === 'MH' && headings.length > 0 && (
+        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4 mb-6">
+          <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-3" style={{ fontSize: "inherit" }}>
+            List of Headings:
+          </h4>
+          <div className="space-y-2">
+            {headings.map((heading, idx) => (
+              <div key={idx} className="text-slate-700 dark:text-slate-300" style={{ fontSize: "inherit" }}>
+                <strong className="font-semibold mr-2">{heading.key}</strong>
+                {heading.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Questions */}
+      <div className="space-y-4">
+        {group.questions.map((question) => {
+          const currentAnswer = userAnswers[question.id] || "";
+          return (
+            <div
+              key={question.id}
+              className="pb-4 border-b border-slate-100 dark:border-slate-700 last:border-b-0"
+            >
+              <div className="flex items-start gap-3">
+                <span className="inline-flex items-center justify-center w-6 h-6 bg-indigo-600 dark:bg-indigo-500 text-white text-xs font-bold rounded-full shrink-0">
+                  {question.order}
+                </span>
+                <div className="flex-1">
+                  <div className="mb-2" style={{ fontSize: "inherit" }}>
+                    {renderQuestionText(question.question_text || question.stem)}
+                  </div>
+                  <select
+                    id={`select-${question.id}`}
+                    data-question-id={question.id}
+                    value={currentAnswer}
+                    onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
+                    className="w-full max-w-md px-3 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:border-indigo-600 focus:outline-none transition-colors bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+                    style={{ fontSize: "inherit" }}
+                  >
+                    <option value="">Select heading...</option>
+                    {dropdownOptions.map((option, optionIdx) => (
+                      <option key={`${question.id}-option-${optionIdx}`} value={option.key}>
+                        {option.key}{option.text && ` - ${option.text}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 };

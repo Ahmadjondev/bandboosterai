@@ -17,7 +17,7 @@ export default function LandingPage() {
       <HeroSection />
       
       {/* Partners Section */}
-      <PartnersSection />
+      {/* <PartnersSection />  */}
       
       {/* Features Section */}
       <FeaturesSection />
