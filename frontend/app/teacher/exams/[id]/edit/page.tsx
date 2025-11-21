@@ -67,7 +67,7 @@ export default function EditExamPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title.trim()) {
+    if (!formData.title?.trim()) {
       setError('Title is required');
       return;
     }

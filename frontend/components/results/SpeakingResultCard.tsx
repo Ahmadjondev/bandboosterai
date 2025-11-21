@@ -165,7 +165,7 @@ export function SpeakingResultCard({ results }: SpeakingResultCardProps) {
           <div className="text-center py-8">
             <div className="text-6xl mb-4">⏳</div>
             <p className="text-slate-600 dark:text-slate-400">
-              {results.parts.some((p) => p.has_audio)
+              {results.parts?.some((p) => p.has_audio)
                 ? 'Your speaking test is being evaluated. Check back later for detailed feedback.'
                 : 'No speaking recordings available. Speaking section was not completed.'}
             </p>

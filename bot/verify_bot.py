@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # API Configuration
-API_BASE_URL = config("API_BASE_URL", default="http://localhost:8001")
+API_BASE_URL = config("API_BASE_URL", default="https://api.bandbooster.uz/")
 FRONTEND_URL = config("FRONTEND_URL", default="https://localhost:3000")
 
 
