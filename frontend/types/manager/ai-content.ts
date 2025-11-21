@@ -37,6 +37,8 @@ export interface QuestionGroup {
   description?: string;
   question_type: QuestionType;
   questions: AIQuestion[];
+  image?: File | string | null;  // For diagram, map, flow chart types
+  image_preview?: string;  // Preview URL for uploaded image
 }
 
 // Reading Passage structure

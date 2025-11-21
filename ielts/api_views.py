@@ -89,16 +89,46 @@ def get_object_by_uuid_or_id(model, identifier):
 
 
 def get_user_attempt(attempt_id, user):
-    """Get exam attempt and verify ownership. Supports UUID or integer ID."""
-    attempt = get_object_by_uuid_or_id(
-        ExamAttempt.objects.select_related("student", "exam"), attempt_id
-    )
-    if attempt.student != user:
-        return None, Response(
-            {"error": "You do not have permission to access this attempt."},
-            status=status.HTTP_403_FORBIDDEN,
+    """Get exam attempt and verify ownership. Supports UUID or integer ID.
+    Works with both regular ExamAttempt and TeacherExamAttempt."""
+    from teacher.models import TeacherExamAttempt
+
+    # Try regular ExamAttempt first
+    try:
+        attempt = get_object_by_uuid_or_id(
+            ExamAttempt.objects.select_related("student", "exam__mock_test"), attempt_id
         )
-    return attempt, None
+        if attempt.student != user:
+            return None, Response(
+                {"error": "You do not have permission to access this attempt."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Add mock_test reference for compatibility
+        if not hasattr(attempt.exam, "mock_test"):
+            attempt.exam.mock_test = attempt.exam
+        return attempt, None
+    except:
+        pass
+
+    # Try TeacherExamAttempt
+    try:
+        attempt = get_object_by_uuid_or_id(
+            TeacherExamAttempt.objects.select_related("student", "exam__mock_exam"),
+            attempt_id,
+        )
+        if attempt.student != user:
+            return None, Response(
+                {"error": "You do not have permission to access this attempt."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Add mock_test reference for compatibility (TeacherExam has mock_exam)
+        attempt.exam.mock_test = attempt.exam.mock_exam
+        return attempt, None
+    except:
+        return None, Response(
+            {"error": "Attempt not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
 
 def _check_answer_correctness(user_answer_text, question):
@@ -737,14 +767,28 @@ def submit_answer(request, attempt_id):
         max_score = 1
 
     # Save or update user answer
-    user_answer, created = UserAnswer.objects.update_or_create(
-        exam_attempt=attempt,
-        question=question,
-        defaults={
-            "answer_text": answer,
-            "is_correct": is_correct,
-        },
-    )
+    from teacher.models import TeacherExamAttempt, TeacherUserAnswer
+
+    if isinstance(attempt, TeacherExamAttempt):
+        # Save to TeacherUserAnswer for teacher exam attempts
+        user_answer, created = TeacherUserAnswer.objects.update_or_create(
+            exam_attempt=attempt,
+            question=question,
+            defaults={
+                "answer_text": answer,
+                "is_correct": is_correct,
+            },
+        )
+    else:
+        # Save to UserAnswer for regular exam attempts
+        user_answer, created = UserAnswer.objects.update_or_create(
+            exam_attempt=attempt,
+            question=question,
+            defaults={
+                "answer_text": answer,
+                "is_correct": is_correct,
+            },
+        )
 
     return Response(
         {
@@ -778,26 +822,33 @@ def submit_writing(request, attempt_id):
     # Calculate word count
     word_count = len(answer_text.split())
 
-    # Save or update writing attempt
-    writing_attempt, created = WritingAttempt.objects.update_or_create(
-        exam_attempt=attempt,
-        task=task,
-        defaults={
-            "answer_text": answer_text,
-            "word_count": word_count,
-            "evaluation_status": WritingAttempt.EvaluationStatus.PENDING,
-        },
-    )
+    # Save or update writing attempt (only for regular ExamAttempts)
+    from teacher.models import TeacherExamAttempt
 
-    return Response(
-        {
-            "success": True,
-            "task_id": task_id,
-            "word_count": word_count,
-            "writing_attempt_id": writing_attempt.id,
-            "writing_attempt_uuid": str(writing_attempt.uuid),
-        }
-    )
+    writing_attempt = None
+    if not isinstance(attempt, TeacherExamAttempt):
+        writing_attempt, created = WritingAttempt.objects.update_or_create(
+            exam_attempt=attempt,
+            task=task,
+            defaults={
+                "answer_text": answer_text,
+                "word_count": word_count,
+                "evaluation_status": WritingAttempt.EvaluationStatus.PENDING,
+            },
+        )
+    # TODO: Implement writing storage for TeacherExamAttempts
+
+    response_data = {
+        "success": True,
+        "task_id": task_id,
+        "word_count": word_count,
+    }
+
+    if writing_attempt:
+        response_data["writing_attempt_id"] = writing_attempt.id
+        response_data["writing_attempt_uuid"] = str(writing_attempt.uuid)
+
+    return Response(response_data)
 
 
 @api_view(["POST"])
@@ -834,6 +885,19 @@ def submit_speaking(request, attempt_id):
             {"error": "Invalid question_key format"}, status=status.HTTP_400_BAD_REQUEST
         )
 
+    # Skip for TeacherExamAttempts for now
+    from teacher.models import TeacherExamAttempt
+
+    if isinstance(attempt, TeacherExamAttempt):
+        # TODO: Implement speaking storage for TeacherExamAttempts
+        return Response(
+            {
+                "success": True,
+                "message": "Speaking submission received (storage not yet implemented for teacher exams)",
+                "question_key": question_key,
+            }
+        )
+
     # Get the speaking topic for this exam and speaking type
     topic = get_object_or_404(
         SpeakingTopic,
@@ -844,7 +908,6 @@ def submit_speaking(request, attempt_id):
     # Get the specific question
     question = get_object_or_404(SpeakingQuestion, topic=topic, order=question_order)
 
-    # Get or create speaking attempt (OneToOne with ExamAttempt)
     speaking_attempt, created = SpeakingAttempt.objects.get_or_create(
         exam_attempt=attempt,
         defaults={
@@ -992,7 +1055,18 @@ def next_section(request, attempt_id):
     attempt.refresh_from_db()
 
     current = attempt.current_section
-    exam_type = attempt.exam.mock_test.exam_type
+
+    # Get exam_type - handle difference between Exam and TeacherExam
+    # Exam uses 'mock_test', TeacherExam uses 'mock_exam'
+    mock_exam = getattr(attempt.exam, "mock_test", None) or getattr(
+        attempt.exam, "mock_exam", None
+    )
+    if not mock_exam:
+        return Response(
+            {"error": "Exam configuration error: no mock exam found"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    exam_type = mock_exam.exam_type
 
     # Define section flow based on exam type
     section_flows = {
@@ -1037,20 +1111,29 @@ def next_section(request, attempt_id):
         # Lock the row to prevent concurrent updates
         # attempt_id may be a UUID string or integer ID. Use UUID lookup when possible.
         from django.core.exceptions import ValidationError
+        from teacher.models import TeacherExamAttempt
         import uuid as uuid_module
+
+        # Determine which model to use based on the attempt type
+        is_teacher_exam = isinstance(attempt, TeacherExamAttempt)
+        AttemptModel = TeacherExamAttempt if is_teacher_exam else ExamAttempt
 
         try:
             uuid_obj = uuid_module.UUID(str(attempt_id))
-            attempt = ExamAttempt.objects.select_for_update().get(uuid=uuid_obj)
+            attempt = AttemptModel.objects.select_for_update().get(uuid=uuid_obj)
         except (ValueError, ValidationError):
             # Fall back to integer ID
-            attempt = ExamAttempt.objects.select_for_update().get(id=int(attempt_id))
+            attempt = AttemptModel.objects.select_for_update().get(id=int(attempt_id))
 
         # Update attempt
         attempt.current_section = next_section
         if next_section == "COMPLETED":
             attempt.status = "COMPLETED"
-            attempt.completed_at = timezone.now()
+            # TeacherExamAttempt uses submitted_at, ExamAttempt uses completed_at
+            if is_teacher_exam:
+                attempt.submitted_at = timezone.now()
+            else:
+                attempt.completed_at = timezone.now()
         elif current == "NOT_STARTED":
             attempt.status = "IN_PROGRESS"
             attempt.started_at = timezone.now()
@@ -1101,81 +1184,135 @@ def next_section(request, attempt_id):
 def submit_test(request, attempt_id):
     """Submit the entire test and mark as completed."""
     from ielts.tasks import process_writing_check_task, evaluate_speaking_attempt_task
+    from teacher.models import TeacherExamAttempt
 
     attempt, error_response = get_user_attempt(attempt_id, request.user)
     if error_response:
         return error_response
 
-    # Mark as completed
+    # Check if this is a teacher exam attempt
+    is_teacher_exam = isinstance(attempt, TeacherExamAttempt)
+
+    # Mark as completed (handle both ExamAttempt and TeacherExamAttempt)
     attempt.status = "COMPLETED"
-    attempt.current_section = "COMPLETED"
-    attempt.completed_at = timezone.now()
+    if hasattr(attempt, "current_section"):
+        attempt.current_section = "COMPLETED"
+    if hasattr(attempt, "completed_at"):
+        attempt.completed_at = timezone.now()
+    elif hasattr(attempt, "submitted_at"):
+        attempt.submitted_at = timezone.now()
     attempt.save()
 
     # Calculate scores for reading and listening if applicable
-    exam_type = attempt.exam.mock_test.exam_type
+    # Get exam_type - handle difference between Exam and TeacherExam
+    mock_exam = getattr(attempt.exam, "mock_test", None) or getattr(
+        attempt.exam, "mock_exam", None
+    )
+    exam_type = mock_exam.exam_type if mock_exam else None
 
-    if exam_type in [
+    if not exam_type:
+        # No exam type found, just return success
+        return Response(
+            {
+                "success": True,
+                "message": "Test submitted successfully!",
+                "attempt_id": attempt.id,
+            }
+        )
+
+    # Calculate listening and reading scores for TeacherExamAttempt
+    if is_teacher_exam and exam_type in [
         "LISTENING",
         "READING",
         "LISTENING_READING",
         "LISTENING_READING_WRITING",
         "FULL_TEST",
     ]:
-        # We'll calculate scores here or you can trigger async tasks
-        pass
+        from ielts.analysis import calculate_band_score
+        from decimal import Decimal
 
-    # Automatically trigger AI writing checks if exam has writing section
-    if exam_type in ["WRITING", "LISTENING_READING_WRITING", "FULL_TEST"]:
-        writing_attempts = WritingAttempt.objects.filter(
-            exam_attempt=attempt, answer_text__isnull=False
-        ).exclude(answer_text="")
+        # Get section results using the existing attempt object
+        listening_ans = _get_section_results(attempt=attempt, section_type="listening")
+        reading_ans = _get_section_results(attempt=attempt, section_type="reading")
 
-        for writing_attempt in writing_attempts:
-            # Set status to PENDING before queuing
-            writing_attempt.evaluation_status = WritingAttempt.EvaluationStatus.PENDING
-            writing_attempt.save(update_fields=["evaluation_status"])
+        # Calculate band scores using IELTS algorithm (assumes 40 questions each)
+        listening_band = listening_ans["band_score"]
+        attempt.listening_score = Decimal(str(listening_band))
 
-            # Queue Celery task for AI analysis (use UUID for task identifier)
-            process_writing_check_task.delay(str(writing_attempt.uuid))
+        reading_band = reading_ans["band_score"]
+        attempt.reading_score = Decimal(str(reading_band))
 
-    # Automatically trigger AI speaking evaluation if exam has speaking section
-    if exam_type in [
-        "SPEAKING",
-        "FULL_TEST",
-    ]:
-        try:
-            speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
+        # Save the updated attempt with scores
+        attempt.save()
 
-            # Check if there are any speaking answers
-            speaking_answers_count = SpeakingAnswer.objects.filter(
-                speaking_attempt=speaking_attempt
-            ).count()
+    # Only process WritingAttempt and SpeakingAttempt for regular ExamAttempt
+    # TeacherExamAttempt doesn't use these models
+    if not is_teacher_exam:
+        # Automatically trigger AI writing checks if exam has writing section
+        if exam_type in ["WRITING", "LISTENING_READING_WRITING", "FULL_TEST"]:
+            writing_attempts = WritingAttempt.objects.filter(
+                exam_attempt=attempt, answer_text__isnull=False
+            ).exclude(answer_text="")
 
-            if speaking_answers_count > 0:
+            for writing_attempt in writing_attempts:
                 # Set status to PENDING before queuing
-                speaking_attempt.evaluation_status = (
-                    SpeakingAttempt.EvaluationStatus.PENDING
+                writing_attempt.evaluation_status = (
+                    WritingAttempt.EvaluationStatus.PENDING
                 )
-                speaking_attempt.save(update_fields=["evaluation_status"])
+                writing_attempt.save(update_fields=["evaluation_status"])
 
-                # Queue Celery task for AI evaluation (use UUID for task identifier)
-                evaluate_speaking_attempt_task.delay(str(speaking_attempt.uuid))
+                # Queue Celery task for AI analysis (use UUID for task identifier)
+                process_writing_check_task.delay(str(writing_attempt.uuid))
 
-                logger.info(
-                    f"Queued speaking evaluation for attempt {attempt.id}, "
-                    f"speaking_attempt {speaking_attempt.id}"
-                )
-        except SpeakingAttempt.DoesNotExist:
-            logger.info(f"No speaking attempt found for exam attempt {attempt.id}")
+        # Automatically trigger AI speaking evaluation if exam has speaking section
+        if exam_type in [
+            "SPEAKING",
+            "FULL_TEST",
+        ]:
+            try:
+                speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
 
-    return Response(
-        {
-            "success": True,
-            "message": "Test submitted successfully!",
-            "attempt_id": attempt.id,
-        }
-    )
+                # Check if there are any speaking answers
+                speaking_answers_count = SpeakingAnswer.objects.filter(
+                    speaking_attempt=speaking_attempt
+                ).count()
+
+                if speaking_answers_count > 0:
+                    # Set status to PENDING before queuing
+                    speaking_attempt.evaluation_status = (
+                        SpeakingAttempt.EvaluationStatus.PENDING
+                    )
+                    speaking_attempt.save(update_fields=["evaluation_status"])
+
+                    # Queue Celery task for AI evaluation (use UUID for task identifier)
+                    evaluate_speaking_attempt_task.delay(str(speaking_attempt.uuid))
+
+                    logger.info(
+                        f"Queued speaking evaluation for attempt {attempt.id}, "
+                        f"speaking_attempt {speaking_attempt.id}"
+                    )
+            except SpeakingAttempt.DoesNotExist:
+                logger.info(f"No speaking attempt found for exam attempt {attempt.id}")
+
+    response_data = {
+        "success": True,
+        "message": "Test submitted successfully!",
+        "attempt_id": attempt.id,
+    }
+
+    # Add scores to response for TeacherExamAttempt
+    if is_teacher_exam:
+        response_data["listening_score"] = (
+            float(attempt.listening_score) if attempt.listening_score else None
+        )
+        response_data["reading_score"] = (
+            float(attempt.reading_score) if attempt.reading_score else None
+        )
+        response_data["overall_band"] = (
+            float(attempt.overall_band) if attempt.overall_band else None
+        )
+
+    return Response(response_data)
 
 
 # ============================================================================
@@ -1187,25 +1324,44 @@ def submit_test(request, attempt_id):
 @permission_classes([IsAuthenticated])
 def get_test_results(request, attempt_id):
     """Get comprehensive test results with analysis."""
+    from teacher.models import TeacherExamAttempt
+
     attempt, error_response = get_user_attempt(attempt_id, request.user)
     if error_response:
         return error_response
 
-    if attempt.status != "COMPLETED":
+    if attempt.status != "COMPLETED" and attempt.status != "GRADED":
         return Response(
             {"error": "Test has not been completed yet."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     exam = attempt.exam
-    exam_type = exam.mock_test.exam_type
+
+    # Handle mock_test vs mock_exam attribute difference
+    mock_exam = getattr(exam, "mock_test", None) or getattr(exam, "mock_exam", None)
+    if not mock_exam:
+        return Response(
+            {"error": "Exam configuration error"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    exam_type = mock_exam.exam_type
+
+    # Handle completed_at vs submitted_at difference
+    is_teacher_exam = isinstance(attempt, TeacherExamAttempt)
+    completed_time = attempt.submitted_at if is_teacher_exam else attempt.completed_at
 
     results = {
         "attempt_id": attempt.id,
-        "exam_title": exam.mock_test.title,
+        "exam_title": mock_exam.title,
         "exam_type": exam_type,
-        "completed_at": attempt.completed_at,
-        "duration_minutes": attempt.get_duration_minutes(),
+        "completed_at": completed_time,
+        "duration_minutes": (
+            attempt.get_duration_minutes()
+            if hasattr(attempt, "get_duration_minutes")
+            else None
+        ),
         "sections": {},
     }
 
@@ -1380,6 +1536,14 @@ def _build_answer_groups(section_items, user_answers_map, section_type="listenin
                         question, user_answer, correct_answer
                     )
 
+                # Add part/passage information for frontend grouping
+                if section_type == "listening":
+                    answer_detail["part"] = f"{label} {item_number}"
+                else:
+                    answer_detail["passage"] = f"{label} {item_number}"
+
+                answer_detail["question_type"] = test_head.get_question_type_display()
+
                 answers_list.append(answer_detail)
 
             answer_groups.append(
@@ -1394,15 +1558,15 @@ def _build_answer_groups(section_items, user_answers_map, section_type="listenin
     return answer_groups
 
 
-def _build_listening_answer_groups(exam, user_answers_map):
+def _build_listening_answer_groups(mock_exam, user_answers_map):
     """Build detailed answer groups for listening section review."""
-    parts = exam.mock_test.listening_parts.all().order_by("part_number")
+    parts = mock_exam.listening_parts.all().order_by("part_number")
     return _build_answer_groups(parts, user_answers_map, section_type="listening")
 
 
-def _build_reading_answer_groups(exam, user_answers_map):
+def _build_reading_answer_groups(mock_exam, user_answers_map):
     """Build detailed answer groups for reading section review."""
-    passages = exam.mock_test.reading_passages.all().order_by("passage_number")
+    passages = mock_exam.reading_passages.all().order_by("passage_number")
     return _build_answer_groups(passages, user_answers_map, section_type="reading")
 
 
@@ -1553,35 +1717,56 @@ def _get_section_results(attempt, section_type="listening"):
     Generic function to get section results for listening or reading.
 
     Args:
-        attempt: ExamAttempt object
+        attempt: ExamAttempt or TeacherExamAttempt object
         section_type: 'listening' or 'reading'
     """
+    from teacher.models import TeacherExamAttempt, TeacherUserAnswer
+
     exam = attempt.exam
+    is_teacher_exam = isinstance(attempt, TeacherExamAttempt)
+
+    # Get mock exam - handle both mock_test and mock_exam
+    mock_exam = getattr(exam, "mock_test", None) or getattr(exam, "mock_exam", None)
+    if not mock_exam:
+        # Return empty results if no mock exam found
+        return {
+            "total_questions": 0,
+            "correct_answers": 0,
+            "band_score": 0,
+            "accuracy_by_type": {},
+            "type_stats": [],
+            "answer_groups": [],
+        }
 
     # Get questions based on section type
     if section_type == "listening":
         questions = Question.objects.filter(
-            test_head__listening__in=exam.mock_test.listening_parts.all()
+            test_head__listening__in=mock_exam.listening_parts.all()
         ).select_related("test_head", "test_head__listening")
         band_type = "listening"
 
         # Build question to part map
         grouping_map = {}
-        for part in exam.mock_test.listening_parts.all():
+        for part in mock_exam.listening_parts.all():
             for head in part.test_heads.all():
                 for question in head.questions.all():
                     grouping_map[question.id] = part.part_number
     else:  # reading
         questions = Question.objects.filter(
-            test_head__reading__in=exam.mock_test.reading_passages.all()
+            test_head__reading__in=mock_exam.reading_passages.all()
         ).select_related("test_head")
         band_type = "academic_reading"
         grouping_map = None
 
-    # Get user answers
-    user_answers = UserAnswer.objects.filter(
-        exam_attempt=attempt, question__in=questions
-    ).select_related("question", "question__test_head")
+    # Get user answers - use appropriate model based on attempt type
+    if is_teacher_exam:
+        user_answers = TeacherUserAnswer.objects.filter(
+            exam_attempt=attempt, question__in=questions
+        ).select_related("question", "question__test_head")
+    else:
+        user_answers = UserAnswer.objects.filter(
+            exam_attempt=attempt, question__in=questions
+        ).select_related("question", "question__test_head")
 
     # Build user answers map
     user_answers_map = {ua.question_id: ua.answer_text for ua in user_answers}
@@ -1601,9 +1786,9 @@ def _get_section_results(attempt, section_type="listening"):
 
     # Build answer groups
     if section_type == "listening":
-        answer_groups = _build_listening_answer_groups(exam, user_answers_map)
+        answer_groups = _build_listening_answer_groups(mock_exam, user_answers_map)
     else:
-        answer_groups = _build_reading_answer_groups(exam, user_answers_map)
+        answer_groups = _build_reading_answer_groups(mock_exam, user_answers_map)
 
     result = {
         "total_questions": total_count,
@@ -1633,6 +1818,15 @@ def _get_reading_results(attempt):
 
 def _get_writing_results(attempt):
     """Get writing section results."""
+    from teacher.models import TeacherExamAttempt
+
+    # WritingAttempt only works with ExamAttempt, not TeacherExamAttempt
+    if isinstance(attempt, TeacherExamAttempt):
+        return {
+            "tasks": [],
+            "overall_band_score": None,
+        }
+
     writing_attempts = WritingAttempt.objects.filter(
         exam_attempt=attempt
     ).select_related("task")
@@ -1739,6 +1933,15 @@ def _get_writing_results(attempt):
 
 def _get_speaking_results(attempt):
     """Get speaking section results."""
+    from teacher.models import TeacherExamAttempt
+
+    # SpeakingAttempt only works with ExamAttempt, not TeacherExamAttempt
+    if isinstance(attempt, TeacherExamAttempt):
+        return {
+            "parts": [],
+            "overall_band_score": None,
+        }
+
     try:
         speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
     except SpeakingAttempt.DoesNotExist:

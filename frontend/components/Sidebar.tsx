@@ -142,7 +142,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
     },
     {
       section: 'Tests',
-      items: [{ href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' }]
+      items: [
+        { href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' },
+        { href: '/dashboard/teacher-exams', icon: '🎓', label: 'Exams', badge: 'NEW' }
+      ]
     },
     {
       section: 'Tools',

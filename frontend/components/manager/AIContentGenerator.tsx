@@ -28,6 +28,7 @@ import {
   X,
   Image,
   AlertTriangle,
+  Music,
 } from 'lucide-react';
 import { managerAPI } from '@/lib/manager/api-client';
 import type {
@@ -71,6 +72,12 @@ const AIContentGenerator: React.FC = () => {
   // Save state
   const [isSaving, setIsSaving] = useState(false);
   const [savedItems, setSavedItems] = useState<any[]>([]);
+
+  // Image upload state for question groups
+  const [groupImages, setGroupImages] = useState<Record<string, { file: File; preview: string }>>({});
+
+  // Audio upload state for listening parts
+  const [partAudios, setPartAudios] = useState<Record<string, { file: File; preview: string }>>({});
 
   // Review UI state: expansion and inline edit buffers
   const [expanded, setExpanded] = useState<{ passages: Set<number>; parts: Set<number> }>({
@@ -222,6 +229,90 @@ const AIContentGenerator: React.FC = () => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 5000);
   }, []);
+
+  // Check if question type requires an image
+  const questionTypeRequiresImage = (questionType: string): boolean => {
+    const imageRequiredTypes = ['DL', 'ML', 'FCC', 'TC', 'FC'];
+    return imageRequiredTypes.includes(questionType);
+  };
+
+  // Handle image upload for question groups
+  const handleImageUpload = (groupKey: string, file: File) => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showNotification('Please select a valid image file', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Image size must be less than 5MB', 'error');
+      return;
+    }
+
+    // Create preview URL
+    const preview = URL.createObjectURL(file);
+
+    setGroupImages(prev => ({
+      ...prev,
+      [groupKey]: { file, preview }
+    }));
+
+    showNotification('Image uploaded successfully', 'success');
+  };
+
+  // Remove uploaded image
+  const handleImageRemove = (groupKey: string) => {
+    setGroupImages(prev => {
+      const updated = { ...prev };
+      // Revoke the preview URL to free memory
+      if (updated[groupKey]?.preview) {
+        URL.revokeObjectURL(updated[groupKey].preview);
+      }
+      delete updated[groupKey];
+      return updated;
+    });
+    showNotification('Image removed', 'info');
+  };
+
+  // Handle audio upload for listening parts
+  const handleAudioUpload = (partKey: string, file: File) => {
+    // Validate file type
+    if (!file.type.startsWith('audio/')) {
+      showNotification('Please select a valid audio file', 'error');
+      return;
+    }
+
+    // Validate file size (max 50MB for audio)
+    if (file.size > 50 * 1024 * 1024) {
+      showNotification('Audio size must be less than 50MB', 'error');
+      return;
+    }
+
+    // Create preview URL
+    const preview = URL.createObjectURL(file);
+
+    setPartAudios(prev => ({
+      ...prev,
+      [partKey]: { file, preview }
+    }));
+
+    showNotification('Audio uploaded successfully', 'success');
+  };
+
+  // Remove uploaded audio
+  const handleAudioRemove = (partKey: string) => {
+    setPartAudios(prev => {
+      const updated = { ...prev };
+      // Revoke the preview URL to free memory
+      if (updated[partKey]?.preview) {
+        URL.revokeObjectURL(updated[partKey].preview);
+      }
+      delete updated[partKey];
+      return updated;
+    });
+    showNotification('Audio removed', 'info');
+  };
 
   // Sanitize and process HTML from AI so <strong> and basic tags render safely
   const processPassageHtml = (rawHtml: string) => {
@@ -413,14 +504,59 @@ const AIContentGenerator: React.FC = () => {
     setIsSaving(true);
 
     try {
-      const response = await managerAPI.saveGeneratedContent(extractedData.content_type, extractedData);
+      // Check if there are any images or audio files to upload
+      const hasImages = Object.keys(groupImages).length > 0;
+      const hasAudios = Object.keys(partAudios).length > 0;
 
-      if (response.success) {
-        setSavedItems(response.passages || response.parts || response.tasks || response.topics || []);
-        setCurrentStep(3);
-        showNotification(response.message, 'success');
+      if (hasImages || hasAudios) {
+        // Use FormData for multipart upload when images or audio are present
+        const formData = new FormData();
+        formData.append('content_type', extractedData.content_type);
+        formData.append('data', JSON.stringify(extractedData));
+
+        // Add images with their group identifiers
+        Object.entries(groupImages).forEach(([key, { file }]) => {
+          formData.append(`images[${key}]`, file);
+        });
+
+        // Add audio files with their part identifiers
+        Object.entries(partAudios).forEach(([key, { file }]) => {
+          formData.append(`audios[${key}]`, file);
+        });
+
+        // Send with FormData
+        const response = await managerAPI.saveGeneratedContentWithImages(formData);
+
+        if (response.success) {
+          setSavedItems(response.passages || response.parts || response.tasks || response.topics || []);
+          setCurrentStep(3);
+          showNotification(response.message, 'success');
+          
+          // Clean up image previews
+          Object.values(groupImages).forEach(({ preview }) => {
+            URL.revokeObjectURL(preview);
+          });
+          setGroupImages({});
+
+          // Clean up audio previews
+          Object.values(partAudios).forEach(({ preview }) => {
+            URL.revokeObjectURL(preview);
+          });
+          setPartAudios({});
+        } else {
+          showNotification(response.error || 'Failed to save content', 'error');
+        }
       } else {
-        showNotification(response.error || 'Failed to save content', 'error');
+        // No images or audio, use regular JSON post
+        const response = await managerAPI.saveGeneratedContent(extractedData.content_type, extractedData);
+
+        if (response.success) {
+          setSavedItems(response.passages || response.parts || response.tasks || response.topics || []);
+          setCurrentStep(3);
+          showNotification(response.message, 'success');
+        } else {
+          showNotification(response.error || 'Failed to save content', 'error');
+        }
       }
     } catch (error: any) {
       showNotification('Save error: ' + error.message, 'error');
@@ -454,6 +590,18 @@ const AIContentGenerator: React.FC = () => {
     setSavedItems([]);
     setEditingItem(null);
     setEditBuffer({});
+    
+    // Clean up image previews
+    Object.values(groupImages).forEach(({ preview }) => {
+      URL.revokeObjectURL(preview);
+    });
+    setGroupImages({});
+
+    // Clean up audio previews
+    Object.values(partAudios).forEach(({ preview }) => {
+      URL.revokeObjectURL(preview);
+    });
+    setPartAudios({});
   };
 
   // Format question type
@@ -887,6 +1035,70 @@ const AIContentGenerator: React.FC = () => {
                                       </div>
                                     </div>
 
+                                    {/* Image Upload for Visual Question Types */}
+                                    {questionTypeRequiresImage(group.question_type || group.type) && (
+                                      <div className="mt-3 mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                        <div className="flex items-start gap-2 mb-2">
+                                          <Image className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                              Image Upload (Optional)
+                                            </p>
+                                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                                              This question type ({formatQuestionType(group.question_type || group.type)}) works best with a diagram/map/chart image, but it's optional.
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        {/* Image Upload Input */}
+                                        {!groupImages[`passage-${idx}-group-${gidx}`] ? (
+                                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg cursor-pointer bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                              <Upload className="w-8 h-8 text-blue-500 dark:text-blue-400 mb-2" />
+                                              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                                                Click to upload image
+                                              </p>
+                                              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                                PNG, JPG or JPEG (max 5MB)
+                                              </p>
+                                            </div>
+                                            <input
+                                              type="file"
+                                              className="hidden"
+                                              accept="image/png,image/jpeg,image/jpg"
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  handleImageUpload(`passage-${idx}-group-${gidx}`, file);
+                                                }
+                                              }}
+                                            />
+                                          </label>
+                                        ) : (
+                                          <div className="mt-2">
+                                            <div className="relative rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900">
+                                              <img
+                                                src={groupImages[`passage-${idx}-group-${gidx}`].preview}
+                                                alt="Question group image"
+                                                className="w-full h-auto max-h-64 object-contain"
+                                              />
+                                              <button
+                                                onClick={() => handleImageRemove(`passage-${idx}-group-${gidx}`)}
+                                                className="absolute top-2 right-2 p-2 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-colors"
+                                                title="Remove image"
+                                              >
+                                                <X className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                            <p className="text-xs text-green-600 dark:text-green-400 mt-2 flex items-center gap-1">
+                                              <CheckCircle className="w-3 h-3" />
+                                              Image uploaded: {groupImages[`passage-${idx}-group-${gidx}`].file.name}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
                                     {/* Questions List */}
                                     <div className="space-y-3">
                                       {Array.isArray(group.questions) && group.questions.map((q: any, qidx: number) => (
@@ -1020,6 +1232,73 @@ const AIContentGenerator: React.FC = () => {
                           </div>
                         </div>
 
+                        {/* Audio Upload for Listening Part */}
+                        <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/10 dark:to-blue-900/10 border border-purple-200 dark:border-purple-800 rounded-lg">
+                          <div className="flex items-start gap-2 mb-2">
+                            <Music className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                                Audio Upload (Required)
+                              </p>
+                              <p className="text-xs text-purple-700 dark:text-purple-300 mt-0.5">
+                                Upload the audio file for Part {part.part_number || idx + 1} listening section.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Audio Upload Input */}
+                          {!partAudios[`part-${idx}`] ? (
+                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-purple-300 dark:border-purple-700 rounded-lg cursor-pointer bg-white dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
+                              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                <Upload className="w-8 h-8 text-purple-500 dark:text-purple-400 mb-2" />
+                                <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                                  Click to upload audio
+                                </p>
+                                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                  MP3, WAV, OGG, M4A (max 50MB)
+                                </p>
+                              </div>
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleAudioUpload(`part-${idx}`, file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          ) : (
+                            <div className="mt-2">
+                              <div className="relative rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900 p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
+                                    <Music className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                                      {partAudios[`part-${idx}`].file.name}
+                                    </p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                      {(partAudios[`part-${idx}`].file.size / (1024 * 1024)).toFixed(2)} MB
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleAudioRemove(`part-${idx}`)}
+                                    className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors group"
+                                    title="Remove audio"
+                                  >
+                                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400" />
+                                  </button>
+                                </div>
+                                <audio controls src={partAudios[`part-${idx}`].preview} className="w-full" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         {expanded.parts.has(idx) && (
                           <div className="mt-3">
                             {part.audio_url && (
@@ -1058,6 +1337,70 @@ const AIContentGenerator: React.FC = () => {
                                         </h4>
                                       </div>
                                     </div>
+
+                                    {/* Image Upload for Visual Question Types */}
+                                    {questionTypeRequiresImage(group.question_type || group.type) && (
+                                      <div className="mt-3 mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                        <div className="flex items-start gap-2 mb-2">
+                                          <Image className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                              Image Upload (Optional)
+                                            </p>
+                                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                                              This question type ({formatQuestionType(group.question_type || group.type)}) works best with a diagram/map/chart image, but it's optional.
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        {/* Image Upload Input */}
+                                        {!groupImages[`part-${idx}-group-${gidx}`] ? (
+                                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg cursor-pointer bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                              <Upload className="w-8 h-8 text-blue-500 dark:text-blue-400 mb-2" />
+                                              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                                                Click to upload image
+                                              </p>
+                                              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                                PNG, JPG or JPEG (max 5MB)
+                                              </p>
+                                            </div>
+                                            <input
+                                              type="file"
+                                              className="hidden"
+                                              accept="image/png,image/jpeg,image/jpg"
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  handleImageUpload(`part-${idx}-group-${gidx}`, file);
+                                                }
+                                              }}
+                                            />
+                                          </label>
+                                        ) : (
+                                          <div className="mt-2">
+                                            <div className="relative rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900">
+                                              <img
+                                                src={groupImages[`part-${idx}-group-${gidx}`].preview}
+                                                alt="Question group image"
+                                                className="w-full h-auto max-h-64 object-contain"
+                                              />
+                                              <button
+                                                onClick={() => handleImageRemove(`part-${idx}-group-${gidx}`)}
+                                                className="absolute top-2 right-2 p-2 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-colors"
+                                                title="Remove image"
+                                              >
+                                                <X className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                            <p className="text-xs text-green-600 dark:text-green-400 mt-2 flex items-center gap-1">
+                                              <CheckCircle className="w-3 h-3" />
+                                              Image uploaded: {groupImages[`part-${idx}-group-${gidx}`].file.name}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
 
                                     {/* Questions List */}
                                     <div className="space-y-3">

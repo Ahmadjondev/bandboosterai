@@ -239,10 +239,13 @@ def calculate_band_score(
     """
     Calculate IELTS band score based on correct answers.
 
+    For standard IELTS tests (40 questions), uses official conversion tables.
+    For custom tests with fewer questions, uses percentage-based scoring.
+
     Args:
         correct_count: Number of correct answers
         total_count: Total number of questions
-        section_type: 'reading' or 'listening'
+        section_type: 'academic_reading' or 'listening'
 
     Returns:
         Band score (0.0 to 9.0)
@@ -250,8 +253,46 @@ def calculate_band_score(
     if total_count == 0:
         return 0.0
 
+    # Calculate percentage
+    percentage = (correct_count / total_count) * 100
+
+    # For small question counts (< 20), use percentage-based scoring
+    # This is more accurate than normalizing to 40
+    if total_count < 20:
+        # Percentage to band score mapping
+        if percentage >= 95:
+            return 9.0
+        elif percentage >= 90:
+            return 8.5
+        elif percentage >= 85:
+            return 8.0
+        elif percentage >= 80:
+            return 7.5
+        elif percentage >= 75:
+            return 7.0
+        elif percentage >= 70:
+            return 6.5
+        elif percentage >= 60:
+            return 6.0
+        elif percentage >= 50:
+            return 5.5
+        elif percentage >= 40:
+            return 5.0
+        elif percentage >= 30:
+            return 4.5
+        elif percentage >= 20:
+            return 4.0
+        elif percentage >= 15:
+            return 3.5
+        elif percentage >= 10:
+            return 3.0
+        elif percentage >= 5:
+            return 2.5
+        else:
+            return 2.0
+
     # Standard IELTS band score conversion (out of 40 questions)
-    # This is a simplified version - actual IELTS uses more complex tables
+    # Used for tests with 20+ questions
     band_conversion = {
         "academic_reading": [
             (0, 0.0),

@@ -857,6 +857,28 @@ class ManagerAPIClient {
       data: data
     });
   }
+
+  /**
+   * Save AI-generated content with images using FormData
+   * @param formData FormData containing content_type, data, and images
+   * @returns Success response with created items
+   */
+  async saveGeneratedContentWithImages(formData: FormData): Promise<any> {
+    const accessToken = this.getAccessToken();
+    const headers: Record<string, string> = {};
+    
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
+    // Don't set Content-Type header for FormData, browser will set it with boundary
+    const response = await this.request('/tests/ai-save/', {
+      method: 'POST',
+      body: formData,
+      headers
+    });
+    return response;
+  }
 }
 
 // Create singleton instance

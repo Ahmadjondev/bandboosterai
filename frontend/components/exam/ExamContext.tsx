@@ -366,7 +366,10 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
         }
       } catch (err: any) {
         console.error("Failed to move to next section:", err);
-        setError("Failed to proceed to next section");
+        const errorMessage = err?.response?.data?.message || 
+                            err?.message || 
+                            "Failed to proceed to next section. Please try again.";
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }

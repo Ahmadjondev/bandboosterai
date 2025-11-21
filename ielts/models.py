@@ -53,6 +53,17 @@ class MockExam(models.Model):
         help_text="Unique identifier for secure access",
     )
 
+    # Creator/Owner
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_mock_exams",
+        verbose_name="Created By",
+        help_text="Teacher or Manager who created this mock exam",
+    )
+
     title = models.CharField(max_length=255, verbose_name="Exam Title")
     exam_type = models.CharField(
         max_length=30, choices=EXAM_TYPE_CHOICES, verbose_name="Exam Type"

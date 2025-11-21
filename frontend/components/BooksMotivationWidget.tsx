@@ -76,7 +76,7 @@ export default function BooksMotivationWidget() {
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-white">
-              {stats.average_score !== null ? stats.average_score.toFixed(1) : '—'}%
+              {stats.average_score !== null ? stats.average_score.toFixed(1) : '—'}
             </div>
             <div className="text-white/80 text-xs">Avg Score</div>
           </div>

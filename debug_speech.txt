@@ -1,8 +1,0 @@
-Speech recognized successfully
-Result text: I work as a software developer. I craftsperson of cordon ideas. Most of my time is spent building, building mobile applications and bagging systems, shaping digital experiences that people rely on every day. It's a role that requires patient procedures at a constant willingness to learn because technology never stands still in many ways. Job, my job.
-Pronunciation result: <azure.cognitiveservices.speech.PronunciationAssessmentResult object at 0x10e19c050>
-Pronunciation result type: <class 'azure.cognitiveservices.speech.PronunciationAssessmentResult'>
-Pronunciation result attributes: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__static_attributes__', '__str__', '__subclasshook__', '__weakref__', '_accuracy_score', '_completeness_score', '_content_assessment_result', '_fluency_score', '_pronunciation_score', '_prosody_score', '_words', 'accuracy_score', 'completeness_score', 'content_assessment_result', 'fluency_score', 'pronunciation_score', 'prosody_score', 'words']
-Pronunciation result pronunciation_score: 84.2
-Pronunciation result fluency_score: 92.0
-Pronunciation result accuracy_score: 90.0

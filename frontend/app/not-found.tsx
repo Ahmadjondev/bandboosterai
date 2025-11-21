@@ -57,10 +57,10 @@ export default function NotFound() {
               Dashboard
             </Link>
             <Link
-              href="/dashboard/practice"
+              href="/dashboard/books"
               className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors"
             >
-              Practice
+              Practice Books
             </Link>
             <Link
               href="/dashboard/cd-exam"

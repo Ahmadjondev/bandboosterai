@@ -131,6 +131,17 @@ class QuestionSerializer(serializers.ModelSerializer):
         if request and hasattr(request, "user"):
             attempt = self.context.get("attempt")
             if attempt:
+                # Check if this is a regular ExamAttempt or TeacherExamAttempt
+                from teacher.models import TeacherExamAttempt, TeacherUserAnswer
+
+                if isinstance(attempt, TeacherExamAttempt):
+                    # Fetch from TeacherUserAnswer for teacher exam attempts
+                    user_answer = TeacherUserAnswer.objects.filter(
+                        exam_attempt=attempt, question=obj
+                    ).first()
+                    return user_answer.answer_text if user_answer else ""
+
+                # Regular ExamAttempt - fetch user answer
                 user_answer = UserAnswer.objects.filter(
                     exam_attempt=attempt, question=obj
                 ).first()
@@ -474,8 +485,14 @@ class WritingTaskSerializer(serializers.ModelSerializer):
 
     def get_user_attempt(self, obj):
         """Get user's writing attempt for this task."""
+        from teacher.models import TeacherExamAttempt
+
         attempt = self.context.get("attempt")
         if attempt:
+            # WritingAttempt only works with ExamAttempt, not TeacherExamAttempt
+            if isinstance(attempt, TeacherExamAttempt):
+                return None
+
             writing_attempt = WritingAttempt.objects.filter(
                 exam_attempt=attempt, task=obj
             ).first()
@@ -575,8 +592,14 @@ class SpeakingQuestionSerializer(serializers.ModelSerializer):
 
     def get_user_answer(self, obj):
         """Get user's answer for this question if available."""
+        from teacher.models import TeacherExamAttempt
+
         attempt = self.context.get("attempt")
         if attempt:
+            # SpeakingAttempt only works with ExamAttempt, not TeacherExamAttempt
+            if isinstance(attempt, TeacherExamAttempt):
+                return None
+
             try:
                 speaking_attempt = SpeakingAttempt.objects.get(exam_attempt=attempt)
                 speaking_answer = SpeakingAnswer.objects.filter(
@@ -615,8 +638,14 @@ class SpeakingTopicSerializer(serializers.ModelSerializer):
 
     def get_user_attempt(self, obj):
         """Get user's speaking attempt for this speaking topic."""
+        from teacher.models import TeacherExamAttempt
+
         attempt = self.context.get("attempt")
         if attempt:
+            # SpeakingAttempt only works with ExamAttempt, not TeacherExamAttempt
+            if isinstance(attempt, TeacherExamAttempt):
+                return None
+
             # SpeakingAttempt is OneToOne with ExamAttempt
             # Audio files are stored as JSON with speaking_type as key
             try:
@@ -642,13 +671,14 @@ class SpeakingTopicSerializer(serializers.ModelSerializer):
 
 
 class ExamAttemptSerializer(serializers.ModelSerializer):
-    """Serializer for exam attempts."""
+    """Serializer for exam attempts. Works with both ExamAttempt and TeacherExamAttempt."""
 
     uuid = serializers.UUIDField(read_only=True)
-    exam_title = serializers.CharField(source="exam.mock_test.title", read_only=True)
-    exam_type = serializers.CharField(source="exam.mock_test.exam_type", read_only=True)
+    exam_title = serializers.SerializerMethodField()
+    exam_type = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
+    completed_at = serializers.SerializerMethodField()
 
     class Meta:
         model = ExamAttempt
@@ -666,6 +696,24 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
             "progress",
         ]
 
+    def get_exam_title(self, obj):
+        """Get exam title - handle both mock_test and mock_exam."""
+        mock_exam = getattr(obj.exam, "mock_test", None) or getattr(
+            obj.exam, "mock_exam", None
+        )
+        return mock_exam.title if mock_exam else None
+
+    def get_exam_type(self, obj):
+        """Get exam type - handle both mock_test and mock_exam."""
+        mock_exam = getattr(obj.exam, "mock_test", None) or getattr(
+            obj.exam, "mock_exam", None
+        )
+        return mock_exam.exam_type if mock_exam else None
+
+    def get_completed_at(self, obj):
+        """Get completion time - handle both completed_at and submitted_at."""
+        return getattr(obj, "completed_at", None) or getattr(obj, "submitted_at", None)
+
     def get_time_remaining(self, obj):
         """Calculate remaining time in seconds."""
         if obj.status == "IN_PROGRESS" and obj.started_at:
@@ -673,7 +721,12 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
 
             elapsed = (timezone.now() - obj.started_at).total_seconds()
             # Get duration from mock test, use default if not set
-            duration_minutes = obj.exam.mock_test.get_default_duration()
+            mock_exam = getattr(obj.exam, "mock_test", None) or getattr(
+                obj.exam, "mock_exam", None
+            )
+            if not mock_exam:
+                return 0
+            duration_minutes = mock_exam.get_default_duration()
             total_seconds = duration_minutes * 60
             remaining = max(0, total_seconds - elapsed)
             return int(remaining)
@@ -697,6 +750,22 @@ class MockExamSerializer(serializers.ModelSerializer):
     total_questions = serializers.SerializerMethodField()
     default_duration = serializers.SerializerMethodField()
     section_durations = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    created_by_email = serializers.SerializerMethodField()
+
+    # Many-to-many fields for content
+    reading_passages = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=ReadingPassage.objects.all(), required=False
+    )
+    listening_parts = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=ListeningPart.objects.all(), required=False
+    )
+    writing_tasks = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=WritingTask.objects.all(), required=False
+    )
+    speaking_topics = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=SpeakingTopic.objects.all(), required=False
+    )
 
     class Meta:
         model = MockExam
@@ -714,6 +783,22 @@ class MockExamSerializer(serializers.ModelSerializer):
             "difficulty_display",
             "total_questions",
             "is_active",
+            "reading_passages",
+            "listening_parts",
+            "writing_tasks",
+            "speaking_topics",
+            "created_by",
+            "created_by_name",
+            "created_by_email",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "created_by",
+            "created_by_name",
+            "created_by_email",
+            "created_at",
+            "updated_at",
         ]
 
     def get_total_questions(self, obj):
@@ -727,6 +812,21 @@ class MockExamSerializer(serializers.ModelSerializer):
     def get_section_durations(self, obj):
         """Get durations for each section type."""
         return MockExam.SECTION_DURATIONS
+
+    def get_created_by_name(self, obj):
+        """Get the name of the creator."""
+        if obj.created_by:
+            return (
+                f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
+                or obj.created_by.username
+            )
+        return None
+
+    def get_created_by_email(self, obj):
+        """Get the email of the creator."""
+        if obj.created_by:
+            return obj.created_by.email
+        return None
 
 
 # ============================================================================
@@ -818,3 +918,57 @@ class SpeakingSubmissionSerializer(serializers.Serializer):
         if not value.startswith("speaking_"):
             raise serializers.ValidationError("Invalid question_key format.")
         return value
+
+
+# ============================================================================
+# Lightweight Serializers for Content Selection
+# ============================================================================
+
+
+class ReadingPassageListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for reading passage selection."""
+
+    difficulty = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReadingPassage
+        fields = ["id", "passage_number", "title", "difficulty"]
+
+    def get_difficulty(self, obj):
+        """Return a difficulty level based on word count."""
+        if obj.word_count < 400:
+            return "EASY"
+        elif obj.word_count < 600:
+            return "MEDIUM"
+        else:
+            return "HARD"
+
+
+class ListeningPartListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listening part selection."""
+
+    difficulty = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ListeningPart
+        fields = ["id", "part_number", "title", "difficulty"]
+
+    def get_difficulty(self, obj):
+        """Return a default difficulty level."""
+        return "MEDIUM"
+
+
+class WritingTaskListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for writing task selection."""
+
+    class Meta:
+        model = WritingTask
+        fields = ["id", "task_type", "prompt"]
+
+
+class SpeakingTopicListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for speaking topic selection."""
+
+    class Meta:
+        model = SpeakingTopic
+        fields = ["id", "speaking_type", "topic"]

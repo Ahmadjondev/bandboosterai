@@ -13,6 +13,7 @@ class User(AbstractUser):
     ROLE_CHOICES = (
         ("MANAGER", "Manager"),
         ("STUDENT", "Student"),
+        ("TEACHER", "Teacher"),
     )
 
     # Role
@@ -105,6 +106,10 @@ class User(AbstractUser):
     def is_student(self):
         """Check if user is a student"""
         return self.role == "STUDENT"
+
+    def is_teacher(self):
+        """Check if user is a teacher"""
+        return self.role == "TEACHER"
 
     def get_full_name(self):
         """Return the full name of the user"""

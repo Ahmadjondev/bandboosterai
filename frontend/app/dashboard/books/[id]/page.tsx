@@ -247,8 +247,8 @@ function SectionItem({ section, bookId }: SectionItemProps) {
       
       // Route to dedicated practice pages based on section type
       const practiceRoute = section.section_type === 'READING' 
-        ? `/dashboard/practice/reading/${section.id}`
-        : `/dashboard/practice/listening/${section.id}`;
+        ? `/practice/reading/${section.id}`
+        : `/practice/listening/${section.id}`;
       
       router.push(practiceRoute);
     } catch (err) {

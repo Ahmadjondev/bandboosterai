@@ -82,22 +82,22 @@ function ResultsContent() {
     
     // Check listening section
     if (results.sections.listening?.band_score !== undefined && results.sections.listening?.band_score !== null) {
-      scores.push(results.sections.listening.band_score);
+      scores.push(Number(results.sections.listening.band_score));
     }
     
     // Check reading section
     if (results.sections.reading?.band_score !== undefined && results.sections.reading?.band_score !== null) {
-      scores.push(results.sections.reading.band_score);
+      scores.push(Number(results.sections.reading.band_score));
     }
     
     // Check writing section
     if (results.sections.writing?.overall_band_score !== undefined && results.sections.writing?.overall_band_score !== null) {
-      scores.push(results.sections.writing.overall_band_score);
+      scores.push(Number(results.sections.writing.overall_band_score));
     }
     
     // Check speaking section
     if (results.sections.speaking?.overall_band_score !== undefined && results.sections.speaking?.overall_band_score !== null) {
-      scores.push(results.sections.speaking.overall_band_score);
+      scores.push(Number(results.sections.speaking.overall_band_score));
     }
     
     if (scores.length === 0) return null;
@@ -263,7 +263,7 @@ function ResultsContent() {
                 <SectionCard
                   title="Listening"
                   icon="🎧"
-                  score={sections.listening.band_score}
+                  score={Number(sections.listening.band_score)}
                   correctAnswers={sections.listening.correct_answers}
                   totalQuestions={sections.listening.total_questions}
                   color="blue"
@@ -277,7 +277,7 @@ function ResultsContent() {
                 <SectionCard
                   title="Reading"
                   icon="📖"
-                  score={sections.reading.band_score}
+                  score={Number(sections.reading.band_score)}
                   correctAnswers={sections.reading.correct_answers}
                   totalQuestions={sections.reading.total_questions}
                   color="green"
@@ -682,7 +682,7 @@ function SectionModal({ title, icon, results, onClose }: any) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {results.band_score.toFixed(1)}
+                {Number(results.band_score).toFixed(1)}
               </div>
               <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Band Score</div>
             </div>

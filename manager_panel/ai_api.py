@@ -140,9 +140,11 @@ def save_generated_content(request):
 
     POST /manager/api/tests/ai-save/
 
-    Body:
+    Body (JSON or FormData):
         - content_type: reading | listening | writing | speaking
-        - data: The extracted data from generate_content_from_pdf
+        - data: The extracted data from generate_content_from_pdf (JSON string if FormData)
+        - images[key]: Image files for question groups (optional, FormData only)
+        - audios[key]: Audio files for listening parts (optional, FormData only)
 
     Returns:
         - Success message with created object IDs
@@ -153,8 +155,21 @@ def save_generated_content(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    # Handle both JSON and FormData
     content_type = request.data.get("content_type")
     data = request.data.get("data")
+
+    # If data is a string (from FormData), parse it as JSON
+    if isinstance(data, str):
+        import json
+
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            return Response(
+                {"error": "Invalid JSON in data field"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     if not content_type or not data:
         return Response(
@@ -162,11 +177,24 @@ def save_generated_content(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # Extract images and audio files from request
+    images = {}
+    audios = {}
+    for key in request.FILES:
+        if key.startswith("images[") and key.endswith("]"):
+            # Extract the group key: images[passage-0-group-1] -> passage-0-group-1
+            group_key = key[7:-1]
+            images[group_key] = request.FILES[key]
+        elif key.startswith("audios[") and key.endswith("]"):
+            # Extract the part key: audios[part-0] -> part-0
+            part_key = key[7:-1]
+            audios[part_key] = request.FILES[key]
+
     try:
         if content_type == "reading":
-            return _save_reading_passages(data, request.user)
+            return _save_reading_passages(data, request.user, images)
         elif content_type == "listening":
-            return _save_listening_parts(data, request.user)
+            return _save_listening_parts(data, request.user, images, audios)
         elif content_type == "writing":
             return _save_writing_tasks(data, request.user)
         elif content_type == "speaking":
@@ -183,12 +211,13 @@ def save_generated_content(request):
         )
 
 
-def _save_reading_passages(data, user):
+def _save_reading_passages(data, user, images=None):
     """Helper function to save reading passages with questions to database."""
     passages_data = data.get("passages", [])
     created_passages = []
+    images = images or {}
 
-    for passage_data in passages_data:
+    for idx, passage_data in enumerate(passages_data):
         # Create passage
         passage = ReadingPassage.objects.create(
             passage_number=passage_data.get("passage_number"),
@@ -201,7 +230,7 @@ def _save_reading_passages(data, user):
         question_groups = passage_data.get("question_groups", [])
         created_groups = []
 
-        for group_data in question_groups:
+        for gidx, group_data in enumerate(question_groups):
             # Create TestHead (question group)
             test_head = TestHead.objects.create(
                 reading=passage,  # Note: field name is 'reading' not 'reading_passage'
@@ -210,6 +239,12 @@ def _save_reading_passages(data, user):
                 description=group_data.get("description", ""),
                 question_data=group_data.get("question_data"),
             )
+
+            # Attach image if provided for this group
+            image_key = f"passage-{idx}-group-{gidx}"
+            if image_key in images:
+                test_head.picture = images[image_key]
+                test_head.save()
 
             # Create questions
             questions = group_data.get("questions", [])
@@ -271,26 +306,34 @@ def _save_reading_passages(data, user):
     )
 
 
-def _save_listening_parts(data, user):
+def _save_listening_parts(data, user, images=None, audios=None):
     """Helper function to save listening parts with questions to database."""
     parts_data = data.get("parts", [])
     created_parts = []
+    images = images or {}
+    audios = audios or {}
 
-    for part_data in parts_data:
+    for idx, part_data in enumerate(parts_data):
         # Create listening part
         part = ListeningPart.objects.create(
             part_number=part_data.get("part_number"),
             title=part_data.get("title", ""),
             description=part_data.get("description", ""),
             transcript=part_data.get("transcript", ""),
-            audio_file="",  # Will be uploaded separately
+            audio_file="",  # Will be set below if audio provided
         )
+
+        # Attach audio file if provided for this part
+        audio_key = f"part-{idx}"
+        if audio_key in audios:
+            part.audio_file = audios[audio_key]
+            part.save()
 
         # Create question groups (similar to reading)
         question_groups = part_data.get("question_groups", [])
         created_groups = []
 
-        for group_data in question_groups:
+        for gidx, group_data in enumerate(question_groups):
             test_head = TestHead.objects.create(
                 listening=part,  # Note: field name is 'listening' not 'listening_part'
                 title=group_data.get("title", ""),
@@ -300,6 +343,12 @@ def _save_listening_parts(data, user):
                     "question_data"
                 ),  # Save question_data structure
             )
+
+            # Attach image if provided for this group
+            image_key = f"part-{idx}-group-{gidx}"
+            if image_key in images:
+                test_head.picture = images[image_key]
+                test_head.save()
 
             questions = group_data.get("questions", [])
             created_questions = []
@@ -345,10 +394,19 @@ def _save_listening_parts(data, user):
             }
         )
 
+    # Count how many audio files were uploaded
+    audio_count = sum(1 for idx in range(len(created_parts)) if f"part-{idx}" in audios)
+
+    message = f"Successfully created {len(created_parts)} listening part(s)"
+    if audio_count > 0:
+        message += f" with {audio_count} audio file(s)"
+    else:
+        message += ". Audio files can be uploaded separately."
+
     return Response(
         {
             "success": True,
-            "message": f"Successfully created {len(created_parts)} listening part(s). Audio files can be uploaded separately.",
+            "message": message,
             "parts": created_parts,
         }
     )

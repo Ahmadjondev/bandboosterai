@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "accounts",
     "ielts",
     "manager_panel",
+    "teacher",  # Teacher Room module
     "books",  # Book-based practice system
 ]
 

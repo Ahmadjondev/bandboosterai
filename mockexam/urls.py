@@ -36,6 +36,7 @@ urlpatterns = [
     path("books/", include("books.urls")),
     # Panel URLs
     path("manager/", include("manager_panel.urls")),
+    path("teacher/api/", include("teacher.urls")),
     # path("", include("student_panel.urls")),
 ]
 

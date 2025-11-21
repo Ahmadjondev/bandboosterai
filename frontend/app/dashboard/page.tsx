@@ -18,6 +18,7 @@ const MotivationalBanner = lazy(() => import("@/components/dashboard/Motivationa
 const SkillGapsWidget = lazy(() => import("@/components/dashboard/SkillGapsWidget"));
 const LearningVelocityCard = lazy(() => import("@/components/dashboard/LearningVelocityCard"));
 const QuickStatsPanel = lazy(() => import("@/components/dashboard/QuickStatsPanel"));
+const TeacherExamsWidget = lazy(() => import("@/components/dashboard/TeacherExamsWidget"));
 
 // Component loading fallback
 const ComponentLoader = () => (
@@ -391,6 +392,11 @@ export default function DashboardPage() {
             </Suspense>
           )}
         </div>
+
+        {/* Teacher Exams Widget */}
+        <Suspense fallback={<ComponentLoader />}>
+          <TeacherExamsWidget />
+        </Suspense>
 
         {/* Skill Gaps & Weekly Progress */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
