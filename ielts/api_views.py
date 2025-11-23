@@ -201,7 +201,7 @@ def calculate_time_remaining(attempt, section_duration_minutes):
     time_elapsed = (timezone.now() - attempt.started_at).total_seconds()
     time_remaining = max(0, (section_duration_minutes * 60) - int(time_elapsed))
 
-    return int(section_duration_minutes)
+    return int(section_duration_minutes * 60)
 
 
 def _calculate_weighted_score(user_answers_queryset):
