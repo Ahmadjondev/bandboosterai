@@ -12,6 +12,17 @@ from ielts.models import MockExam, WritingTask, Question
 User = get_user_model()
 
 
+def _build_regular_answer_response(user_answer, correct_answer):
+    if not user_answer:
+        return False
+    """Build regular answer response (non-MCMA)."""
+    corrects = correct_answer.lower().split("|")
+    for cor_answer in corrects:
+        if user_answer.lower() == cor_answer.lower():
+            return True
+    return False
+
+
 class TeacherBasicSerializer(serializers.ModelSerializer):
     """Basic teacher information"""
 
@@ -347,7 +358,7 @@ class TeacherExamAttemptDetailSerializer(TeacherExamAttemptSerializer):
             mcma_score = None
             mcma_max_score = None
             question_order_display = question.order
-
+            is_correct = False
             if is_mcma and correct_answer:
                 # Calculate max score for MCMA (number of correct answers)
                 correct_set = set(correct_answer.upper())
@@ -366,6 +377,11 @@ class TeacherExamAttemptDetailSerializer(TeacherExamAttemptSerializer):
                     mcma_score = correct_selections
                 else:
                     mcma_score = 0  # No answer = 0 score
+                is_correct = mcma_score == mcma_max_score
+            else:
+                is_correct = _build_regular_answer_response(
+                    user_answer_text, correct_answer
+                )
 
             return {
                 "id": question.id,
@@ -380,7 +396,7 @@ class TeacherExamAttemptDetailSerializer(TeacherExamAttemptSerializer):
                 ),
                 "user_answer": user_answer_text
                 or None,  # Explicitly None if not answered
-                "is_correct": user_answer.is_correct if user_answer else False,
+                "is_correct": is_correct,
                 "is_answered": user_answer is not None,
                 "is_mcma": is_mcma,
                 "mcma_score": mcma_score,
