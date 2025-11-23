@@ -18,6 +18,7 @@ export default function ExamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [togglingResults, setTogglingResults] = useState(false);
 
   // Helper function to safely format score (handles both string and number)
   const formatScore = (score: any): string => {
@@ -79,6 +80,23 @@ export default function ExamDetailPage() {
       alert('Failed to publish exam');
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleToggleResults = async () => {
+    try {
+      setTogglingResults(true);
+      const response = await teacherExamApi.toggleResultsVisible(examId);
+      // Update local state
+      if (exam) {
+        setExam({ ...exam, results_visible: response.results_visible });
+      }
+      alert(response.message);
+    } catch (error) {
+      console.error('Failed to toggle results visibility:', error);
+      alert('Failed to toggle results visibility');
+    } finally {
+      setTogglingResults(false);
     }
   };
 
@@ -404,6 +422,49 @@ export default function ExamDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Results Visibility Control */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <Eye className="h-5 w-5 text-blue-600" />
+                Results Visibility
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Control whether students can view their exam results
+              </p>
+              
+              <div className={`mb-4 p-3 rounded-lg ${
+                exam.results_visible 
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                  : 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'
+              }`}>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  {exam.results_visible ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <span className="text-green-700 dark:text-green-300">Results are visible to students</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      <span className="text-orange-700 dark:text-orange-300">Results are hidden from students</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={handleToggleResults}
+                disabled={togglingResults}
+                className={`w-full px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  exam.results_visible
+                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
+              >
+                {togglingResults ? 'Updating...' : exam.results_visible ? 'Hide Results' : 'Show Results'}
+              </button>
+            </div>
+
             {/* Score Distribution */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

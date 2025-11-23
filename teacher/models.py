@@ -113,6 +113,13 @@ class TeacherExam(models.Model):
         default=True, verbose_name="Auto-grade Listening"
     )
 
+    # Results visibility control
+    results_visible = models.BooleanField(
+        default=False,
+        verbose_name="Results Visible to Students",
+        help_text="When enabled, students can view their results for this exam",
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
@@ -356,6 +363,19 @@ class TeacherExamAttempt(models.Model):
             return round(delta.total_seconds() / 60, 2)
         return None
 
+    def get_progress_percentage(self):
+        """Calculate progress percentage based on answered questions"""
+        # Get the mock exam
+        mock_exam = self.exam.mock_exam
+
+        if mock_exam and mock_exam.exam_type in ["LISTENING", "READING"]:
+            total_questions = mock_exam.get_total_questions()
+            if total_questions > 0:
+                # Count answered questions from TeacherUserAnswer
+                answered = self.user_answers.count()
+                return round((answered / total_questions) * 100, 2)
+        return 0
+
     @property
     def is_overdue(self):
         """Check if attempt is overdue"""
@@ -479,6 +499,83 @@ class TeacherFeedback(models.Model):
 
     def __str__(self):
         return f"Feedback by {self.teacher.get_full_name()} on {self.attempt}"
+
+
+class TeacherWritingAttempt(models.Model):
+    """
+    Stores a student's writing answer for a teacher exam attempt.
+    Similar to WritingAttempt but for TeacherExamAttempt.
+    """
+
+    # Unique identifier
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+    )
+
+    exam_attempt = models.ForeignKey(
+        TeacherExamAttempt,
+        on_delete=models.CASCADE,
+        related_name="writing_attempts",
+        verbose_name="Exam Attempt",
+    )
+
+    # Link to the writing task (from ielts.models.WritingTask)
+    task = models.ForeignKey(
+        "ielts.WritingTask",
+        on_delete=models.CASCADE,
+        related_name="teacher_writing_attempts",
+        verbose_name="Writing Task",
+    )
+
+    # Student's answer
+    answer_text = models.TextField(
+        verbose_name="Answer Text",
+        help_text="Student's writing response",
+    )
+
+    word_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Word Count",
+    )
+
+    # Score (IELTS band score 0-9)
+    score = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(9)],
+        verbose_name="Score",
+    )
+
+    # Teacher feedback on writing
+    feedback = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Feedback",
+        help_text="Detailed feedback from teacher on the writing task",
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        db_table = "teacher_writing_attempts"
+        verbose_name = "Teacher Writing Attempt"
+        verbose_name_plural = "Teacher Writing Attempts"
+        unique_together = ("exam_attempt", "task")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["exam_attempt"]),
+        ]
+
+    def __str__(self):
+        return f"Writing by {self.exam_attempt.student.get_full_name()} - {self.task.get_task_type_display()}"
 
 
 class TeacherUserAnswer(models.Model):

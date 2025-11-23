@@ -113,6 +113,15 @@ export const teacherExamApi = {
   },
 
   /**
+   * Toggle results visibility for students
+   */
+  async toggleResultsVisible(id: number): Promise<{ message: string; results_visible: boolean }> {
+    const response = await apiClient.post<{ message: string; results_visible: boolean }>(`/teacher/api/exams/${id}/toggle-results-visible/`);
+    if (!response.data) throw new Error('Failed to toggle results visibility');
+    return response.data;
+  },
+
+  /**
    * Get exam performance summary
    */
   async getExamPerformance(id: number): Promise<ExamPerformanceSummary> {

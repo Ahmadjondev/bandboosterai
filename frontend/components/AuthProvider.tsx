@@ -5,22 +5,24 @@
 
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { fetchCurrentUser } from "@/lib/auth";
-import { getAccessToken } from "@/lib/api-client";
+import { getAccessToken, clearTokens, setGlobalLogoutHandler } from "@/lib/api-client";
 import type { User } from "@/types/auth";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   refreshUser: () => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   refreshUser: async () => {},
+  logout: () => {},
 });
 
 export function useAuth() {
@@ -36,6 +38,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+
+  // Logout function
+  const logout = useCallback(() => {
+    console.log('[AuthProvider] Logging out user');
+    clearTokens();
+    setUser(null);
+    
+    // Clear cached user data
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user');
+    }
+    
+    // Redirect to login
+    router.push('/login');
+  }, [router]);
 
   const refreshUser = async () => {
     try {
@@ -85,6 +102,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Register logout handler with API client
+  useEffect(() => {
+    setGlobalLogoutHandler(logout);
+    
+    return () => {
+      setGlobalLogoutHandler(null);
+    };
+  }, [logout]);
+
   useEffect(() => {
     // Check authentication on mount
     refreshUser();
@@ -132,7 +158,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [user, loading, pathname]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

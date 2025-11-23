@@ -258,7 +258,91 @@ def calculate_band_score(
 
     # For small question counts (< 20), use percentage-based scoring
     # This is more accurate than normalizing to 40
-    if total_count < 20:
+    if correct_count == 40:
+        return 9.0
+    elif correct_count == 39:
+        return 9.0
+    elif correct_count == 38:
+        return 8.5
+    elif correct_count == 37:
+        return 8.5
+    elif correct_count == 36:
+        return 8.0
+    elif correct_count == 35:
+        return 8.0
+    elif correct_count == 34:
+        return 7.5
+    elif correct_count == 33:
+        return 7.5
+    elif correct_count == 32:
+        return 7.5
+    elif correct_count == 31:
+        return 7.0
+    elif correct_count == 30:
+        return 7.0
+    elif correct_count == 29:
+        return 6.5
+    elif correct_count == 28:
+        return 6.5
+    elif correct_count == 27:
+        return 6.5
+    elif correct_count == 26:
+        if section_type == "listening":
+            return 6.0
+        return 6.5
+    elif correct_count == 25:
+        return 6.0
+    elif correct_count == 24:
+        return 6.0
+    elif correct_count == 23:
+        return 6.0
+    elif correct_count == 22:
+        return 5.5
+    elif correct_count == 21:
+        return 5.5
+    elif correct_count == 20:
+        return 5.5
+    elif correct_count == 19:
+        return 5.5
+    elif correct_count == 18:
+        return 5.5
+    elif correct_count == 17:
+        return 5.0
+    elif correct_count == 16:
+        return 5.0
+    elif correct_count == 15:
+        return 4.5
+    elif correct_count == 14:
+        return 4.5
+    elif correct_count == 13:
+        return 4.5
+    elif correct_count == 12:
+        return 4.0
+    elif correct_count == 11:
+        return 4.0
+    elif correct_count == 10:
+        return 4.0
+    elif correct_count == 9:
+        return 3.5
+    elif correct_count == 8:
+        return 3.5
+    elif correct_count == 7:
+        return 3.5
+    elif correct_count == 6:
+        return 3.0
+    elif correct_count == 5:
+        return 3.0
+    elif correct_count == 4:
+        return 2.5
+    elif correct_count == 3:
+        return 2.5
+    elif correct_count == 2:
+        return 2.5
+    elif correct_count == 1:
+        return 2.5
+    elif correct_count == 0:
+        return 0.0
+    else:
         # Percentage to band score mapping
         if percentage >= 95:
             return 9.0

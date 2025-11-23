@@ -419,6 +419,8 @@ export interface SubmitTestResponse {
   success: boolean;
   message: string;
   attempt_id: number;
+  is_teacher_exam?: boolean;
+  results_visible?: boolean;
 }
 
 // ============================================================================
@@ -427,7 +429,7 @@ export interface SubmitTestResponse {
 
 export interface ExamContextType {
   attemptId: number | string;
-  currentSection: SectionName;
+  currentSection: SectionName | null;
   sectionData: SectionData | null;
   userAnswers: Record<number, string>;
   isLoading: boolean;

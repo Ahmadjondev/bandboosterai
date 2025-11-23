@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import TeacherExam, TeacherExamAttempt, TeacherFeedback, TeacherUserAnswer
+from .models import (
+    TeacherExam,
+    TeacherExamAttempt,
+    TeacherFeedback,
+    TeacherUserAnswer,
+    TeacherWritingAttempt,
+)
 
 
 @admin.register(TeacherExam)
@@ -160,6 +166,19 @@ class TeacherUserAnswerInline(admin.TabularInline):
         return False
 
 
+class TeacherWritingAttemptInline(admin.TabularInline):
+    """Inline for viewing writing attempts within exam attempt"""
+
+    model = TeacherWritingAttempt
+    extra = 0
+    readonly_fields = ["task", "word_count", "score", "created_at"]
+    can_delete = False
+    fields = ["task", "word_count", "score", "answer_text"]
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(TeacherExamAttempt)
 class TeacherExamAttemptAdmin(admin.ModelAdmin):
     """
@@ -194,7 +213,7 @@ class TeacherExamAttemptAdmin(admin.ModelAdmin):
     ]
     date_hierarchy = "created_at"
     actions = ["mark_as_graded", "recalculate_scores"]
-    inlines = [TeacherUserAnswerInline]
+    inlines = [TeacherUserAnswerInline, TeacherWritingAttemptInline]
 
     fieldsets = (
         (
@@ -580,3 +599,110 @@ class TeacherUserAnswerAdmin(admin.ModelAdmin):
         self.message_user(request, f"Rechecked {count} answer(s).")
 
     recheck_correctness.short_description = "Recheck correctness"
+
+
+@admin.register(TeacherWritingAttempt)
+class TeacherWritingAttemptAdmin(admin.ModelAdmin):
+    """
+    Admin interface for TeacherWritingAttempt model
+    """
+
+    list_display = [
+        "get_student_name",
+        "get_exam_title",
+        "get_task_info",
+        "word_count",
+        "score",
+        "created_at",
+    ]
+    list_filter = [
+        "exam_attempt__exam",
+        "exam_attempt__student",
+        "task__task_type",
+        "created_at",
+    ]
+    search_fields = [
+        "exam_attempt__student__username",
+        "exam_attempt__student__first_name",
+        "exam_attempt__student__last_name",
+        "exam_attempt__exam__title",
+        "answer_text",
+    ]
+    readonly_fields = [
+        "uuid",
+        "word_count",
+        "created_at",
+        "updated_at",
+        "get_answer_preview",
+    ]
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (
+            "Attempt Information",
+            {
+                "fields": (
+                    "uuid",
+                    "exam_attempt",
+                    "task",
+                )
+            },
+        ),
+        (
+            "Writing Answer",
+            {
+                "fields": (
+                    "answer_text",
+                    "word_count",
+                    "get_answer_preview",
+                )
+            },
+        ),
+        (
+            "Scoring & Feedback",
+            {
+                "fields": (
+                    "score",
+                    "feedback",
+                )
+            },
+        ),
+        (
+            "Timestamps",
+            {
+                "fields": ("created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    def get_student_name(self, obj):
+        """Display student name"""
+        return (
+            obj.exam_attempt.student.get_full_name()
+            or obj.exam_attempt.student.username
+        )
+
+    get_student_name.short_description = "Student"
+    get_student_name.admin_order_field = "exam_attempt__student__first_name"
+
+    def get_exam_title(self, obj):
+        """Display exam title"""
+        return obj.exam_attempt.exam.title
+
+    get_exam_title.short_description = "Exam"
+    get_exam_title.admin_order_field = "exam_attempt__exam__title"
+
+    def get_task_info(self, obj):
+        """Display task information"""
+        return f"{obj.task.get_task_type_display()}"
+
+    get_task_info.short_description = "Task"
+
+    def get_answer_preview(self, obj):
+        """Display answer preview"""
+        if len(obj.answer_text) > 200:
+            return f"{obj.answer_text[:200]}..."
+        return obj.answer_text
+
+    get_answer_preview.short_description = "Answer Preview"

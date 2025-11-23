@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SWRProvider } from "@/components/SWRProvider";
+import { NotificationProvider } from "@/lib/notification-context";
+import { NotificationBanner } from "@/components/NotificationBanner";
+import { ServerErrorOverlay } from "@/components/ServerErrorOverlay";
 import "./globals.css";
 
 /**
@@ -97,11 +100,15 @@ export default function RootLayout({
           storageKey="app-theme"
           disableTransitionOnChange={false}
         >
-          <SWRProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </SWRProvider>
+          <NotificationProvider>
+            <SWRProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </SWRProvider>
+            <NotificationBanner />
+            <ServerErrorOverlay />
+          </NotificationProvider>
         </ThemeProvider>
       </body>
     </html>

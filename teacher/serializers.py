@@ -1,7 +1,13 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import TeacherExam, TeacherExamAttempt, TeacherFeedback
-from ielts.models import MockExam
+from .models import (
+    TeacherExam,
+    TeacherExamAttempt,
+    TeacherFeedback,
+    TeacherWritingAttempt,
+    TeacherUserAnswer,
+)
+from ielts.models import MockExam, WritingTask, Question
 
 User = get_user_model()
 
@@ -87,6 +93,7 @@ class TeacherExamSerializer(serializers.ModelSerializer):
             "status",
             "auto_grade_reading",
             "auto_grade_listening",
+            "results_visible",
             "is_active",
             "total_attempts",
             "completed_attempts",
@@ -193,13 +200,157 @@ class TeacherExamAttemptSerializer(serializers.ModelSerializer):
         return obj.get_duration_minutes()
 
 
+class WritingTaskSerializer(serializers.ModelSerializer):
+    """Serializer for WritingTask"""
+
+    task_type_display = serializers.CharField(
+        source="get_task_type_display", read_only=True
+    )
+
+    class Meta:
+        model = WritingTask
+        fields = [
+            "id",
+            "task_type",
+            "task_type_display",
+            "prompt",
+            "picture",
+            "data",
+            "min_words",
+        ]
+        read_only_fields = fields
+
+
+class TeacherWritingAttemptSerializer(serializers.ModelSerializer):
+    """Serializer for TeacherWritingAttempt"""
+
+    task = WritingTaskSerializer(read_only=True)
+
+    class Meta:
+        model = TeacherWritingAttempt
+        fields = [
+            "id",
+            "uuid",
+            "task",
+            "answer_text",
+            "word_count",
+            "score",
+            "feedback",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "uuid", "created_at", "updated_at"]
+
+
+class QuestionSerializer(serializers.ModelSerializer):
+    """Serializer for Question"""
+
+    correct_answer = serializers.SerializerMethodField()
+    question_type = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Question
+        fields = [
+            "id",
+            "order",
+            "question_text",
+            "correct_answer",
+            "question_type",
+        ]
+        read_only_fields = fields
+
+    def get_correct_answer(self, obj):
+        return obj.get_correct_answer()
+
+    def get_question_type(self, obj):
+        if obj.test_head:
+            return obj.test_head.get_question_type_display()
+        return None
+
+
+class TeacherUserAnswerSerializer(serializers.ModelSerializer):
+    """Serializer for TeacherUserAnswer"""
+
+    question = QuestionSerializer(read_only=True)
+
+    class Meta:
+        model = TeacherUserAnswer
+        fields = [
+            "id",
+            "question",
+            "answer_text",
+            "is_correct",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
 class TeacherExamAttemptDetailSerializer(TeacherExamAttemptSerializer):
-    """Detailed serializer with feedback"""
+    """Detailed serializer with feedback, writing attempts, and user answers"""
 
     teacher_feedbacks = TeacherFeedbackSerializer(many=True, read_only=True)
+    writing_attempts = TeacherWritingAttemptSerializer(many=True, read_only=True)
+    user_answers = TeacherUserAnswerSerializer(many=True, read_only=True)
+    all_questions = serializers.SerializerMethodField()
 
     class Meta(TeacherExamAttemptSerializer.Meta):
-        fields = TeacherExamAttemptSerializer.Meta.fields + ["teacher_feedbacks"]
+        fields = TeacherExamAttemptSerializer.Meta.fields + [
+            "teacher_feedbacks",
+            "writing_attempts",
+            "user_answers",
+            "all_questions",
+        ]
+
+    def get_all_questions(self, obj):
+        """Get all questions from the exam with user answers merged"""
+        if not obj.exam.mock_exam:
+            return {"listening": [], "reading": []}
+
+        from ielts.models import Question
+
+        # Get all listening questions
+        listening_questions = (
+            Question.objects.filter(
+                test_head__listening__in=obj.exam.mock_exam.listening_parts.all()
+            )
+            .select_related("test_head")
+            .order_by("order")
+        )
+
+        # Get all reading questions
+        reading_questions = (
+            Question.objects.filter(
+                test_head__reading__in=obj.exam.mock_exam.reading_passages.all()
+            )
+            .select_related("test_head")
+            .order_by("order")
+        )
+
+        # Create a map of user answers
+        user_answers_map = {ua.question_id: ua for ua in obj.user_answers.all()}
+
+        # Merge questions with user answers
+        def merge_question_with_answer(question):
+            user_answer = user_answers_map.get(question.id)
+            return {
+                "id": question.id,
+                "order": question.order,
+                "question_text": question.question_text,
+                "correct_answer": question.get_correct_answer(),
+                "question_type": (
+                    question.test_head.get_question_type_display()
+                    if question.test_head
+                    else None
+                ),
+                "user_answer": user_answer.answer_text if user_answer else None,
+                "is_correct": user_answer.is_correct if user_answer else False,
+                "is_answered": user_answer is not None,
+            }
+
+        return {
+            "listening": [merge_question_with_answer(q) for q in listening_questions],
+            "reading": [merge_question_with_answer(q) for q in reading_questions],
+        }
 
 
 class StudentResultSerializer(serializers.Serializer):

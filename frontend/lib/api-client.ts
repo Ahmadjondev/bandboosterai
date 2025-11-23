@@ -1,6 +1,20 @@
 import type { ApiResponse, ApiError } from '@/types/api';
 import { API_BASE_URL } from '@/config/api';
 
+// Global notification handler - set by NotificationProvider
+let globalNotificationHandler: ((statusCode?: number) => void) | null = null;
+
+export function setGlobalNotificationHandler(handler: ((statusCode?: number) => void) | null) {
+  globalNotificationHandler = handler;
+}
+
+// Global logout handler - set by auth context/provider
+let globalLogoutHandler: (() => void) | null = null;
+
+export function setGlobalLogoutHandler(handler: (() => void) | null) {
+  globalLogoutHandler = handler;
+}
+
 // Specialized error thrown when API requires email verification
 // EmailNotVerifiedError defined at top of file
 
@@ -43,7 +57,26 @@ function clearTokens(): void {
 }
 
 /**
+ * Logout user - clear tokens and redirect to login
+ */
+function logoutUser(): void {
+  clearTokens();
+  
+  // Call global logout handler if available
+  if (globalLogoutHandler) {
+    globalLogoutHandler();
+  } else {
+    // Fallback: redirect to login page
+    if (typeof window !== 'undefined') {
+      window.location.href = '/auth/login';
+    }
+  }
+}
+
+/**
  * Refresh access token using refresh token
+ * CRITICAL: Only clear tokens on 401 (expired refresh token)
+ * DO NOT clear tokens on network errors or server errors (500, 503)
  */
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
@@ -58,6 +91,20 @@ async function refreshAccessToken(): Promise<string | null> {
       body: JSON.stringify({ refresh: refreshToken }),
     });
 
+    // ✅ 401 = Refresh token is invalid/expired → Clear tokens and logout
+    if (response.status === 401) {
+      clearTokens();
+      return null;
+    }
+
+    // ⚠️ 500/503 = Server error → Keep tokens, return null to NOT retry
+    // This will cause the original request to fail but user stays logged in
+    if (response.status === 500 || response.status === 503) {
+      console.warn('[Token Refresh] Server error during token refresh, keeping user logged in');
+      return null;
+    }
+
+    // ❌ Other errors (400, 404, etc.) → Also invalid, clear tokens
     if (!response.ok) {
       clearTokens();
       return null;
@@ -71,7 +118,8 @@ async function refreshAccessToken(): Promise<string | null> {
 
     return null;
   } catch (error) {
-    clearTokens();
+    // 🌐 Network error → Keep tokens, don't logout
+    console.warn('[Token Refresh] Network error during token refresh, keeping user logged in');
     return null;
   }
 }
@@ -120,18 +168,62 @@ const headers: Record<string, string> = {
       ...restOptions,
       headers,
     });
-
-    // ⛔ 401 → refresh token retry
+     // ⚠️ 500/503 Server Errors → Show banner, don't logout
+    if (response.status === 500 || response.status === 503) {
+      // Show server error banner
+      if (globalNotificationHandler) {
+        globalNotificationHandler(response.status);
+      }
+      
+      // Still throw the error so components can handle it
+      const data = await response.json().catch(() => null);
+      throw <ApiError>{
+        message: "The server is temporarily unavailable.",
+        status: response.status,
+        details: data?.details,
+        code: "server_error",
+      };
+    }
+    // ⛔ 401 Unauthorized → Try to refresh token
     if (response.status === 401 && retryWithRefresh) {
       const newAccessToken = await refreshAccessToken();
       if (newAccessToken) {
+        // Token refreshed successfully - retry the original request
         return this.request<T>(
           endpoint,
           { ...options, token: newAccessToken },
           false
         );
+      } else {
+        // Refresh failed - check if tokens were cleared (means 401 on refresh)
+        // If tokens still exist, refresh failed due to network/server error → don't logout
+        const stillHasToken = getRefreshToken() !== null;
+        
+        if (stillHasToken) {
+          // Refresh failed due to network/server error, not expired token
+          // Show error but keep user logged in
+          if (globalNotificationHandler) {
+            globalNotificationHandler();
+          }
+          throw <ApiError>{
+            message: "Unable to verify your session. Please try again.",
+            status: 401,
+            code: "refresh_failed",
+          };
+        } else {
+          // Tokens were cleared = refresh token expired (401 on refresh)
+          // → Log the user out
+          logoutUser();
+          throw <ApiError>{
+            message: "Your session has expired. Please log in again.",
+            status: 401,
+            code: "session_expired",
+          };
+        }
       }
     }
+
+   
 
     const data = await response.json().catch(() => null);
 
@@ -193,15 +285,28 @@ const headers: Record<string, string> = {
       status: response.status,
     };
   } catch (err: any) {
-    // 🌐 FAQAT HAQIQIY NETWORK ERROR (fetch o‘zi yiqilganda)
+    // 🌐 Network errors (connection failed, timeout, etc.) - DO NOT logout
     if (err instanceof TypeError && err.message === "Failed to fetch") {
+      // Show a user-friendly notification
+      if (globalNotificationHandler) {
+        globalNotificationHandler(); // Generic server unavailable message
+      }
+      
       throw <ApiError>{
-        message: "Network error",
+        message: "Unable to connect to the server. Please check your internet connection.",
         status: 0,
+        code: "network_error",
       };
     }
 
-    // 🔥 Bu — oldin otilgan ApiError → aynan o‘shani qaytaramiz
+    // 🔥 Other 5xx errors caught during processing - show banner, don't logout
+    if (err.status && err.status >= 500 && err.status < 600) {
+      if (globalNotificationHandler) {
+        globalNotificationHandler(err.status);
+      }
+    }
+
+    // Re-throw the error for component-level handling
     throw err;
   }
 }
@@ -275,7 +380,7 @@ const headers: Record<string, string> = {
 export const apiClient = new ApiClient();
 
 // Export token management functions for use in auth.ts
-export { getAccessToken, getRefreshToken, setTokens, clearTokens };
+export { getAccessToken, getRefreshToken, setTokens, clearTokens, logoutUser };
 
 // Export a helper type/class for catching verification errors
 // Export a helper class for catching verification errors. Use a global guard

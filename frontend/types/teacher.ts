@@ -49,6 +49,7 @@ export interface TeacherExam {
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   auto_grade_reading: boolean;
   auto_grade_listening: boolean;
+  results_visible: boolean;
   is_active: boolean;
   total_attempts: number;
   completed_attempts: number;
@@ -101,8 +102,63 @@ export interface TeacherFeedback {
   updated_at: string;
 }
 
+export interface WritingTask {
+  id: number;
+  task_type: string;
+  task_type_display: string;
+  prompt: string;
+  picture: string | null;
+  data: any;
+  min_words: number;
+}
+
+export interface WritingAttempt {
+  id: number;
+  uuid: string;
+  task: WritingTask;
+  answer_text: string;
+  word_count: number;
+  score: number | null;
+  feedback: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Question {
+  id: number;
+  order: number;
+  question_text: string;
+  correct_answer: string;
+  question_type: string | null;
+}
+
+export interface UserAnswer {
+  id: number;
+  question: Question;
+  answer_text: string;
+  is_correct: boolean;
+  created_at: string;
+}
+
+export interface AllQuestion {
+  id: number;
+  order: number;
+  question_text: string;
+  correct_answer: string;
+  question_type: string | null;
+  user_answer: string | null;
+  is_correct: boolean;
+  is_answered: boolean;
+}
+
 export interface TeacherExamAttemptDetail extends TeacherExamAttempt {
   teacher_feedbacks: TeacherFeedback[];
+  writing_attempts: WritingAttempt[];
+  user_answers: UserAnswer[];
+  all_questions?: {
+    listening: AllQuestion[];
+    reading: AllQuestion[];
+  };
 }
 
 export interface DashboardStats {
@@ -129,10 +185,14 @@ export interface SectionAnalysis {
   listening: {
     score?: number;
     strength: string;
+    correct?: number;
+    total?: number;
   };
   reading: {
     score?: number;
     strength: string;
+    correct?: number;
+    total?: number;
   };
   writing: {
     score?: number;

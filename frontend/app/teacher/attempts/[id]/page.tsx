@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, MessageSquare, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Save, MessageSquare, TrendingUp, TrendingDown, FileText, List } from 'lucide-react';
 import { teacherAttemptApi, teacherFeedbackApi } from '@/lib/teacher-api';
 import type { StudentResult, GradeAttemptData, CreateFeedbackData } from '@/types/teacher';
+import WritingSubmissionCard from '@/components/teacher/WritingSubmissionCard';
+import SectionSummaryCard from '@/components/teacher/SectionSummaryCard';
+import QuestionModal from '@/components/teacher/QuestionModal';
 
 export default function AttemptDetailPage() {
   const params = useParams();
@@ -15,6 +18,8 @@ export default function AttemptDetailPage() {
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [showListeningModal, setShowListeningModal] = useState(false);
+  const [showReadingModal, setShowReadingModal] = useState(false);
 
   // Helper function to safely format score (handles both string and number)
   const formatScore = (score: any): string => {
@@ -145,44 +150,50 @@ export default function AttemptDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Section Scores */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-                Section Scores
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {Object.entries(result.section_analysis).map(([section, data]) => (
-                  <div key={section} className="text-center">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 capitalize mb-2">
-                      {section}
-                    </p>
-                    <p className="text-3xl font-bold text-blue-600 mb-2">
-                      {formatScore(data.score)}
-                    </p>
-                    <div className="flex items-center justify-center gap-1">
-                      {data.strength === 'Good' ? (
-                        <>
-                          <TrendingUp className="h-4 w-4 text-green-500" />
-                          <span className="text-xs text-green-600 dark:text-green-400">Strong</span>
-                        </>
-                      ) : (
-                        <>
-                          <TrendingDown className="h-4 w-4 text-orange-500" />
-                          <span className="text-xs text-orange-600 dark:text-orange-400">Weak</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {result.attempt.overall_band && (
-                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Overall Band Score</p>
-                  <p className="text-5xl font-bold text-blue-600">{formatScore(result.attempt.overall_band)}</p>
-                </div>
-              )}
+            {/* Section Scores - Compact View */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {Object.entries(result.section_analysis).map(([section, data]) => {
+                let correctCount, totalCount;
+                
+                // Use all_questions data if available for accurate counts
+                if (section === 'listening' && result.attempt.all_questions?.listening) {
+                  const questions = result.attempt.all_questions.listening;
+                  correctCount = questions.filter(q => q.is_correct).length;
+                  totalCount = questions.length;
+                } else if (section === 'reading' && result.attempt.all_questions?.reading) {
+                  const questions = result.attempt.all_questions.reading;
+                  correctCount = questions.filter(q => q.is_correct).length;
+                  totalCount = questions.length;
+                } else if ('correct' in data && 'total' in data) {
+                  // Fallback to section_analysis data from backend
+                  correctCount = (data as any).correct;
+                  totalCount = (data as any).total;
+                }
+                
+                return (
+                  <SectionSummaryCard
+                    key={section}
+                    section={section}
+                    score={data.score}
+                    correctCount={correctCount}
+                    totalCount={totalCount}
+                    strength={data.strength}
+                  />
+                );
+              })}
             </div>
+
+            {/* Overall Band Score */}
+            {result.attempt.overall_band && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  Overall Band Score
+                </p>
+                <p className="text-6xl font-bold text-blue-600">
+                  {formatScore(result.attempt.overall_band)}
+                </p>
+              </div>
+            )}
 
             {/* Grading Form */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -275,6 +286,75 @@ export default function AttemptDetailPage() {
                 </button>
               </form>
             </div>
+
+            {/* Question Sections - Buttons Only */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Listening Button */}
+              {result.attempt.all_questions?.listening && result.attempt.all_questions.listening.length > 0 && (
+                <button
+                  onClick={() => setShowListeningModal(true)}
+                  className="p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all group"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      🎧 Listening Questions
+                    </h3>
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {result.attempt.all_questions.listening.filter(q => q.is_correct).length} / {result.attempt.all_questions.listening.length} correct
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      Click to view all questions
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {/* Reading Button */}
+              {result.attempt.all_questions?.reading && result.attempt.all_questions.reading.length > 0 && (
+                <button
+                  onClick={() => setShowReadingModal(true)}
+                  className="p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all group"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      📖 Reading Questions
+                    </h3>
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {result.attempt.all_questions.reading.filter(q => q.is_correct).length} / {result.attempt.all_questions.reading.length} correct
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      Click to view all questions
+                    </p>
+                  </div>
+                </button>
+              )}
+            </div>
+
+            {/* Writing Submissions */}
+            {result.attempt.writing_attempts && result.attempt.writing_attempts.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  Writing Submissions
+                </h2>
+                {result.attempt.writing_attempts.map((writingAttempt) => (
+                  <WritingSubmissionCard
+                    key={writingAttempt.id}
+                    writingAttempt={writingAttempt}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Teacher Feedback */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -463,6 +543,24 @@ export default function AttemptDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Question Modals */}
+      {result.attempt.all_questions?.listening && (
+        <QuestionModal
+          isOpen={showListeningModal}
+          onClose={() => setShowListeningModal(false)}
+          questions={result.attempt.all_questions.listening}
+          section="listening"
+        />
+      )}
+      {result.attempt.all_questions?.reading && (
+        <QuestionModal
+          isOpen={showReadingModal}
+          onClose={() => setShowReadingModal(false)}
+          questions={result.attempt.all_questions.reading}
+          section="reading"
+        />
+      )}
     </div>
   );
 }

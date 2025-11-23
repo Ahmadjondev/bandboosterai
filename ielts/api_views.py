@@ -822,11 +822,22 @@ def submit_writing(request, attempt_id):
     # Calculate word count
     word_count = len(answer_text.split())
 
-    # Save or update writing attempt (only for regular ExamAttempts)
-    from teacher.models import TeacherExamAttempt
+    # Save or update writing attempt
+    from teacher.models import TeacherExamAttempt, TeacherWritingAttempt
 
     writing_attempt = None
-    if not isinstance(attempt, TeacherExamAttempt):
+    if isinstance(attempt, TeacherExamAttempt):
+        # For teacher exams, use TeacherWritingAttempt
+        writing_attempt, created = TeacherWritingAttempt.objects.update_or_create(
+            exam_attempt=attempt,
+            task=task,
+            defaults={
+                "answer_text": answer_text,
+                "word_count": word_count,
+            },
+        )
+    else:
+        # For regular exams, use WritingAttempt
         writing_attempt, created = WritingAttempt.objects.update_or_create(
             exam_attempt=attempt,
             task=task,
@@ -836,7 +847,6 @@ def submit_writing(request, attempt_id):
                 "evaluation_status": WritingAttempt.EvaluationStatus.PENDING,
             },
         )
-    # TODO: Implement writing storage for TeacherExamAttempts
 
     response_data = {
         "success": True,
@@ -1298,10 +1308,12 @@ def submit_test(request, attempt_id):
         "success": True,
         "message": "Test submitted successfully!",
         "attempt_id": attempt.id,
+        "is_teacher_exam": is_teacher_exam,
     }
 
-    # Add scores to response for TeacherExamAttempt
+    # Add scores and results visibility for TeacherExamAttempt
     if is_teacher_exam:
+        response_data["results_visible"] = attempt.exam.results_visible
         response_data["listening_score"] = (
             float(attempt.listening_score) if attempt.listening_score else None
         )
@@ -1329,6 +1341,19 @@ def get_test_results(request, attempt_id):
     attempt, error_response = get_user_attempt(attempt_id, request.user)
     if error_response:
         return error_response
+
+    # Check teacher exam results visibility
+    # Students can only view results if teacher has enabled results_visible
+    is_teacher_exam = isinstance(attempt, TeacherExamAttempt)
+    if is_teacher_exam:
+        # Check if teacher has made results visible
+        if not attempt.exam.results_visible:
+            return Response(
+                {
+                    "error": "Results for this exam are not yet available. Please check with your teacher."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
     if attempt.status != "COMPLETED" and attempt.status != "GRADED":
         return Response(

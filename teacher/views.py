@@ -308,6 +308,22 @@ class TeacherExamViewSet(viewsets.ModelViewSet):
             {"message": "Exam archived successfully"}, status=status.HTTP_200_OK
         )
 
+    @action(detail=True, methods=["post"], url_path="toggle-results-visible")
+    def toggle_results_visible(self, request, pk=None):
+        """
+        Toggle results visibility for students
+        """
+        exam = self.get_object()
+        exam.results_visible = not exam.results_visible
+        exam.save()
+        return Response(
+            {
+                "message": f"Results are now {'visible' if exam.results_visible else 'hidden'} to students",
+                "results_visible": exam.results_visible,
+            },
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=False, methods=["get"], url_path="available-mock-exams")
     def available_mock_exams(self, request):
         """
@@ -526,15 +542,26 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
         Return attempts for exams created by the authenticated teacher,
         or student's own attempts if student
         """
+        queryset = TeacherExamAttempt.objects.none()
+
         if self.request.user.role == "TEACHER":
-            return TeacherExamAttempt.objects.filter(
+            queryset = TeacherExamAttempt.objects.filter(
                 exam__teacher=self.request.user
             ).select_related("student", "exam")
         elif self.request.user.role == "STUDENT":
-            return TeacherExamAttempt.objects.filter(
+            queryset = TeacherExamAttempt.objects.filter(
                 student=self.request.user
             ).select_related("student", "exam")
-        return TeacherExamAttempt.objects.none()
+
+        # Prefetch related data for detail view
+        if self.action in ["retrieve", "analysis"]:
+            queryset = queryset.prefetch_related(
+                "teacher_feedbacks",
+                "writing_attempts__task",
+                "user_answers__question__test_head",
+            )
+
+        return queryset
 
     def get_serializer_class(self):
         """
@@ -549,7 +576,57 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
         """
         Get detailed analysis of a student's attempt
         """
+        from ielts.models import Question
+        from .models import TeacherUserAnswer
+
         attempt = self.get_object()
+
+        # Get all questions from the mock exam
+        if attempt.exam.mock_exam:
+            listening_questions = (
+                Question.objects.filter(
+                    test_head__listening__in=attempt.exam.mock_exam.listening_parts.all()
+                )
+                .select_related("test_head")
+                .order_by("order")
+            )
+
+            reading_questions = (
+                Question.objects.filter(
+                    test_head__reading__in=attempt.exam.mock_exam.reading_passages.all()
+                )
+                .select_related("test_head")
+                .order_by("order")
+            )
+
+            # Get user answers
+            user_answers_qs = TeacherUserAnswer.objects.filter(
+                exam_attempt=attempt
+            ).select_related("question__test_head")
+
+            # Create a map of question_id -> user_answer
+            user_answers_map = {ua.question_id: ua for ua in user_answers_qs}
+
+            # Calculate listening stats
+            listening_correct = sum(
+                1
+                for q in listening_questions
+                if user_answers_map.get(q.id) and user_answers_map[q.id].is_correct
+            )
+            from django.forms.models import model_to_dict
+
+            listening_total = listening_questions.count()
+            print(model_to_dict(reading_questions[0]))
+            # Calculate reading stats
+            reading_correct = sum(
+                1
+                for q in reading_questions
+                if user_answers_map.get(q.id) and user_answers_map[q.id].is_correct
+            )
+            reading_total = reading_questions.count()
+        else:
+            listening_correct = listening_total = 0
+            reading_correct = reading_total = 0
 
         # Calculate section analysis
         section_analysis = {
@@ -562,6 +639,8 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
                     if attempt.listening_score and attempt.listening_score >= 6.5
                     else "Needs improvement"
                 ),
+                "correct": listening_correct,
+                "total": listening_total,
             },
             "reading": {
                 "score": (
@@ -572,6 +651,8 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
                     if attempt.reading_score and attempt.reading_score >= 6.5
                     else "Needs improvement"
                 ),
+                "correct": reading_correct,
+                "total": reading_total,
             },
             "writing": {
                 "score": (
@@ -611,7 +692,7 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
 
         # Add section-specific recommendations
         for section, data in section_analysis.items():
-            if data["score"] and data["score"] < 6.0:
+            if data.get("score") and data["score"] < 6.0:
                 recommendations.append(
                     f"Prioritize {section.capitalize()} practice to improve weak areas"
                 )
@@ -749,8 +830,8 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
         Grade a completed attempt
         """
         attempt = self.get_object()
-
-        if attempt.status != "COMPLETED":
+        print(attempt.status)
+        if attempt.status != "COMPLETED" and attempt.status != "GRADED":
             return Response(
                 {"error": "Attempt is not in completed status"},
                 status=status.HTTP_400_BAD_REQUEST,

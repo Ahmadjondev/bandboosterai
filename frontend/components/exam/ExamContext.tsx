@@ -26,6 +26,7 @@ import {
   preloadAudio,
   createAudioBlobUrl,
   revokeAudioBlobUrl,
+  getAttemptInfo,
 } from "@/lib/exam-api";
 import {
   detectBrowser,
@@ -60,7 +61,7 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
   // STATE
   // ============================================================================
 
-  const [currentSection, setCurrentSection] = useState<SectionName>(SectionName.LISTENING);
+  const [currentSection, setCurrentSection] = useState<SectionName | null>(null);
   const [sectionData, setSectionData] = useState<SectionData | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -125,7 +126,48 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
   // API METHODS
   // ============================================================================
 
+  const initializeCurrentSection = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const attemptInfo = await getAttemptInfo(attemptId);
+      
+      console.log('[EXAM INIT] Attempt info:', attemptInfo);
+      
+      // Map backend current_section to SectionName enum
+      const sectionMap: Record<string, SectionName> = {
+        'LISTENING': SectionName.LISTENING,
+        'listening': SectionName.LISTENING,
+        'READING': SectionName.READING,
+        'reading': SectionName.READING,
+        'WRITING': SectionName.WRITING,
+        'writing': SectionName.WRITING,
+        'SPEAKING': SectionName.SPEAKING,
+        'speaking': SectionName.SPEAKING,
+      };
+      
+      const backendSection = attemptInfo.current_section;
+      const mappedSection = sectionMap[backendSection] || SectionName.LISTENING;
+      
+      console.log('[EXAM INIT] Setting current section to:', mappedSection);
+      setCurrentSection(mappedSection);
+      
+      return mappedSection;
+    } catch (err: any) {
+      console.error('[EXAM INIT] Failed to get attempt info:', err);
+      // Fallback to LISTENING if we can't get the current section
+      setCurrentSection(SectionName.LISTENING);
+      return SectionName.LISTENING;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [attemptId]);
+
   const loadSectionData = useCallback(async () => {
+    if (!currentSection) {
+      console.log('[LOAD SECTION] Current section is null, skipping...');
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     setShowInstructions(true);
@@ -302,7 +344,7 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
       // No next section - finish test
       if (!nextSection) {
         if (!skipConfirmation) {
-          const isSpeaking = currentSection === SectionName.SPEAKING;
+          const isSpeaking = currentSection !== null && currentSection === SectionName.SPEAKING;
           const message = isSpeaking
             ? "You have completed the Speaking section. Are you sure you want to submit your test?"
             : "Are you sure you want to finish the test?";
@@ -335,7 +377,7 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
         setIsLoading(true);
 
         // Clear listening cache
-        if (currentSection === SectionName.LISTENING) {
+        if (currentSection !== null && currentSection === SectionName.LISTENING) {
           removeFromStorage(`listening-progress-${attemptId}`);
         }
 
@@ -345,7 +387,7 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
 
         if (response.success && response.current_section) {
           // Check if section actually changed
-          if (response.current_section.toLowerCase() === currentSection.toLowerCase()) {
+          if (currentSection && response.current_section.toLowerCase() === currentSection.toLowerCase()) {
             console.error('[NEXT SECTION] Section did not change! Still on:', currentSection);
             setError('Failed to move to next section. Please try again.');
             setIsLoading(false);
@@ -390,7 +432,21 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
       if (response.success) {
         console.log("Test submitted successfully!");
         await new Promise((resolve) => setTimeout(resolve, 500));
-        router.push(`/dashboard/results?attempt=${attemptId}`);
+        
+        // Teacher exams: check if results are visible
+        // Regular exams: always show results
+        if (response.is_teacher_exam) {
+          if (response.results_visible) {
+            console.log('[SUBMIT] Teacher exam with visible results - redirecting to results');
+            router.push(`/dashboard/results?attempt=${attemptId}`);
+          } else {
+            console.log('[SUBMIT] Teacher exam without visible results - redirecting to teacher-exams');
+            router.push('/dashboard/teacher-exams');
+          }
+        } else {
+          console.log('[SUBMIT] Regular exam - redirecting to results');
+          router.push(`/dashboard/results?attempt=${attemptId}`);
+        }
       } else {
         throw new Error(response.message || "Submission failed");
       }
@@ -687,11 +743,14 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
   // ============================================================================
 
   useEffect(() => {
-    performSystemCheck();
+    // Initialize current section from backend first
+    const init = async () => {
+      const section = await initializeCurrentSection();
+      console.log('[EXAM MOUNT] Initialized with section:', section);
+    };
     
-    // Load section data only on mount (not when currentSection changes)
-    // currentSection changes are handled separately in handleNextSection
-    loadSectionData();
+    init();
+    performSystemCheck();
 
     // Setup fullscreen listeners
     document.addEventListener("fullscreenchange", checkFullscreenState);

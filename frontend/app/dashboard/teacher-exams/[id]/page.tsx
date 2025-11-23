@@ -91,6 +91,9 @@ export default function StudentExamDetailPage() {
   const hasAttempt = !!attempt;
   const isCompleted = attempt?.status === 'COMPLETED' || attempt?.status === 'GRADED';
   const isGraded = attempt?.status === 'GRADED';
+  console.log("exam.results_visible", exam.results_visible)
+  console.log("isGraded", isGraded)
+  const canViewResults = isGraded && exam?.results_visible;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -128,7 +131,7 @@ export default function StudentExamDetailPage() {
 
             {hasAttempt && (
               <div className="ml-4">
-                {isGraded ? (
+                {canViewResults ? (
                   <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 text-center">
                     <Star className="h-8 w-8 mx-auto mb-2" />
                     <div className="text-3xl font-bold">
@@ -189,7 +192,7 @@ export default function StudentExamDetailPage() {
           </div>
 
           {/* Attempt Status / Results */}
-          {hasAttempt && isGraded && (
+          {hasAttempt && canViewResults && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-yellow-500" />
@@ -254,7 +257,7 @@ export default function StudentExamDetailPage() {
               {/* View Detailed Results */}
               <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Link
-                  href={`/dashboard/teacher-exams/${examId}/result`}
+                  href={`/dashboard/results?attempt=${attempt.id}`}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
                 >
                   <Trophy className="h-5 w-5" />
@@ -264,14 +267,16 @@ export default function StudentExamDetailPage() {
             </div>
           )}
 
-          {hasAttempt && !isGraded && isCompleted && (
+          {hasAttempt && !canViewResults && isCompleted && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 text-center">
               <CheckCircle className="h-16 w-16 text-blue-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                 Exam Submitted
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Your exam has been submitted and is waiting for teacher evaluation.
+                {isGraded && !exam.results_visible
+                  ? 'Your exam has been graded. Results will be visible when your teacher makes them available.'
+                  : 'Your exam has been submitted and is waiting for teacher evaluation.'}
               </p>
             </div>
           )}
@@ -302,9 +307,9 @@ export default function StudentExamDetailPage() {
                 <Play className="h-5 w-5" />
                 Continue Exam
               </Link>
-            ) : isGraded ? (
+            ) : canViewResults ? (
               <Link
-                href={`/dashboard/teacher-exams/${examId}/result`}
+                href={`/dashboard/results?attempt=${attempt.id}`}
                 className="block w-full text-center px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold"
               >
                 View Full Results
