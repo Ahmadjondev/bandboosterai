@@ -25,6 +25,7 @@ const API_BASE = "/exams/api";
 
 /**
  * Check API connection
+ * @deprecated No longer used - connection check removed from frontend
  */
 export async function pingAPI(): Promise<{ success: boolean; message: string }> {
   const response = await fetch(`${API_BASE}/ping/`, {
@@ -309,10 +310,13 @@ export async function getMyAttempts(): Promise<TestAttemptHistory[]> {
 
 /**
  * Preload audio files for listening section
+ * Note: No credentials needed for public S3 assets
  */
 export async function preloadAudio(url: string): Promise<Blob> {
   const response = await fetch(url, {
-    credentials: "include",
+    // Don't send credentials - S3 audio files are public assets
+    // credentials: "include" would fail CORS with wildcard Access-Control-Allow-Origin
+    credentials: "omit",
   });
 
   if (!response.ok) {

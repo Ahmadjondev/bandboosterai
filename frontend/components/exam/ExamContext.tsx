@@ -23,7 +23,6 @@ import {
   submitSpeaking as apiSubmitSpeaking,
   nextSection as apiNextSection,
   submitTest as apiSubmitTest,
-  pingAPI,
   preloadAudio,
   createAudioBlobUrl,
   revokeAudioBlobUrl,
@@ -458,16 +457,11 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
       connection: "checking",
     });
 
-    // Check internet connection
-    try {
-      const result = await pingAPI();
-      setSystemCheck((prev) => ({
-        ...prev,
-        connection: result.success ? "good" : "poor",
-      }));
-    } catch {
-      setSystemCheck((prev) => ({ ...prev, connection: "offline" }));
-    }
+    // Assume good connection - no need to ping
+    setSystemCheck((prev) => ({
+      ...prev,
+      connection: "good",
+    }));
 
     // Check permissions
     await checkMicrophonePermission();
