@@ -331,20 +331,60 @@ class TeacherExamAttemptDetailSerializer(TeacherExamAttemptSerializer):
 
         # Merge questions with user answers
         def merge_question_with_answer(question):
+            from ielts.models import TestHead
+
             user_answer = user_answers_map.get(question.id)
+            correct_answer = question.get_correct_answer()
+            user_answer_text = user_answer.answer_text if user_answer else None
+
+            # Calculate MCMA partial score if applicable
+            is_mcma = (
+                question.test_head
+                and question.test_head.question_type
+                == TestHead.QuestionType.MULTIPLE_CHOICE_MULTIPLE_ANSWERS
+            )
+
+            mcma_score = None
+            mcma_max_score = None
+            question_order_display = question.order
+
+            if is_mcma and correct_answer:
+                # Calculate max score for MCMA (number of correct answers)
+                correct_set = set(correct_answer.upper())
+                mcma_max_score = len(correct_set)
+
+                # Display question number as range (e.g., "21-22" for 2 answers)
+                if mcma_max_score > 1:
+                    question_order_display = (
+                        f"{question.order}-{question.order + mcma_max_score - 1}"
+                    )
+
+                # Calculate user's score if they answered
+                if user_answer_text:
+                    user_set = set(user_answer_text.upper())
+                    correct_selections = len(user_set & correct_set)
+                    mcma_score = correct_selections
+                else:
+                    mcma_score = 0  # No answer = 0 score
+
             return {
                 "id": question.id,
-                "order": question.order,
+                "order": question_order_display,  # Can be single number or range
                 "question_text": question.question_text,
-                "correct_answer": question.get_correct_answer(),
+                "correct_answer": correct_answer
+                or "Not available",  # Always show correct answer
                 "question_type": (
                     question.test_head.get_question_type_display()
                     if question.test_head
                     else None
                 ),
-                "user_answer": user_answer.answer_text if user_answer else None,
+                "user_answer": user_answer_text
+                or None,  # Explicitly None if not answered
                 "is_correct": user_answer.is_correct if user_answer else False,
                 "is_answered": user_answer is not None,
+                "is_mcma": is_mcma,
+                "mcma_score": mcma_score,
+                "mcma_max_score": mcma_max_score,
             }
 
         return {

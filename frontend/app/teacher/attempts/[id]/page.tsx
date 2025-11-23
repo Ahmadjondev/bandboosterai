@@ -27,6 +27,32 @@ export default function AttemptDetailPage() {
     const numScore = typeof score === 'string' ? parseFloat(score) : score;
     return isNaN(numScore) ? '-' : numScore.toFixed(1);
   };
+
+  // Calculate MCMA-aware correct count (partial scoring)
+  const calculateCorrectCount = (questions: any[]): number => {
+    let total = 0;
+    for (const q of questions) {
+      if (q.is_mcma && q.mcma_score !== null && q.mcma_score !== undefined) {
+        total += q.mcma_score;  // Add partial score for MCMA
+      } else if (q.is_correct) {
+        total += 1;  // Add 1 for regular correct answer
+      }
+    }
+    return total;
+  };
+
+  // Calculate MCMA-aware total count
+  const calculateTotalCount = (questions: any[]): number => {
+    let total = 0;
+    for (const q of questions) {
+      if (q.is_mcma && q.mcma_max_score !== null && q.mcma_max_score !== undefined) {
+        total += q.mcma_max_score;  // MCMA question counts as multiple
+      } else {
+        total += 1;  // Regular question counts as 1
+      }
+    }
+    return total;
+  };
   
   const [gradeData, setGradeData] = useState<GradeAttemptData>({
     listening_score: undefined,
@@ -153,22 +179,9 @@ export default function AttemptDetailPage() {
             {/* Section Scores - Compact View */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {Object.entries(result.section_analysis).map(([section, data]) => {
-                let correctCount, totalCount;
-                
-                // Use all_questions data if available for accurate counts
-                if (section === 'listening' && result.attempt.all_questions?.listening) {
-                  const questions = result.attempt.all_questions.listening;
-                  correctCount = questions.filter(q => q.is_correct).length;
-                  totalCount = questions.length;
-                } else if (section === 'reading' && result.attempt.all_questions?.reading) {
-                  const questions = result.attempt.all_questions.reading;
-                  correctCount = questions.filter(q => q.is_correct).length;
-                  totalCount = questions.length;
-                } else if ('correct' in data && 'total' in data) {
-                  // Fallback to section_analysis data from backend
-                  correctCount = (data as any).correct;
-                  totalCount = (data as any).total;
-                }
+                // Always use backend's correct and total counts (MCMA-aware)
+                const correctCount = (data as any).correct;
+                const totalCount = (data as any).total;
                 
                 return (
                   <SectionSummaryCard
@@ -305,7 +318,7 @@ export default function AttemptDetailPage() {
                   </div>
                   <div className="text-left">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {result.attempt.all_questions.listening.filter(q => q.is_correct).length} / {result.attempt.all_questions.listening.length} correct
+                      {calculateCorrectCount(result.attempt.all_questions.listening)} / {calculateTotalCount(result.attempt.all_questions.listening)} correct
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                       Click to view all questions
@@ -330,7 +343,7 @@ export default function AttemptDetailPage() {
                   </div>
                   <div className="text-left">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {result.attempt.all_questions.reading.filter(q => q.is_correct).length} / {result.attempt.all_questions.reading.length} correct
+                      {calculateCorrectCount(result.attempt.all_questions.reading)} / {calculateTotalCount(result.attempt.all_questions.reading)} correct
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                       Click to view all questions

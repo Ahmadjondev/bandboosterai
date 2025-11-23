@@ -607,23 +607,21 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
             # Create a map of question_id -> user_answer
             user_answers_map = {ua.question_id: ua for ua in user_answers_qs}
 
-            # Calculate listening stats
-            listening_correct = sum(
-                1
-                for q in listening_questions
-                if user_answers_map.get(q.id) and user_answers_map[q.id].is_correct
+            # Calculate listening stats with MCMA support
+            listening_user_answers = user_answers_qs.filter(
+                question__in=listening_questions
             )
-            from django.forms.models import model_to_dict
+            listening_correct, _ = self._calculate_weighted_score(
+                listening_user_answers
+            )
+            listening_total = self._calculate_total_questions(listening_questions)
 
-            listening_total = listening_questions.count()
-            print(model_to_dict(reading_questions[0]))
-            # Calculate reading stats
-            reading_correct = sum(
-                1
-                for q in reading_questions
-                if user_answers_map.get(q.id) and user_answers_map[q.id].is_correct
+            # Calculate reading stats with MCMA support
+            reading_user_answers = user_answers_qs.filter(
+                question__in=reading_questions
             )
-            reading_total = reading_questions.count()
+            reading_correct, _ = self._calculate_weighted_score(reading_user_answers)
+            reading_total = self._calculate_total_questions(reading_questions)
         else:
             listening_correct = listening_total = 0
             reading_correct = reading_total = 0
@@ -707,6 +705,111 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
         serializer = StudentResultSerializer(data)
         return Response(serializer.data)
 
+    def _check_answer_correctness(self, user_answer_text, question):
+        """
+        Check if a user's answer is correct for a given question.
+        For MCMA, returns a tuple of (partial_score, max_possible_score).
+        For other types, returns True/False.
+        """
+        from ielts.models import TestHead
+
+        if not question:
+            return False
+
+        user_answer = user_answer_text.strip() if user_answer_text else ""
+        correct_answer = question.get_correct_answer() or ""
+
+        if not correct_answer:
+            return False
+
+        # Check if answer is correct based on question type
+        if question.test_head.question_type in [
+            TestHead.QuestionType.MULTIPLE_CHOICE,
+            TestHead.QuestionType.MULTIPLE_CHOICE_MULTIPLE_ANSWERS,
+        ]:
+            # For MCQ/MCMA, compare sorted keys
+            user_sorted = "".join(sorted(user_answer.upper()))
+            correct_sorted = "".join(sorted(correct_answer.upper()))
+
+            # For MCMA, we need partial credit scoring
+            if (
+                question.test_head.question_type
+                == TestHead.QuestionType.MULTIPLE_CHOICE_MULTIPLE_ANSWERS
+            ):
+                return self._calculate_mcma_score(user_sorted, correct_sorted)
+
+            # For regular MCQ, all or nothing
+            return user_sorted == correct_sorted
+        else:
+            # Case-insensitive comparison for text answers
+            corrects = correct_answer.lower().split("|")
+            for cor_answer in corrects:
+                if user_answer.lower() == cor_answer.lower():
+                    return True
+            return False
+
+    def _calculate_mcma_score(self, user_answer, correct_answer):
+        """
+        Calculate partial credit for MCMA questions.
+        Each correct answer counts as 1 question toward the 40-question total.
+
+        Returns: (score, max_score) tuple
+        """
+        if not correct_answer:
+            return (0, 1)
+
+        user_set = set(user_answer)
+        correct_set = set(correct_answer)
+
+        # Count correct selections - each correct selection is worth 1 point
+        correct_selections = len(user_set & correct_set)
+        score = correct_selections
+
+        max_score = len(correct_set)
+        return (score, max_score)
+
+    def _calculate_weighted_score(self, user_answers_queryset):
+        """
+        Calculate weighted score considering MCMA questions.
+        For MCMA questions, each correct answer counts as 1 toward the total.
+
+        Returns: (total_score, max_possible_score)
+        """
+        total_score = 0
+        max_possible_score = 0
+
+        for ua in user_answers_queryset:
+            result = self._check_answer_correctness(ua.answer_text, ua.question)
+
+            if isinstance(result, tuple):
+                # MCMA question - partial scoring
+                score, max_score = result
+                total_score += score
+                max_possible_score += max_score
+            else:
+                # Regular question - binary scoring
+                total_score += 1 if result else 0
+                max_possible_score += 1
+
+        return (total_score, max_possible_score)
+
+    def _calculate_total_questions(self, questions_qs):
+        """Calculate total question count (handling MCMA as multiple questions)."""
+        from ielts.models import TestHead
+
+        total_count = 0
+        for q in questions_qs:
+            if (
+                q.test_head.question_type
+                == TestHead.QuestionType.MULTIPLE_CHOICE_MULTIPLE_ANSWERS
+            ):
+                correct_answer = q.get_correct_answer() or ""
+                total_count += len(set(correct_answer)) if correct_answer else 1
+            else:
+                total_count += 1
+        
+        return total_count
+
     @action(
         detail=True,
         methods=["post"],
@@ -751,32 +854,20 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
             test_head__reading__in=mock_exam.reading_passages.all()
         ).select_related("test_head")
 
-        # Get user answers and create a map for quick lookup
+        # Get user answers
         user_answers = TeacherUserAnswer.objects.filter(
             exam_attempt=attempt
         ).select_related("question__test_head")
 
-        # Create a map of question_id -> answer
-        answers_map = {}
-        for answer in user_answers:
-            answer.check_correctness()  # Ensure correctness is calculated
-            answers_map[answer.question_id] = answer
+        # Calculate listening stats with MCMA support
+        listening_user_answers = user_answers.filter(question__in=listening_questions)
+        listening_correct, _ = self._calculate_weighted_score(listening_user_answers)
+        listening_total = self._calculate_total_questions(listening_questions)
 
-        # Count correct listening answers (out of 40)
-        listening_correct = 0
-        listening_total = listening_questions.count()
-        for question in listening_questions:
-            answer = answers_map.get(question.id)
-            if answer and answer.is_correct:
-                listening_correct += 1
-
-        # Count correct reading answers (out of 40)
-        reading_correct = 0
-        reading_total = reading_questions.count()
-        for question in reading_questions:
-            answer = answers_map.get(question.id)
-            if answer and answer.is_correct:
-                reading_correct += 1
+        # Calculate reading stats with MCMA support
+        reading_user_answers = user_answers.filter(question__in=reading_questions)
+        reading_correct, _ = self._calculate_weighted_score(reading_user_answers)
+        reading_total = self._calculate_total_questions(reading_questions)
 
         # Calculate band scores using IELTS algorithm
         scores_calculated = {}

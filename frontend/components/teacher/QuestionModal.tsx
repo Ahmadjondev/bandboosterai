@@ -4,13 +4,16 @@ import { X } from 'lucide-react';
 
 interface AllQuestion {
   id: number;
-  order: number;
+  order: number | string;  // Can be number (e.g., 21) or range string (e.g., "21-22" for MCMA)
   question_text: string;
   correct_answer: string;
   question_type: string | null;
   user_answer: string | null;
   is_correct: boolean;
   is_answered: boolean;
+  is_mcma?: boolean;
+  mcma_score?: number | null;
+  mcma_max_score?: number | null;
 }
 
 interface QuestionModalProps {
@@ -138,7 +141,30 @@ export default function QuestionModal({
                           {question.user_answer || 'No answer'}
                         </span>
                       </div>
-                      {question.is_answered && !question.is_correct && (
+                      
+                      {/* MCMA Partial Score */}
+                      {question.is_mcma && question.mcma_score !== null && question.mcma_score !== undefined && question.mcma_max_score !== null && question.mcma_max_score !== undefined && (
+                        <div className="flex items-start gap-2 text-sm">
+                          <span className="text-gray-500 dark:text-gray-400 shrink-0">Score:</span>
+                          <span className={`font-medium ${
+                            question.is_correct
+                              ? 'text-green-700 dark:text-green-300'
+                              : (question.mcma_score ?? 0) > 0
+                              ? 'text-yellow-700 dark:text-yellow-300'
+                              : 'text-red-700 dark:text-red-300'
+                          }`}>
+                            {question.mcma_score}/{question.mcma_max_score} {
+                              question.is_correct 
+                                ? '(All correct)' 
+                                : (question.mcma_score ?? 0) > 0
+                                ? '(Partial credit)'
+                                : '(No credit)'
+                            }
+                          </span>
+                        </div>
+                      )}
+                      
+                      {!question.is_correct && (
                         <div className="flex items-start gap-2 text-sm">
                           <span className="text-gray-500 dark:text-gray-400 shrink-0">Correct:</span>
                           <span className="text-green-700 dark:text-green-300 font-medium">
