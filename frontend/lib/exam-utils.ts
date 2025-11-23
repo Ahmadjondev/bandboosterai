@@ -52,7 +52,7 @@ export function isTimeWarning(timeRemaining: number): boolean {
 /**
  * Get section instructions based on section name
  */
-export function getSectionInstructions(section: SectionName) {
+export function getSectionInstructions(section: SectionName | null) {
   const instructions = {
     listening: {
       title: "IELTS Listening",
@@ -121,13 +121,14 @@ export function getSectionInstructions(section: SectionName) {
     },
   };
 
-  return instructions[section] || instructions.listening;
+  return section ? (instructions[section] || instructions.listening) : instructions.listening;
 }
 
 /**
  * Capitalize first letter of section name
  */
-export function capitalizeSectionName(section: SectionName): string {
+export function capitalizeSectionName(section: SectionName | null): string {
+  if (!section) return '';
   return section.charAt(0).toUpperCase() + section.slice(1);
 }
 

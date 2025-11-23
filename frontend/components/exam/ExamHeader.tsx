@@ -128,7 +128,7 @@ export default function ExamHeader() {
 
   // Clear highlights
   const clearHighlights = () => {
-    if (!attemptId) return;
+    if (!attemptId || !currentSection) return;
     
     // Build storage key based on current section
     let storageKey = currentSection.toLowerCase();
