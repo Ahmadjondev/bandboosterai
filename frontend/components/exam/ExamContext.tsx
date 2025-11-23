@@ -144,7 +144,7 @@ export function ExamProvider({ children, attemptId }: ExamProviderProps) {
       // Initialize timer
       const duration = data.time_remaining;
       if (duration !== undefined && duration !== null) {
-        setTimeRemaining(duration);
+        // setTimeRemaining(duration);
       } else {
         // Fallback durations
         const defaultDurations = {

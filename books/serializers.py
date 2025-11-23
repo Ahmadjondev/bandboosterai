@@ -234,7 +234,7 @@ class UserBookProgressSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
     book_id = serializers.IntegerField(write_only=True)
     status = serializers.SerializerMethodField()
-    time_remaining = serializers.SerializerMethodField()
+    # time_remaining = serializers.SerializerMethodField()
 
     class Meta:
         model = UserBookProgress
@@ -250,7 +250,7 @@ class UserBookProgressSerializer(serializers.ModelSerializer):
             "is_started",
             "is_completed",
             "status",
-            "time_remaining",
+            # "time_remaining",
             "last_accessed",
             "started_at",
             "completed_at",
@@ -283,14 +283,14 @@ class UserBookProgressSerializer(serializers.ModelSerializer):
         else:
             return "not_started"
 
-    def get_time_remaining(self, obj):
-        """Estimate time remaining to complete the book"""
-        if obj.is_completed:
-            return 0
+    # def get_time_remaining(self, obj):
+    #     """Estimate time remaining to complete the book"""
+    #     if obj.is_completed:
+    #         return 0
 
-        remaining_sections = obj.book.total_sections - obj.completed_sections
-        # Assume average 60 minutes per section
-        return remaining_sections * 60
+    #     remaining_sections = obj.book.total_sections - obj.completed_sections
+    #     # Assume average 60 minutes per section
+    #     return remaining_sections * 60
 
 
 class UserSectionResultSerializer(serializers.ModelSerializer):

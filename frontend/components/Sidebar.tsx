@@ -24,7 +24,7 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
       <div className="relative group">
         <div
           className={classNames(
-            'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-not-allowed',
+            'flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 cursor-not-allowed',
             'text-slate-400 dark:text-slate-600',
             isCollapsed && 'justify-center px-2'
           )}
@@ -73,7 +73,7 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
         }
       }}
       className={classNames(
-        'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group',
+        'flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 relative group',
         isActive
           ? 'bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/50'
           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
@@ -100,9 +100,9 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
         </>
       )}
 
-      {isActive && !isCollapsed && (
+      {/* {isActive && !isCollapsed && (
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full" />
-      )}
+      )} */}
 
       {isCollapsed && (
         <div className="absolute left-full ml-2 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
@@ -136,24 +136,30 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       section: 'Main',
       items: [
         { href: '/dashboard', icon: '🏠', label: 'Dashboard' },
-        { href: '/dashboard/cd-exam', icon: '📝', label: 'CD IELTS Exam', badge: 'NEW' },
-        { href: '/dashboard/books', icon: '📚', label: 'Practice Books', badge: 'NEW' }
+        { href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' },
       ]
     },
     {
-      section: 'Tests',
+      section: 'IELTS Exams',
       items: [
-        { href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' },
+        { href: '/dashboard/cd-exam', icon: '📝', label: 'CD IELTS Exam'},
         { href: '/dashboard/teacher-exams', icon: '🎓', label: 'Exams', badge: 'NEW' }
       ]
     },
     {
-      section: 'Tools',
+      section: 'Practice',
+      items: [
+        { href: '/dashboard/books', icon: '📚', label: 'Practice Books', badge: 'NEW' },
+        { href: '/dashboard/resources', icon: '✨', label: 'Study Resources' }
+      ]
+    },
+    {
+      section: 'AI Tools',
       items: [
         { href: '/dashboard/analytics', icon: '📈', label: 'Analytics', comingSoon: true },
         { href: '/dashboard/planner', icon: '📅', label: 'Study Planner', comingSoon: true },
         { href: '/dashboard/leaderboard', icon: '🏆', label: 'Leaderboard' },
-        { href: '/dashboard/resources', icon: '✨', label: 'Study Resources' }
+        
       ]
     },
     {
