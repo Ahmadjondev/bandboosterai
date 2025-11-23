@@ -676,7 +676,7 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(read_only=True)
     exam_title = serializers.SerializerMethodField()
     exam_type = serializers.SerializerMethodField()
-    # time_remaining = serializers.SerializerMethodField()
+    time_remaining = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
     completed_at = serializers.SerializerMethodField()
 
@@ -714,23 +714,23 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
         """Get completion time - handle both completed_at and submitted_at."""
         return getattr(obj, "completed_at", None) or getattr(obj, "submitted_at", None)
 
-    # def get_time_remaining(self, obj):
-    #     """Calculate remaining time in seconds."""
-    #     if obj.status == "IN_PROGRESS" and obj.started_at:
-    #         from django.utils import timezone
+    def get_time_remaining(self, obj):
+        """Calculate remaining time in seconds."""
+        if obj.status == "IN_PROGRESS" and obj.started_at:
+            from django.utils import timezone
 
-    #         elapsed = (timezone.now() - obj.started_at).total_seconds()
-    #         # Get duration from mock test, use default if not set
-    #         mock_exam = getattr(obj.exam, "mock_test", None) or getattr(
-    #             obj.exam, "mock_exam", None
-    #         )
-    #         if not mock_exam:
-    #             return 0
-    #         duration_minutes = mock_exam.get_default_duration()
-    #         total_seconds = duration_minutes * 60
-    #         remaining = max(0, total_seconds - elapsed)
-    #         return int(remaining)
-    #     return 0
+            elapsed = (timezone.now() - obj.started_at).total_seconds()
+            # Get duration from mock test, use default if not set
+            mock_exam = getattr(obj.exam, "mock_test", None) or getattr(
+                obj.exam, "mock_exam", None
+            )
+            if not mock_exam:
+                return 0
+            duration_minutes = mock_exam.get_default_duration()
+            total_seconds = duration_minutes * 60
+            remaining = max(0, total_seconds - elapsed)
+            return int(total_seconds)
+        return 0
 
     def get_progress(self, obj):
         """Get progress percentage."""
@@ -838,7 +838,7 @@ class ListeningSectionSerializer(serializers.Serializer):
     """Serializer for listening section data."""
 
     parts = ListeningPartSerializer(many=True, read_only=True)
-    # time_remaining = serializers.IntegerField()
+    time_remaining = serializers.IntegerField()
     default_duration = serializers.IntegerField(
         default=30
     )  # 30 minutes for IELTS Listening
@@ -848,7 +848,7 @@ class ReadingSectionSerializer(serializers.Serializer):
     """Serializer for reading section data."""
 
     passages = ReadingPassageSerializer(many=True, read_only=True)
-    # time_remaining = serializers.IntegerField()
+    time_remaining = serializers.IntegerField()
     default_duration = serializers.IntegerField(
         default=60
     )  # 60 minutes for IELTS Reading
@@ -858,7 +858,7 @@ class WritingSectionSerializer(serializers.Serializer):
     """Serializer for writing section data."""
 
     tasks = WritingTaskSerializer(many=True, read_only=True)
-    # time_remaining = serializers.IntegerField()
+    time_remaining = serializers.IntegerField()
     default_duration = serializers.IntegerField(
         default=60
     )  # 60 minutes for IELTS Writing
@@ -869,7 +869,7 @@ class SpeakingSectionSerializer(serializers.Serializer):
 
     topics = SpeakingTopicSerializer(many=True, read_only=True)
     current_part = serializers.IntegerField()
-    # time_remaining = serializers.IntegerField()
+    time_remaining = serializers.IntegerField()
     default_duration = serializers.IntegerField(
         default=14
     )  # 11-14 minutes for IELTS Speaking
