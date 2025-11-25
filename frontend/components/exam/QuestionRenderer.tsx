@@ -812,57 +812,65 @@ const renderMatching = (
     <div className="space-y-6">
       {/* Display headings list for MH questions */}
       {group.question_type === 'MH' && headings.length > 0 && (
-        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-3" style={{ fontSize: "inherit" }}>
-            List of Headings:
+        <div className="border border-slate-300 dark:border-slate-600 rounded p-5 mb-6 bg-white dark:bg-slate-800">
+          <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-4 text-center border-b border-slate-200 dark:border-slate-700 pb-2" style={{ fontSize: "inherit" }}>
+            List of Headings
           </h4>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {headings.map((heading, idx) => (
-              <div key={idx} className="text-slate-700 dark:text-slate-300" style={{ fontSize: "inherit" }}>
-                <strong className="font-semibold mr-2">{heading.key}</strong>
-                {heading.text}
+              <div key={idx} className="flex items-start gap-3 text-slate-700 dark:text-slate-300" style={{ fontSize: "inherit" }}>
+                <span className="font-bold min-w-8 text-slate-900 dark:text-slate-100">{heading.key}</span>
+                <span className="flex-1">{heading.text}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-
       {/* Questions */}
       <div className="space-y-4">
         {group.questions.map((question) => {
           const currentAnswer = userAnswers[question.id] || "";
           return (
-            <div
-              key={question.id}
-              className="pb-4 border-b border-slate-100 dark:border-slate-700 last:border-b-0"
-            >
-              <div className="flex items-start gap-3">
-                <span className="inline-flex items-center justify-center w-6 h-6 bg-indigo-600 dark:bg-indigo-500 text-white text-xs font-bold rounded-full shrink-0">
-                  {question.order}
-                </span>
-                <div className="flex-1">
-                  <div className="mb-2" style={{ fontSize: "inherit" }}>
-                    {renderQuestionText(question.question_text || question.stem)}
-                  </div>
-                  <select
-                    id={`select-${question.id}`}
-                    data-question-id={question.id}
-                    value={currentAnswer}
-                    onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
-                    className="w-full max-w-md px-3 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:border-indigo-600 focus:outline-none transition-colors bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
-                    style={{ fontSize: "inherit" }}
-                  >
-                    <option value="">Select heading...</option>
-                    {dropdownOptions.map((option, optionIdx) => (
-                      <option key={`${question.id}-option-${optionIdx}`} value={option.key}>
-                        {option.key}{option.text && ` - ${option.text}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          );
+  <div
+    key={question.id}
+    className="pb-4 border-b border-slate-100 dark:border-slate-700 last:border-b-0"
+  >
+    <div className="flex items-center gap-3">
+      {/* Number bubble */}
+      <span className="inline-flex items-center justify-center w-6 h-6 bg-indigo-600 dark:bg-indigo-500 text-white text-xs font-bold rounded-full shrink-0">
+        {question.order}
+      </span>
+
+      {/* Row container */}
+      <div className="flex items-center w-full justify-between gap-4">
+        {/* Text */}
+        <div className="flex-1" style={{ fontSize: "inherit" }}>
+          {renderQuestionText(question.question_text || question.stem)}
+        </div>
+
+        {/* Select */}
+        <select
+          id={`select-${question.id}`}
+          data-question-id={question.id}
+          value={currentAnswer}
+          onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
+          className="px-3 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg 
+                     focus:border-indigo-600 focus:outline-none transition-colors
+                     bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium
+                     w-48"
+          style={{ fontSize: "inherit" }}
+        >
+          <option value="">Select heading...</option>
+          {dropdownOptions.map((option, optionIdx) => (
+            <option key={`${question.id}-option-${optionIdx}`} value={option.key}>
+              {option.key}{option.text && ` - ${option.text}`}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  </div>
+);
         })}
       </div>
     </div>
@@ -872,6 +880,7 @@ const renderMatching = (
 /**
  * Render Summary Completion (SUC)
  * Displays summary text with inline blanks
+ * Supports both free-form text input and word_list dropdown modes
  */
 const renderSummaryCompletion = (
   group: TestHead,
@@ -879,8 +888,20 @@ const renderSummaryCompletion = (
   onAnswer?: (questionId: number, answer: string, immediate: boolean) => void,
   onFocus?: (questionId: number) => void
 ): React.ReactNode => {
+  // Word list option interface
+  interface WordOption {
+    key: string;
+    text: string;
+  }
+
   // Get summary data from question_data
-  let summaryData: { title?: string; text?: string; prefix?: string } = {};
+  let summaryData: { 
+    title?: string; 
+    text?: string; 
+    prefix?: string;
+    word_list?: WordOption[];
+  } = {};
+  
   if (group.question_data) {
     try {
       summaryData = typeof group.question_data === 'string'
@@ -891,6 +912,10 @@ const renderSummaryCompletion = (
     }
   }
 
+  // Check if word_list mode is active
+  const hasWordList = summaryData.word_list && summaryData.word_list.length > 0;
+  const wordList = summaryData.word_list || [];
+
   // Create a map of questions by sequential index (0-based)
   const questionMap: Record<number, Question> = {};
   group.questions.forEach((q, index) => {
@@ -899,7 +924,7 @@ const renderSummaryCompletion = (
 
   let blankIndex = 0;
 
-  // Helper function to replace <input> tags
+  // Helper function to replace <input> tags with appropriate input element
   const replaceInputs = (text: string): React.ReactNode[] => {
     const parts = text.split("<input>");
     const elements: React.ReactNode[] = [];
@@ -918,20 +943,44 @@ const renderSummaryCompletion = (
           blankIndex++;
         } else {
           const currentAnswer = userAnswers[question.id] || "";
-          elements.push(
-            <input
-              key={`input-${question.id}`}
-              type="text"
-              id={`q-${question.id}`}
-              data-question-id={question.id}
-              value={currentAnswer}
-              onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
-              onFocus={() => onFocus?.(question.id)}
-              placeholder={question.order.toString()}
-              autoComplete="off"
-              className="inline-block w-32 px-2 border-2 rounded-md border-slate-400 dark:border-slate-500 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-center focus:border-slate-600 dark:focus:border-slate-400 focus:outline-none transition-colors"
-            />
-          );
+          
+          if (hasWordList) {
+            // Dropdown mode for word list
+            elements.push(
+              <select
+                key={`select-${question.id}`}
+                id={`q-${question.id}`}
+                data-question-id={question.id}
+                value={currentAnswer}
+                onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
+                className="inline-block w-16 h-7 px-1 mx-1 text-center border-2 border-slate-400 dark:border-slate-500 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-semibold focus:border-slate-600 dark:focus:border-slate-400 focus:outline-none transition-colors appearance-none cursor-pointer align-baseline"
+                style={{ fontSize: "inherit" }}
+              >
+                <option value="">{question.order}</option>
+                {wordList.map((option) => (
+                  <option key={`${question.id}-opt-${option.key}`} value={option.key}>
+                    {option.key}
+                  </option>
+                ))}
+              </select>
+            );
+          } else {
+            // Text input mode for free-form answers
+            elements.push(
+              <input
+                key={`input-${question.id}`}
+                type="text"
+                id={`q-${question.id}`}
+                data-question-id={question.id}
+                value={currentAnswer}
+                onChange={(e) => onAnswer?.(question.id, e.target.value, false)}
+                onFocus={() => onFocus?.(question.id)}
+                placeholder={question.order.toString()}
+                autoComplete="off"
+                className="inline-block w-32 px-2 border-2 rounded-md border-slate-400 dark:border-slate-500 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-center focus:border-slate-600 dark:focus:border-slate-400 focus:outline-none transition-colors"
+              />
+            );
+          }
           blankIndex++;
         }
       }
@@ -954,31 +1003,55 @@ const renderSummaryCompletion = (
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-      {/* Display image if available */}
-      {group.picture_url && (
-        <div className="mb-6">
-          <img
-            src={group.picture_url}
-            alt="Summary reference"
-            className="w-full max-w-2xl mx-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-md"
-          />
+    <div className="space-y-4">
+      {/* Word List Box - Only shown when word_list exists */}
+      {hasWordList && (
+        <div className="border border-slate-300 dark:border-slate-600 rounded p-4 bg-white dark:bg-slate-800">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {wordList.map((word) => (
+              <div key={word.key} className="flex items-center gap-2 text-slate-700 dark:text-slate-300" style={{ fontSize: "inherit" }}>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{word.key}</span>
+                <span>{word.text}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-      
-      {processedPrefix.length > 0 && (
+
+      {/* Summary Content */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+        {/* Display image if available */}
+        {group.picture_url && (
+          <div className="mb-6">
+            <img
+              src={group.picture_url}
+              alt="Summary reference"
+              className="w-full max-w-2xl mx-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-md"
+            />
+          </div>
+        )}
+
+        {/* Title */}
+        {summaryData.title && (
+          <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-4 text-center border-b border-slate-200 dark:border-slate-700 pb-2" style={{ fontSize: "inherit" }}>
+            {summaryData.title}
+          </h4>
+        )}
+        
+        {processedPrefix.length > 0 && (
+          <div
+            className="text-slate-700 dark:text-slate-300 font-medium mb-3"
+            style={{ fontSize: "inherit" }}
+          >
+            {processedPrefix}
+          </div>
+        )}
         <div
-          className="text-slate-700 dark:text-slate-300 font-medium mb-3"
+          className="text-slate-700 dark:text-slate-300 leading-relaxed"
           style={{ fontSize: "inherit" }}
         >
-          {processedPrefix}
+          {summaryText}
         </div>
-      )}
-      <div
-        className="text-slate-700 dark:text-slate-300 leading-relaxed"
-        style={{ fontSize: "inherit" }}
-      >
-        {summaryText}
       </div>
     </div>
   );

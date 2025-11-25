@@ -416,10 +416,11 @@ class ManagerAPIClient {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
-  async uploadFile<T>(endpoint: string, formData: FormData): Promise<T> {
+  async uploadFile<T>(endpoint: string, formData: FormData, timeout = 1200000): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: formData,
+      timeout: timeout,
     });
   }
 
@@ -803,7 +804,7 @@ class ManagerAPIClient {
     formData.append('pdf_file', file);
     formData.append('content_type', contentType);
     
-    return this.uploadFile('/tests/ai-generate/', formData);
+    return this.uploadFile('/tests/ai-generate/', formData,);
   }
 
   /**
