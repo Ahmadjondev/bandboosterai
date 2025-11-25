@@ -82,6 +82,7 @@ class TeacherExamAdmin(admin.ModelAdmin):
                     "is_public",
                     "access_code",
                     "assigned_students",
+                    "results_visible",
                 )
             },
         ),
