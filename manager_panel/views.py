@@ -14,7 +14,7 @@ def manager_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("login")
-        if request.user.role not in ["MANAGER", "SUPERADMIN"]:
+        if request.user.role not in ["MANAGER"]:
             messages.error(request, "Access denied. Manager privileges required.")
             return redirect("login")
         return view_func(request, *args, **kwargs)

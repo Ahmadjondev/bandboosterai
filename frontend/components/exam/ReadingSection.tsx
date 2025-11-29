@@ -152,15 +152,13 @@ export default function ReadingSection() {
         </div>
 
         {/* Right: Questions */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-gray-900 pb-20">
           <div ref={questionsContainerRef} className="p-6 space-y-8">
             {passage?.test_heads?.map((testHead) => (
               <div
                 key={testHead.id}
                 className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6"
               >
-                
-
                 {/* Questions */}
                 <div className="space-y-6">
                   <QuestionRenderer
@@ -174,7 +172,6 @@ export default function ReadingSection() {
                 </div>
               </div>
             ))}
-          <div className=" p-6"></div>
           </div>
 
           {/* TextHighlighter for questions highlighting */}

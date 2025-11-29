@@ -78,9 +78,10 @@ You are an expert IELTS test content analyzer. Analyze this PDF document and ext
 **IMPORTANT INSTRUCTIONS:**
 1. Identify IELTS Reading passages (typically 1-3 passages)
 2. Extract the complete text of each passage WITH proper formatting
-3. Extract ALL questions associated with each passage
-4. Identify the question type for each question group
-5. Extract answers for all questions (or mark as null if not provided)
+3. For every passage, create a concise, informative title that reflects the passage's main topic or storyline (even if the original PDF omits a title). Use the passage content itself to infer this title so it provides helpful context during review.
+4. Extract ALL questions associated with each passage
+5. Identify the question type for each question group
+6. Extract answers for all questions (or mark as null if not provided)
 
 **IELTS READING QUESTION TYPES:**
 - **MCQ**: Multiple Choice (single answer)
@@ -308,6 +309,14 @@ This is a common IELTS question type: "Complete the summary using the list of wo
 - CORRECT: "The capital is <input>"
 - WRONG: "The capital is <input> (1)" ❌
 
+**⚠️ EXAMPLE QUESTIONS (IMPORTANT):**
+- IELTS materials often include EXAMPLE questions before the actual questions
+- Examples are typically marked with "Example", "e.g.", or "0" as the question number
+- Examples show students how to answer the question type
+- Extract examples when present and include them in the "example" field
+- Example structure: {"question": "Example question text", "answer": "Example answer", "explanation": "Why this is the answer (optional)"}
+- If no example is provided, set "example": null
+
 {
     "success": true,
     "content_type": "reading",
@@ -322,6 +331,11 @@ This is a common IELTS question type: "Complete the summary using the list of wo
                     "title": "Questions 1-3",
                     "question_type": "MI",
                     "description": "Which paragraph contains the following information?",
+                    "example": {
+                        "question": "A reference to the medicinal use of tea",
+                        "answer": "A",
+                        "explanation": "Paragraph A mentions that tea became an integral part of Chinese medicine."
+                    },
                     "question_data": {
                         "options": [
                             {"value": "A", "label": "Paragraph A"},
@@ -804,10 +818,11 @@ You are an expert IELTS test content analyzer. Analyze this PDF document and ext
 
 **IMPORTANT INSTRUCTIONS:**
 1. Identify IELTS Listening parts (Parts 1-4)
-2. Extract the description, context, and scenario for each part
-3. Extract ALL questions associated with each part
-4. Identify the question type for each question group
-5. Extract answers for all questions (or mark as null if not provided)
+2. For every listening part, derive a clear, descriptive title that captures the scenario/speakers based solely on the listening context (do NOT leave titles generic like "Listening Part 1" unless the PDF explicitly names it that way).
+3. Extract the description, context, and scenario for each part
+4. Extract ALL questions associated with each part
+5. Identify the question type for each question group
+6. Extract answers for all questions (or mark as null if not provided)
 
 **IELTS LISTENING QUESTION TYPES (same as Reading):**
 - **MCQ**: Multiple Choice (single answer)
@@ -957,6 +972,14 @@ Use **SC (Sentence Completion)** when:
 - CORRECT: "Street Address: 45 <input> Court"
 - WRONG: "Street Address: 45 <input> (1) Court" ❌
 
+**⚠️ EXAMPLE QUESTIONS (IMPORTANT):**
+- IELTS materials often include EXAMPLE questions before the actual questions
+- Examples are typically marked with "Example", "e.g.", or "0" as the question number
+- Examples show students how to answer the question type
+- Extract examples when present and include them in the "example" field
+- Example structure: {"question": "Example question text", "answer": "Example answer", "explanation": "Why this is the answer (optional)"}
+- If no example is provided, set "example": null
+
 {
     "success": true,
     "content_type": "listening",
@@ -973,9 +996,22 @@ Use **SC (Sentence Completion)** when:
                     "title": "Questions 1-5",
                     "question_type": "FC",
                     "description": "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+                    "example": {
+                        "question": "Type of booking",
+                        "answer": "single room",
+                        "explanation": "The customer says they want to book a single room."
+                    },
                     "question_data": {
                         "title": "Hotel Booking Form",
                         "items": [
+                            {
+                                "title": "Guest Information",
+                                "items": [
+                                    "Name: <input>",
+                                    "Phone: <input>",
+                                    "Check-in date: <input>"
+                                ]
+                            },
                             {
                                 "title": "Guest Information",
                                 "items": [
@@ -1434,6 +1470,1376 @@ Now analyze the provided PDF and extract the speaking topics following the forma
             "success": False,
             "error": f"AI processing error: {str(e)}",
             "content_type": "speaking",
+        }
+
+
+def generate_cambridge_full_test_from_pdf(pdf_bytes, pdf_mime_type="application/pdf"):
+    """
+    Extract a COMPLETE Cambridge IELTS test (or similar full test book) from PDF.
+    This extracts ALL sections: Listening (Parts 1-4), Reading (Passages 1-3),
+    Writing (Tasks 1-2), and Speaking (Parts 1-3) in one go.
+
+    Designed for bulk upload of Cambridge IELTS books or similar test preparation materials.
+
+    Args:
+        pdf_bytes: PDF file content as bytes
+        pdf_mime_type: MIME type of the PDF
+
+    Returns:
+        dict: Complete test data with all sections
+    """
+
+    prompt = """
+You are an expert IELTS test content analyzer specializing in Cambridge IELTS book extraction.
+Analyze this PDF document and extract ALL IELTS test content - this could be a complete Cambridge IELTS book
+or similar test preparation material containing MULTIPLE FULL TESTS.
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 1: CRITICAL JSON FORMATTING RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**MANDATORY JSON RULES - VIOLATING THESE WILL BREAK THE SYSTEM:**
+1. ALL newlines in text content MUST be replaced with \\n (not literal newlines)
+2. ALL double quotes (") within strings must be escaped as \\"
+3. ALL single quotes (') remain as-is (valid in JSON)
+4. ALL backslashes must be escaped: \\\\
+5. NO trailing commas before closing } or ]
+6. All brackets and braces must be properly closed
+7. Text fields must be SINGLE LINE strings with \\n for line breaks
+
+**QUOTE ESCAPING EXAMPLES:**
+- Text: He said "hello" → JSON: He said \\"hello\\"
+- Text: She replied, "I don't know." → JSON: She replied, \\"I don't know.\\"
+
+**DOT-BASED INPUT DETECTION:**
+- PDFs use dotted lines (......) or underscores (______) for blanks
+- Convert to: <input> WITHOUT question numbers in text
+- CORRECT: "Name: <input>"
+- WRONG: "Name: <input> (1)" ❌
+- Question numbers go ONLY in the "order" field of questions array
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 2: IELTS QUESTION TYPES (16 TYPES)
+═══════════════════════════════════════════════════════════════════════════════
+
+**READING & LISTENING QUESTION TYPES:**
+
+1. **MCQ** - Multiple Choice (single answer)
+   - 3-4 options (A, B, C, D), only ONE correct
+   - correct_answer: "A" or "B" or "C" or "D"
+   - Include "choices" array: [{"key": "A", "text": "Option text"}, ...]
+
+2. **MCMA** - Multiple Choice Multiple Answers
+   - 5-7 options, 2-5 correct answers
+   - correct_answer: concatenated letters "ACE" or "BDF" (NO spaces/commas)
+   - Each correct answer counts as 1 question toward total
+   - Students receive partial credit: 2 out of 3 correct = 2 points
+   - Example: "correct_answer": "ABDE" for 4 correct answers
+   - Include "choices" array with all options
+
+3. **SA** - Short Answer
+   - Word limit specified (1-3 words typically)
+   - correct_answer: exact answer text with alternatives separated by |
+
+4. **SC** - Sentence Completion (INDEPENDENT sentences - DIFFERENT topics)
+   ❌ Each sentence about DIFFERENT topics
+   ❌ Sentences are INDEPENDENT facts that don't relate to each other
+   ❌ Can reorder sentences without losing meaning
+   - Example: "The capital is ___." / "The experiment lasted ___." / "Mozart was born in ___."
+   - Topics: geography, science, biography = DIFFERENT = SC ✅
+
+5. **SUC** - Summary Completion (CONNECTED narrative - SAME TOPIC)
+   ⚠️ CRITICAL: Even if PDF says "Complete the sentences", if ALL about SAME TOPIC → SUC!
+   ✅ ALL sentences about THE SAME TOPIC/concept/process
+   ✅ Forms a coherent paragraph that flows together
+   ✅ Removing one sentence would break the coherence
+   ✅ Can be read as ONE cohesive paragraph
+   - Example: "French TGV uses ___. Japanese trains differ because ___. The system provides ___."
+   - Topic: Train technology (ALL SAME) = SUC ✅
+   
+   **SUC with Word List:**
+   - When instructions say "using the list of words, A-G, below"
+   - Include "word_list" in question_data: [{"key": "A", "text": "word1"}, ...]
+   - correct_answer: the LETTER (A, B, C...) not the word
+   
+   **SUC without Word List:**
+   - Instructions say "using words from the passage"
+   - correct_answer: the actual word/phrase from passage
+
+6. **TFNG** - True/False/Not Given (factual texts)
+   - correct_answer: "TRUE" or "FALSE" or "NOT GIVEN" (exact uppercase)
+
+7. **YNNG** - Yes/No/Not Given (opinion texts)
+   - correct_answer: "YES" or "NO" or "NOT GIVEN" (exact uppercase)
+
+8. **MF** - Matching Features
+   - Match statements to names/theories/categories
+   - Options: explicit list from question text
+   - Include "options" in question_data: [{"value": "A", "label": "Name/Theory"}, ...]
+
+9. **MI** - Matching Information (to paragraphs)
+   - Match information to paragraph labels (A, B, C...)
+   - Auto-create options from paragraph labels in passage
+   - Include "options": [{"value": "A", "label": "Paragraph A"}, ...]
+
+10. **MH** - Matching Headings
+    - Match headings to paragraphs/sections
+    - Options: list of headings (i, ii, iii...)
+    - Include "options": [{"value": "i", "label": "Heading text"}, ...]
+
+11. **NC** - Note Completion
+    - Hierarchical structure with title, items, nested sections
+    - Use <input> for blanks
+    - Support 2-3 levels of nesting with "title", "prefix", and "items" arrays
+    - Items can be strings or objects with nested "items"
+
+12. **FC** - Form Completion
+    - Flat or nested form-style structure
+    - Use <input> for blanks
+    - Common in Listening Parts 1-2
+
+13. **TC** - Table Completion
+    - 2D array: first row = headers, subsequent rows = data
+    - Cells can be strings or arrays (multi-line)
+    - Use <input> for blanks
+    - Example: "items": [["Header1", "Header2"], ["Data", "<input>"]]
+
+14. **FCC** - Flow Chart Completion
+    - Sequential process with blanks
+    - Use <input> for blanks
+    - Include step-by-step flow in question_data
+
+15. **DL** - Diagram Labelling
+    - Label parts of a diagram
+    - has_visual: true, visual_description required
+    - Include description of diagram for context
+
+16. **ML** - Map Labelling
+    - Label locations on map/floor plan
+    - question_data: {title, description, labelCount, labels: [{name, correctAnswer}], note}
+    - "name": location name students see (e.g., "Swimming Pool")
+    - "correctAnswer": the letter/word to write (e.g., "G")
+    - Common in Listening Parts 1-2
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 2B: CRITICAL SC vs SUC DISTINCTION
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️ **MOST COMMON MISTAKE**: PDF title "Complete the sentences" does NOT automatically mean SC!
+
+**DECISION RULE**: 
+🔍 Ask: "Are ALL the sentences describing THE SAME thing/topic/concept?"
+- YES → SUC (Summary Completion) ✅
+- NO → SC (Sentence Completion) ✅
+
+**SUC Examples (ALL about SAME topic):**
+
+1. Train technology:
+   "French TGV locomotives pull trains using ___. Japanese ground is unsuitable because ___. The system can act as ___. Electricity is produced by ___."
+   → ALL about train systems = SUC ✅
+
+2. Hotel description:
+   "The hotel has ___ rooms. It offers ___. Guests can enjoy ___. The restaurant serves ___."
+   → ALL about the hotel = SUC ✅
+
+3. Dinosaur museum:
+   "The museum closes at ___. School groups meet in ___. The tour takes ___. Students can have lunch ___."
+   → ALL about the museum = SUC ✅
+
+**SC Examples (DIFFERENT topics):**
+
+1. Random facts:
+   "The capital of France is ___. The experiment lasted ___. Mozart was born in ___."
+   → Different topics (geography, science, biography) = SC ✅
+
+2. Unrelated information:
+   "The meeting is at ___. The book costs ___. The train leaves at ___."
+   → Different facts = SC ✅
+
+**DO NOT be misled by the PDF title!**
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 2C: EXAMPLE QUESTIONS HANDLING
+═══════════════════════════════════════════════════════════════════════════════
+
+- IELTS materials often include EXAMPLE questions before actual questions
+- Examples are marked with "Example", "e.g.", or "0" as question number
+- Extract examples when present and include in "example" field
+- Structure: {"question": "Example text", "answer": "Answer", "explanation": "Optional"}
+- If no example provided, set "example": null
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 2D: MAP LABELLING (ML) STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+**ML question_data structure:**
+{
+  "title": "Brief descriptive title of the map",
+  "description": "Optional context (e.g., 'The map shows the layout of a university campus')",
+  "labelCount": <number of locations to label>,
+  "labels": [
+    {"name": "Location name (what students see)", "correctAnswer": "Correct answer (letter/word)"},
+    ...
+  ],
+  "note": "Image of map needs to be uploaded separately - map should have numbered locations"
+}
+
+**IMPORTANT ML Rules:**
+- Each label has TWO fields:
+  * "name": The location/place name that students see (e.g., "Swimming Pool", "Library")
+  * "correctAnswer": The correct answer students must write (usually a letter like "A", "G")
+- Students see: "11. Swimming Pool _________" and must write the answer (e.g., "G")
+- The "questions" array mirrors the labels: "text" = label name, "correct_answer" = correct letter
+
+**ML Example:**
+{
+  "title": "Questions 11-14",
+  "question_type": "ML",
+  "description": "Label the map below. Write the correct letter, A-H, next to questions 11-14.",
+  "question_data": {
+    "title": "University Campus Map",
+    "description": "The map shows the main buildings on campus",
+    "labelCount": 4,
+    "labels": [
+      {"name": "Library", "correctAnswer": "C"},
+      {"name": "Sports Center", "correctAnswer": "F"},
+      {"name": "Cafeteria", "correctAnswer": "A"},
+      {"name": "Parking Lot", "correctAnswer": "E"}
+    ],
+    "note": "Image of map needs to be uploaded separately"
+  },
+  "questions": [
+    {"order": 11, "text": "Library", "correct_answer": "C"},
+    {"order": 12, "text": "Sports Center", "correct_answer": "F"},
+    {"order": 13, "text": "Cafeteria", "correct_answer": "A"},
+    {"order": 14, "text": "Parking Lot", "correct_answer": "E"}
+  ]
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 2E: SUMMARY COMPLETION WITH WORD LIST (SUC)
+═══════════════════════════════════════════════════════════════════════════════
+
+**How to detect SUC with Word List:**
+- Look for instructions like:
+  * "Complete the summary using the list of words, A-G, below"
+  * "Choose your answers from the box below"
+  * "Select from the following options"
+- There will be a summary paragraph with blanks (numbered gaps)
+- A separate box/list showing word options with letters (A, B, C, D, E, F, G...)
+
+**Structure for SUC with Word List:**
+- question_type: "SUC"
+- question_data MUST include "word_list" array when a word bank is present
+- Each word in word_list has "key" (letter) and "text" (the word/phrase)
+- The "text" field contains the summary with <input> tags for blanks
+- correct_answer for each question should be the LETTER (A, B, C, etc.)
+
+**SUC with Word List Example:**
+{
+  "title": "Questions 27-32",
+  "question_type": "SUC",
+  "description": "Complete the summary using the list of words, A-G, below.",
+  "question_data": {
+    "title": "The Development of Agriculture",
+    "text": "Early humans began farming around <input> years ago. They first cultivated <input> crops in the Fertile Crescent. The invention of the <input> revolutionized farming practices.",
+    "blankCount": 3,
+    "word_list": [
+      {"key": "A", "text": "10,000"},
+      {"key": "B", "text": "cereal"},
+      {"key": "C", "text": "plough"},
+      {"key": "D", "text": "surplus food"},
+      {"key": "E", "text": "irrigation"}
+    ]
+  },
+  "questions": [
+    {"order": 27, "question_text": "Early humans began farming around <input> years ago.", "correct_answer": "A"},
+    {"order": 28, "question_text": "They first cultivated <input> crops", "correct_answer": "B"},
+    {"order": 29, "question_text": "The invention of the <input> revolutionized", "correct_answer": "C"}
+  ]
+}
+
+**CRITICAL SUC with Word List Rules:**
+1. ALWAYS include "word_list" in question_data when word options are provided
+2. Extract ALL words from the word bank exactly as written
+3. correct_answer must be the LETTER (A, B, C...) not the word itself
+4. Some words in the word_list may NOT be used (there are often extra options)
+5. Preserve the exact spelling and case of words from the PDF
+6. word_list letters are typically consecutive (A-G, A-H, etc.)
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 2F: INPUT FIELD RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**⚠️ CRITICAL RULE FOR INPUT FIELDS:**
+- In the "items" array or similar structures, use ONLY <input> tags WITHOUT question numbers
+- DO NOT add question numbers like (1), (2), (3) after <input> tags in text/items
+- Question numbers belong ONLY in the "questions" array's "order" field
+
+**CORRECT Examples:**
+- "Name: <input>" ✅
+- "The capital is <input>" ✅
+- "He was born in <input>" ✅
+
+**WRONG Examples:**
+- "Name: <input> (1)" ❌
+- "The capital is <input> (1)" ❌
+- "He was born in 1. ____________" ❌
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 3: LISTENING SECTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**LISTENING PARTS (1-4):**
+- Part 1: Conversation in everyday context (2 speakers) - Questions 1-10
+- Part 2: Monologue in everyday context - Questions 11-20
+- Part 3: Conversation in educational/training context (2-4 speakers) - Questions 21-30
+- Part 4: Monologue on academic subject - Questions 31-40
+
+**TITLE REQUIREMENT:** For EVERY listening part, infer a clear, descriptive title from the scenario/speakers/context (e.g., "Booking a City Tour", "Lecture on Coral Reefs"). Do NOT leave titles generic like "Listening Part 1" unless the PDF explicitly names it that way.
+
+**LISTENING STRUCTURE:**
+{
+    "parts": [
+        {
+            "part_number": 1,
+            "title": "Section 1",
+            "description": "A conversation between...",
+            "scenario": "Phone booking / Hotel reservation / etc.",
+            "speaker_count": 2,
+            "question_groups": [
+                {
+                    "title": "Questions 1-3",
+                    "question_type": "MI",
+                    "description": "Which paragraph contains the following information?",
+                    "question_data": {
+                        "options": [
+                            {"value": "A", "label": "Paragraph A"},
+                            {"value": "B", "label": "Paragraph B"},
+                            {"value": "C", "label": "Paragraph C"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "The introduction of tea to Western countries",
+                            "correct_answer": "B"
+                        },
+                        {
+                            "order": 2,
+                            "text": "The historical origins of tea consumption",
+                            "correct_answer": "A"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Contemporary trends in tea production",
+                            "correct_answer": "C"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 4-8",
+                    "question_type": "MCQ",
+                    "description": "Choose the correct letter, A, B, C or D.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 4,
+                            "text": "What is the main topic of the passage?",
+                            "correct_answer": "A",
+                            "choices": [
+                                {"key": "A", "text": "The history of tea"},
+                                {"key": "B", "text": "Modern tea production"},
+                                {"key": "C", "text": "Health benefits of tea"},
+                                {"key": "D", "text": "Tea recipes"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 5-7",
+                    "question_type": "MCMA",
+                    "description": "Choose ALL the correct answers, A, B, C, D or E. (Multiple answers possible)",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 5,
+                            "text": "Which of the following are mentioned as benefits of tea drinking?",
+                            "correct_answer": "ACE",
+                            "choices": [
+                                {"key": "A", "text": "Health benefits"},
+                                {"key": "B", "text": "Weight loss guarantees"},
+                                {"key": "C", "text": "Cultural significance"},
+                                {"key": "D", "text": "Cures all diseases"},
+                                {"key": "E", "text": "Social importance"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 9-13",
+                    "question_type": "TFNG",
+                    "description": "Do the following statements agree with the information in the passage?",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 9,
+                            "text": "Tea was first discovered in South America.",
+                            "correct_answer": "FALSE"
+                        },
+                        {
+                            "order": 10,
+                            "text": "What are the main tea-producing countries?",
+                            "correct_answer": "China|India|Sri Lanka"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 11-15",
+                    "question_type": "MF",
+                    "description": "Match each statement with the correct person.",
+                    "question_data": {
+                        "options": [
+                            {"value": "A", "label": "John Smith"},
+                            {"value": "B", "label": "Mary Johnson"},
+                            {"value": "C", "label": "Robert Brown"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 11,
+                            "text": "Discovered the health benefits of chocolate",
+                            "correct_answer": "A"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 16-20",
+                    "question_type": "SUC",
+                    "description": "Complete the summary below using words from the passage. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "The Production of Chocolate",
+                        "text": "Chocolate is made from cacao beans which are <input> and then <input>. The process involves several steps including <input> and <input>. Finally, the chocolate is <input> and packaged.",
+                        "blankCount": 5
+                    },
+                    "questions": [
+                        {
+                            "order": 16,
+                            "question_text": "Chocolate is made from cacao beans which are <input> and then",
+                            "correct_answer": "harvested"
+                        },
+                        {
+                            "order": 17,
+                            "question_text": "which are harvested and then <input>. The process involves several steps",
+                            "correct_answer": "roasted"
+                        },
+                        {
+                            "order": 18,
+                            "question_text": "The process involves several steps including <input> and grinding",
+                            "correct_answer": "fermentation"
+                        },
+                        {
+                            "order": 19,
+                            "question_text": "several steps including fermentation and <input>. Finally, the chocolate",
+                            "correct_answer": "grinding"
+                        },
+                        {
+                            "order": 20,
+                            "question_text": "and grinding. Finally, the chocolate is <input> and packaged.",
+                            "correct_answer": "tempered"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 36-40",
+                    "question_type": "SUC",
+                    "description": "Complete the summary using the list of words, A-I, below.",
+                    "question_data": {
+                        "title": "High-Speed Rail Technology",
+                        "text": "The French TGV system uses <input> to pull trains from both ends. In Japan, the ground is unsuitable for this approach because it contains too much <input>. The Japanese system can also act as a <input> during emergencies. Modern improvements have been made possible by advances in <input> technology. The electricity needed is primarily generated by <input>.",
+                        "blankCount": 5,
+                        "word_list": [
+                            {"key": "A", "text": "electricity"},
+                            {"key": "B", "text": "locomotives"},
+                            {"key": "C", "text": "clay"},
+                            {"key": "D", "text": "brake"},
+                            {"key": "E", "text": "computer"},
+                            {"key": "F", "text": "nuclear power"},
+                            {"key": "G", "text": "suspension"},
+                            {"key": "H", "text": "wheels"},
+                            {"key": "I", "text": "magnetism"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 36,
+                            "question_text": "The French TGV system uses <input> to pull trains",
+                            "correct_answer": "B"
+                        },
+                        {
+                            "order": 37,
+                            "question_text": "the ground is unsuitable because it contains too much <input>",
+                            "correct_answer": "C"
+                        },
+                        {
+                            "order": 38,
+                            "question_text": "The Japanese system can also act as a <input> during emergencies",
+                            "correct_answer": "D"
+                        },
+                        {
+                            "order": 39,
+                            "question_text": "improvements have been made possible by advances in <input> technology",
+                            "correct_answer": "E"
+                        },
+                        {
+                            "order": 40,
+                            "question_text": "The electricity needed is primarily generated by <input>",
+                            "correct_answer": "F"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 21-25",
+                    "question_type": "SC",
+                    "description": "Complete the sentences below using NO MORE THAN THREE WORDS from the passage.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 21,
+                            "text": "The capital of France is <input>.",
+                            "correct_answer": "Paris"
+                        },
+                        {
+                            "order": 22,
+                            "text": "The author was born in <input>.",
+                            "correct_answer": "London"
+                        },
+                        {
+                            "order": 23,
+                            "text": "The experiment lasted for <input>.",
+                            "correct_answer": "three weeks"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 21-25",
+                    "question_type": "SA",
+                    "description": "Answer the questions below using NO MORE THAN THREE WORDS.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 21,
+                            "text": "Where did chocolate originate?",
+                            "correct_answer": "Central America"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 26-29",
+                    "question_type": "TC",
+                    "description": "Complete the table below. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "items": [
+                            ["Name of restaurant", "Location", "Reason for recommendation", "Other comments"],
+                            ["The Junction", "Greyson Street, near the station", "Good for people who are especially keen on <input>", ["Quite expensive", "The <input> is a good place for a drink"]],
+                            ["Paloma", "In Bow Street next to the cinema", "<input> food, good for sharing", ["Staff are very friendly", "Need to pay £50 deposit", "A limited selection of <input> food on the menu"]],
+                            ["The <input>", "At the top of a <input>", ["A famous chef", "All the <input> are very good", "Only uses <input> ingredients"], ["Set lunch costs £<input> per person", "Portions probably of <input> size"]]
+                        ]
+                    },
+                    "questions": [
+                        {"order": 26, "text": "The Junction - Reason for recommendation (food type)", "correct_answer": "seafood"},
+                        {"order": 27, "text": "The Junction - Other comments (location for drinks)", "correct_answer": "garden"},
+                        {"order": 28, "text": "Paloma - Reason for recommendation (type of cuisine)", "correct_answer": "Spanish"},
+                        {"order": 29, "text": "Paloma - Other comments (type of food selection)", "correct_answer": "vegetarian"}
+                    ]
+                },
+                {
+                    "title": "Questions 30-35",
+                    "question_type": "NC",
+                    "description": "Complete the notes below. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "Urban River Development",
+                        "items": [
+                            {
+                                "title": "Historical Background",
+                                "items": [
+                                    "Cities built on rivers for transport and trade",
+                                    {
+                                        "prefix": "Industrial era problems:",
+                                        "items": [
+                                            "increased sewage discharge",
+                                            "pollution from <input>  on riverbanks"
+                                        ]
+                                    },
+                                    "Thames declared biologically <input> in 1957"
+                                ]
+                            },
+                            {
+                                "title": "Modern Improvements",
+                                "items": [
+                                    "Wildlife returned including <input> species",
+                                    "Old warehouses converted to <input>",
+                                    "Cities create riverside <input> for recreation"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {"order": 30, "text": "factories", "correct_answer": "factories"},
+                        {"order": 31, "text": "dead", "correct_answer": "dead"},
+                        {"order": 32, "text": "rare", "correct_answer": "rare"},
+                        {"order": 33, "text": "apartments", "correct_answer": "apartments"},
+                        {"order": 34, "text": "parks", "correct_answer": "parks"}
+                    ]
+                },
+                {
+                    "title": "Questions 1-5",
+                    "question_type": "FC",
+                    "description": "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+                    "example": {
+                        "question": "Type of booking",
+                        "answer": "single room",
+                        "explanation": "The customer says they want to book a single room."
+                    },
+                    "question_data": {
+                        "title": "Hotel Booking Form",
+                        "items": [
+                            {
+                                "title": "Guest Information",
+                                "items": [
+                                    "Name: <input>",
+                                    "Phone: <input>",
+                                    "Check-in date: <input>"
+                                ]
+                            },
+                            {
+                                "title": "Payment Information",
+                                "items": [
+                                    "Card number: <input>",
+                                    "Expiry date: <input>",
+                                    "CVV: <input>"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "Name",
+                            "correct_answer": "Sarah Johnson"
+                        },
+                        {
+                            "order": 2,
+                            "text": "Phone",
+                            "correct_answer": "555-1234"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Preferred amenities",
+                            "correct_answer": "wifi|parking|breakfast"
+                        },
+                        {
+                            "order": 1,
+                            "text": "Card number: <input>",
+                            "correct_answer": "4111111111111111"
+                        },
+                        {
+                            "order": 2,
+                            "text": "Expiry date: <input>",
+                            "correct_answer": "12/25|1225"
+                        },
+                        {
+                            "order": 3,
+                            "text": "CVV: <input>",
+                            "correct_answer": "123"
+                        },
+                    ]
+                }
+            ]
+        }
+    ]
+}
+
+**NOTE:** Audio files are uploaded separately. Extract metadata, descriptions, and questions only.
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 4: READING SECTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**READING PASSAGES (1-3):**
+- Passage 1: Questions 1-13 (easier, factual)
+- Passage 2: Questions 14-26 (medium difficulty)
+- Passage 3: Questions 27-40 (harder, academic)
+
+**TITLE REQUIREMENT:** For EVERY reading passage, derive a concise, informative title directly from the passage content, even if the PDF omits one. The title should capture the main topic/storyline to help reviewers understand the passage at a glance.
+
+**CRITICAL: PARAGRAPH LABELS**
+- IELTS passages have paragraphs labeled A, B, C, D, E, F, G, H...
+- PRESERVE these labels - they're needed for MI/MH questions!
+- Format: "<strong>A</strong>\\nFirst paragraph text here...\\n\\n<strong>B</strong>\\nSecond paragraph..."
+
+**READING STRUCTURE:**
+{
+    "passages": [
+        {
+            "passage_number": 1,
+            "title": "A Chronicle of Timekeeping",
+            "summary": "This passage explores the history of measuring time...",
+            "content": "<strong>A</strong>\\nAccording to archaeological evidence...\\n\\n<strong>B</strong>\\nBefore the invention of artificial light...",
+            "question_groups": [
+                {
+                    "title": "Questions 1-3",
+                    "question_type": "MI",
+                    "description": "Which paragraph contains the following information?",
+                    "question_data": {
+                        "options": [
+                            {"value": "A", "label": "Paragraph A"},
+                            {"value": "B", "label": "Paragraph B"},
+                            {"value": "C", "label": "Paragraph C"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "The introduction of tea to Western countries",
+                            "correct_answer": "B"
+                        },
+                        {
+                            "order": 2,
+                            "text": "The historical origins of tea consumption",
+                            "correct_answer": "A"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Contemporary trends in tea production",
+                            "correct_answer": "C"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 4-8",
+                    "question_type": "MCQ",
+                    "description": "Choose the correct letter, A, B, C or D.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 4,
+                            "text": "What is the main topic of the passage?",
+                            "correct_answer": "A",
+                            "choices": [
+                                {"key": "A", "text": "The history of tea"},
+                                {"key": "B", "text": "Modern tea production"},
+                                {"key": "C", "text": "Health benefits of tea"},
+                                {"key": "D", "text": "Tea recipes"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 5-7",
+                    "question_type": "MCMA",
+                    "description": "Choose ALL the correct answers, A, B, C, D or E. (Multiple answers possible)",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 5,
+                            "text": "Which of the following are mentioned as benefits of tea drinking?",
+                            "correct_answer": "ACE",
+                            "choices": [
+                                {"key": "A", "text": "Health benefits"},
+                                {"key": "B", "text": "Weight loss guarantees"},
+                                {"key": "C", "text": "Cultural significance"},
+                                {"key": "D", "text": "Cures all diseases"},
+                                {"key": "E", "text": "Social importance"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 9-13",
+                    "question_type": "TFNG",
+                    "description": "Do the following statements agree with the information in the passage?",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 9,
+                            "text": "Tea was first discovered in South America.",
+                            "correct_answer": "FALSE"
+                        },
+                        {
+                            "order": 10,
+                            "text": "What are the main tea-producing countries?",
+                            "correct_answer": "China|India|Sri Lanka"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 11-15",
+                    "question_type": "MF",
+                    "description": "Match each statement with the correct person.",
+                    "question_data": {
+                        "options": [
+                            {"value": "A", "label": "John Smith"},
+                            {"value": "B", "label": "Mary Johnson"},
+                            {"value": "C", "label": "Robert Brown"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 11,
+                            "text": "Discovered the health benefits of chocolate",
+                            "correct_answer": "A"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 16-20",
+                    "question_type": "SUC",
+                    "description": "Complete the summary below using words from the passage. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "The Production of Chocolate",
+                        "text": "Chocolate is made from cacao beans which are <input> and then <input>. The process involves several steps including <input> and <input>. Finally, the chocolate is <input> and packaged.",
+                        "blankCount": 5
+                    },
+                    "questions": [
+                        {
+                            "order": 16,
+                            "question_text": "Chocolate is made from cacao beans which are <input> and then",
+                            "correct_answer": "harvested"
+                        },
+                        {
+                            "order": 17,
+                            "question_text": "which are harvested and then <input>. The process involves several steps",
+                            "correct_answer": "roasted"
+                        },
+                        {
+                            "order": 18,
+                            "question_text": "The process involves several steps including <input> and grinding",
+                            "correct_answer": "fermentation"
+                        },
+                        {
+                            "order": 19,
+                            "question_text": "several steps including fermentation and <input>. Finally, the chocolate",
+                            "correct_answer": "grinding"
+                        },
+                        {
+                            "order": 20,
+                            "question_text": "and grinding. Finally, the chocolate is <input> and packaged.",
+                            "correct_answer": "tempered"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 36-40",
+                    "question_type": "SUC",
+                    "description": "Complete the summary using the list of words, A-I, below.",
+                    "question_data": {
+                        "title": "High-Speed Rail Technology",
+                        "text": "The French TGV system uses <input> to pull trains from both ends. In Japan, the ground is unsuitable for this approach because it contains too much <input>. The Japanese system can also act as a <input> during emergencies. Modern improvements have been made possible by advances in <input> technology. The electricity needed is primarily generated by <input>.",
+                        "blankCount": 5,
+                        "word_list": [
+                            {"key": "A", "text": "electricity"},
+                            {"key": "B", "text": "locomotives"},
+                            {"key": "C", "text": "clay"},
+                            {"key": "D", "text": "brake"},
+                            {"key": "E", "text": "computer"},
+                            {"key": "F", "text": "nuclear power"},
+                            {"key": "G", "text": "suspension"},
+                            {"key": "H", "text": "wheels"},
+                            {"key": "I", "text": "magnetism"}
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 36,
+                            "question_text": "The French TGV system uses <input> to pull trains",
+                            "correct_answer": "B"
+                        },
+                        {
+                            "order": 37,
+                            "question_text": "the ground is unsuitable because it contains too much <input>",
+                            "correct_answer": "C"
+                        },
+                        {
+                            "order": 38,
+                            "question_text": "The Japanese system can also act as a <input> during emergencies",
+                            "correct_answer": "D"
+                        },
+                        {
+                            "order": 39,
+                            "question_text": "improvements have been made possible by advances in <input> technology",
+                            "correct_answer": "E"
+                        },
+                        {
+                            "order": 40,
+                            "question_text": "The electricity needed is primarily generated by <input>",
+                            "correct_answer": "F"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 21-25",
+                    "question_type": "SC",
+                    "description": "Complete the sentences below using NO MORE THAN THREE WORDS from the passage.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 21,
+                            "text": "The capital of France is <input>.",
+                            "correct_answer": "Paris"
+                        },
+                        {
+                            "order": 22,
+                            "text": "The author was born in <input>.",
+                            "correct_answer": "London"
+                        },
+                        {
+                            "order": 23,
+                            "text": "The experiment lasted for <input>.",
+                            "correct_answer": "three weeks"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 21-25",
+                    "question_type": "SA",
+                    "description": "Answer the questions below using NO MORE THAN THREE WORDS.",
+                    "question_data": {},
+                    "questions": [
+                        {
+                            "order": 21,
+                            "text": "Where did chocolate originate?",
+                            "correct_answer": "Central America"
+                        }
+                    ]
+                },
+                {
+                    "title": "Questions 26-29",
+                    "question_type": "TC",
+                    "description": "Complete the table below. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "items": [
+                            ["Name of restaurant", "Location", "Reason for recommendation", "Other comments"],
+                            ["The Junction", "Greyson Street, near the station", "Good for people who are especially keen on <input>", ["Quite expensive", "The <input> is a good place for a drink"]],
+                            ["Paloma", "In Bow Street next to the cinema", "<input> food, good for sharing", ["Staff are very friendly", "Need to pay £50 deposit", "A limited selection of <input> food on the menu"]],
+                            ["The <input>", "At the top of a <input>", ["A famous chef", "All the <input> are very good", "Only uses <input> ingredients"], ["Set lunch costs £<input> per person", "Portions probably of <input> size"]]
+                        ]
+                    },
+                    "questions": [
+                        {"order": 26, "text": "The Junction - Reason for recommendation (food type)", "correct_answer": "seafood"},
+                        {"order": 27, "text": "The Junction - Other comments (location for drinks)", "correct_answer": "garden"},
+                        {"order": 28, "text": "Paloma - Reason for recommendation (type of cuisine)", "correct_answer": "Spanish"},
+                        {"order": 29, "text": "Paloma - Other comments (type of food selection)", "correct_answer": "vegetarian"}
+                    ]
+                },
+                {
+                    "title": "Questions 30-35",
+                    "question_type": "NC",
+                    "description": "Complete the notes below. Write NO MORE THAN TWO WORDS for each answer.",
+                    "question_data": {
+                        "title": "Urban River Development",
+                        "items": [
+                            {
+                                "title": "Historical Background",
+                                "items": [
+                                    "Cities built on rivers for transport and trade",
+                                    {
+                                        "prefix": "Industrial era problems:",
+                                        "items": [
+                                            "increased sewage discharge",
+                                            "pollution from <input>  on riverbanks"
+                                        ]
+                                    },
+                                    "Thames declared biologically <input> in 1957"
+                                ]
+                            },
+                            {
+                                "title": "Modern Improvements",
+                                "items": [
+                                    "Wildlife returned including <input> species",
+                                    "Old warehouses converted to <input>",
+                                    "Cities create riverside <input> for recreation"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {"order": 30, "text": "factories", "correct_answer": "factories"},
+                        {"order": 31, "text": "dead", "correct_answer": "dead"},
+                        {"order": 32, "text": "rare", "correct_answer": "rare"},
+                        {"order": 33, "text": "apartments", "correct_answer": "apartments"},
+                        {"order": 34, "text": "parks", "correct_answer": "parks"}
+                    ]
+                },
+                {
+                    "title": "Questions 1-5",
+                    "question_type": "FC",
+                    "description": "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
+                    "example": {
+                        "question": "Type of booking",
+                        "answer": "single room",
+                        "explanation": "The customer says they want to book a single room."
+                    },
+                    "question_data": {
+                        "title": "Hotel Booking Form",
+                        "items": [
+                            {
+                                "title": "Guest Information",
+                                "items": [
+                                    "Name: <input>",
+                                    "Phone: <input>",
+                                    "Check-in date: <input>"
+                                ]
+                            },
+                            {
+                                "title": "Payment Information",
+                                "items": [
+                                    "Card number: <input>",
+                                    "Expiry date: <input>",
+                                    "CVV: <input>"
+                                ]
+                            }
+                        ]
+                    },
+                    "questions": [
+                        {
+                            "order": 1,
+                            "text": "Name",
+                            "correct_answer": "Sarah Johnson"
+                        },
+                        {
+                            "order": 2,
+                            "text": "Phone",
+                            "correct_answer": "555-1234"
+                        },
+                        {
+                            "order": 3,
+                            "text": "Preferred amenities",
+                            "correct_answer": "wifi|parking|breakfast"
+                        },
+                        {
+                            "order": 1,
+                            "text": "Card number: <input>",
+                            "correct_answer": "4111111111111111"
+                        },
+                        {
+                            "order": 2,
+                            "text": "Expiry date: <input>",
+                            "correct_answer": "12/25|1225"
+                        },
+                        {
+                            "order": 3,
+                            "text": "CVV: <input>",
+                            "correct_answer": "123"
+                        },
+                    ]
+                },
+            ]
+        }
+    ]
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 5: WRITING SECTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**WRITING TASKS:**
+- Task 1: Describe visual information (150+ words)
+  - Academic: graph, chart, diagram, process, map, table
+  - General Training: letter writing
+- Task 2: Essay on a topic (250+ words)
+  - Opinion, discussion, problem-solution, advantages-disadvantages
+
+**WRITING STRUCTURE:**
+{
+    "tasks": [
+        {
+            "task_type": "TASK_1",
+            "prompt": "The graph below shows the consumption of three different types of fast food...",
+            "min_words": 150,
+            "has_visual": true,
+            "visual_description": "A line graph showing consumption trends of hamburgers, fish and chips, and pizza from 1970-1990",
+            "data": {
+                "chart_type": "line graph",
+                "time_period": "1970-1990",
+                "categories": ["hamburgers", "fish and chips", "pizza"]
+            }
+        },
+        {
+            "task_type": "TASK_2",
+            "prompt": "Some people believe that unpaid community service should be a compulsory part of high school programs. To what extent do you agree or disagree?",
+            "min_words": 250,
+            "has_visual": false,
+            "data": {
+                "question_type": "opinion",
+                "topic": "education and community service"
+            }
+        }
+    ]
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 6: SPEAKING SECTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**SPEAKING PARTS:**
+- Part 1: Introduction & Interview (4-5 min) - familiar topics, 4-5 questions
+- Part 2: Individual Long Turn (3-4 min) - cue card with bullet points
+- Part 3: Two-way Discussion (4-5 min) - abstract/analytical questions
+
+**SPEAKING STRUCTURE:**
+{
+    "topics": [
+        {
+            "part_number": 1,
+            "topic": "Work and Studies",
+            "questions": [
+                "Do you work or are you a student?",
+                "What do you like most about your job/studies?",
+                "What would you like to change about it?",
+                "What are your future plans?"
+            ]
+        },
+        {
+            "part_number": 2,
+            "topic": "Describe a meeting you remember going to",
+            "cue_card": {
+                "main_prompt": "Describe a meeting you remember going to at work, college or school.",
+                "bullet_points": [
+                    "when and where the meeting was held",
+                    "who was at the meeting",
+                    "what the people at the meeting talked about",
+                    "and explain why you remember going to this meeting"
+                ],
+                "preparation_time": "1 minute",
+                "speaking_time": "2 minutes"
+            }
+        },
+        {
+            "part_number": 3,
+            "topic": "Going to meetings",
+            "questions": [
+                "What are the different types of meetings that people often go to?",
+                "Some people say that no-one likes to go to meetings - what do you think?",
+                "Why can it sometimes be important to go to meetings?"
+            ]
+        }
+    ]
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 7: COMPLETE OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════════════════════
+
+{
+    "success": true,
+    "content_type": "full_test",
+    "book_info": {
+        "title": "Cambridge IELTS 10",
+        "total_tests": 4,
+        "extracted_tests": 4
+    },
+    "tests": [
+        {
+            "test_number": 1,
+            "test_name": "Test 1",
+            "listening": { ... },
+            "reading": { ... },
+            "writing": { ... },
+            "speaking": { ... }
+        }
+    ],
+    "metadata": {
+        "total_listening_parts": 16,
+        "total_reading_passages": 12,
+        "total_writing_tasks": 8,
+        "total_speaking_parts": 12,
+        "has_answer_key": true,
+        "extraction_quality": "high"
+    }
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 8: CORRECT ANSWER EXPANSION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**CRITICAL: Cambridge answer keys use shorthand notation. You MUST expand these into ALL valid variations!**
+
+**PATTERN 1: Parentheses = Optional words**
+- `(free) drink` means: "free drink" OR "drink"
+- `(the) pianist` means: "the pianist" OR "pianist"
+- `(some) tables` means: "some tables" OR "tables"
+
+**PATTERN 2: Parentheses with (s) = Singular/Plural**
+- `drink(s)` means: "drink" OR "drinks"
+- `refreshment(s)` means: "refreshment" OR "refreshments"
+- `impact(s)` means: "impact" OR "impacts"
+
+**PATTERN 3: Pipe | = Alternative answers**
+- `car-park|parking lot` means: "car-park" OR "parking lot"
+- `25 December|Christmas Day` means: "25 December" OR "Christmas Day"
+
+**PATTERN 4: Combined patterns - EXPAND ALL COMBINATIONS!**
+When you see: `(free) drink(s)|(free) refreshment(s)`
+You MUST expand to ALL valid combinations:
+- "free drink|free drinks|drink|drinks|free refreshment|free refreshments|refreshment|refreshments"
+
+**EXPANSION EXAMPLES:**
+
+1. PDF shows: `(free) drink(s)|(free) refreshment(s)`
+   correct_answer: "free drink|free drinks|drink|drinks|free refreshment|free refreshments|refreshment|refreshments"
+
+2. PDF shows: `(the/a) pianist|piano player`
+   correct_answer: "the pianist|a pianist|pianist|piano player"
+
+3. PDF shows: `impact(s)|effect(s)`
+   correct_answer: "impact|impacts|effect|effects"
+
+4. PDF shows: `(some) tables`
+   correct_answer: "some tables|tables"
+
+5. PDF shows: `distortion(s)`
+   correct_answer: "distortion|distortions"
+
+6. PDF shows: `car-park|parking lot`
+   correct_answer: "car-park|parking lot"
+
+7. PDF shows: `12,000|12000`
+   correct_answer: "12,000|12000"
+
+8. PDF shows: `50%`
+   correct_answer: "50%|50"
+
+**ALGORITHM FOR EXPANSION:**
+1. Split by `|` to get alternatives
+2. For each alternative:
+   a. Find all `(optional)` patterns - generate with and without
+   b. Find all `word(s)` patterns - generate singular and plural
+   c. Find all `(a/the)` patterns - generate all article variations plus no article
+3. Combine all variations with `|` separator
+4. Remove duplicates
+
+**NEVER output raw Cambridge notation like `(free) drink(s)` - ALWAYS expand!**
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 9: CRITICAL EXTRACTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+**EXTRACTION FUNDAMENTALS:**
+1. **Extract ALL tests** - Cambridge books typically have 4 complete tests
+2. **Each test has 4 sections** - Listening, Reading, Writing, Speaking
+3. **40 questions per section** - Listening (40), Reading (40), total 80 per test
+4. **Preserve paragraph labels** - Use <strong>A</strong>, <strong>B</strong>... for reading passages
+5. **Use <input> for blanks** - WITHOUT question numbers in text
+6. **Include answers from answer key** - Set correct_answer for each question
+7. **EXPAND ALL ANSWER PATTERNS** - See Section 8 for mandatory expansion rules
+
+**QUESTION TYPE RULES:**
+8. **SC vs SUC distinction** - Same topic = SUC, Different topics = SC
+   - PDF title "Complete the sentences" does NOT mean SC automatically!
+   - Always check: Are all sentences about THE SAME thing? → SUC
+9. **MCMA format** - Concatenate letters: "ACE" not "A, C, E"
+   - Each letter = 1 point (partial credit)
+10. **Multiple correct answers** - Use pipe separator: "answer1|answer2"
+11. **TFNG/YNNG uppercase** - Always use "TRUE", "FALSE", "NOT GIVEN" or "YES", "NO", "NOT GIVEN"
+
+**QUESTION GROUP REQUIREMENTS:**
+- **MCQ/MCMA**: Include "choices" array with all options
+- **MF/MI/MH**: Include "options" array in question_data
+- **SUC with word bank**: Include "word_list" array, correct_answer is LETTER
+- **SUC without word bank**: correct_answer is the actual word/phrase
+- **ML**: Include "labels" array with {name, correctAnswer}
+- **NC/FC**: Include hierarchical "items" structure
+- **TC**: Include 2D "items" array (first row = headers)
+
+**QUESTION TEXT EXTRACTION:**
+- For SUC: Use "question_text" with ~50-80 chars of surrounding context
+- For SC: Use "text" with the complete sentence including <input>
+- For MCQ: Use "text" for the question, "choices" for options
+- For TFNG/YNNG: Use "text" for the statement to evaluate
+
+**READING PASSAGE CONTENT:**
+- Preserve paragraph structure with <strong>A</strong>, <strong>B</strong>... labels
+- Keep \\n\\n between paragraphs
+- Escape all internal quotes as \\"
+- Include full passage text in "content" field
+
+**PARTIAL EXTRACTION (if some sections unavailable):**
+{
+    "success": true,
+    "content_type": "full_test",
+    "partial": true,
+    "extracted_sections": ["reading", "writing"],
+    "missing_sections": ["listening", "speaking"],
+    "tests": [...]
+}
+
+**ERROR HANDLING:**
+{
+    "success": false,
+    "error": "No valid IELTS test content found in the document",
+    "content_type": "unknown"
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+                    SECTION 10: FINAL VALIDATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+Before returning JSON, verify:
+
+**JSON FORMATTING:**
+☐ All double quotes in text escaped as \\"
+☐ All newlines in text escaped as \\n
+☐ No trailing commas before } or ]
+☐ All brackets/braces properly closed
+
+**STRUCTURE INTEGRITY:**
+☐ Paragraph labels preserved in reading content (<strong>A</strong>, <strong>B</strong>...)
+☐ Question numbers only in "order" field, not embedded in text
+☐ All question types from the 16 valid types (MCQ, MCMA, SA, SC, SUC, TFNG, YNNG, MF, MI, MH, NC, FC, TC, FCC, DL, ML)
+☐ <input> tags used WITHOUT question numbers (correct: <input>, wrong: <input> (1))
+
+**QUESTION TYPE ACCURACY:**
+☐ SC/SUC correctly distinguished:
+   - Same topic throughout = SUC
+   - Different topics = SC
+   - Ignore PDF title "Complete the sentences" - check content!
+☐ SUC with word_list: correct_answer is LETTER (A, B, C), not the word
+☐ SUC without word_list: correct_answer is the actual word/phrase
+☐ MCMA: correct_answer is concatenated letters "ACE" (no spaces/commas)
+☐ ML: questions array mirrors labels with text = name, correct_answer = letter
+☐ TFNG/YNNG: correct_answer is exact uppercase: "TRUE", "FALSE", "NOT GIVEN" / "YES", "NO", "NOT GIVEN"
+
+**ANSWER KEY EXTRACTION:**
+☐ Answers extracted from answer key if available
+☐ ALL correct_answer fields have EXPANDED variations (no raw Cambridge notation!)
+☐ Multiple valid answers separated by | pipe character
+☐ Cambridge notation (free) drink(s) expanded to: "free drink|free drinks|drink|drinks"
+
+**COMPLETENESS:**
+☐ All tests in the PDF extracted (Cambridge books typically have 4)
+☐ Each test has all available sections (Listening, Reading, Writing, Speaking)
+☐ Question count per section: Listening (40), Reading (40)
+☐ Example questions extracted when present
+☐ Include "choices" array for MCQ/MCMA questions
+☐ Include "options" array for MF/MI/MH questions
+☐ Include "word_list" for SUC with word bank
+
+**METADATA QUALITY:**
+☐ metadata.extraction_quality set to "high", "medium", or "low"
+☐ metadata.has_answer_key indicates if answers were found
+
+Now analyze the PDF and extract ALL complete IELTS tests following this format.
+"""
+
+    try:
+        result = generate_ai(prompt=prompt, document=pdf_bytes, mime_type=pdf_mime_type)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"AI processing error: {str(e)}",
+            "content_type": "full_test",
         }
 
 

@@ -167,7 +167,6 @@ def main() -> None:
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text)
     )
-
     # Start the bot
     logger.info("Bot started successfully!")
     logger.info(f"API Base URL: {API_BASE_URL}")

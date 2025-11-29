@@ -39,7 +39,7 @@ class CustomLoginView(LoginView):
         if user.is_superadmin() or user.is_manager():
             return redirect(
                 "manager:spa"
-            )  # Both SUPERADMIN and MANAGER use manager panel
+            )  # Both MANAGER use manager panel
         else:  # Student
             return redirect("student:dashboard")
 
@@ -54,7 +54,7 @@ class CustomLoginView(LoginView):
             if request.user.is_superadmin() or request.user.is_manager():
                 return redirect(
                     "manager:spa"
-                )  # Both SUPERADMIN and MANAGER use manager panel
+                )  # Both MANAGER use manager panel
             else:
                 return redirect("student:dashboard")
         return super().get(request, *args, **kwargs)

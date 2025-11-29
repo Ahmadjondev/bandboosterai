@@ -310,6 +310,14 @@ class TestHead(models.Model):
         help_text="The type of question this test head represents.",
     )
     question_data = models.JSONField(null=True, blank=True)
+    # Example question/answer for this question group (common in IELTS materials)
+    # Structure: {"question": "Example question text", "answer": "Example answer", "explanation": "Optional explanation"}
+    example = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Example",
+        help_text="Example question and answer to show users before the actual questions.",
+    )
     picture = models.ImageField(
         upload_to="tests/pictures/", null=True, blank=True, verbose_name="Rasm"
     )

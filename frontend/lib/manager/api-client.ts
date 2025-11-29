@@ -880,6 +880,85 @@ class ManagerAPIClient {
     });
     return response;
   }
+
+  // ============ Full Book / Cambridge IELTS Upload Methods ============
+
+  /**
+   * Generate COMPLETE IELTS test(s) from a Cambridge IELTS book PDF or similar
+   * Extracts all sections: Listening, Reading, Writing, Speaking in one request
+   * @param file PDF file (Cambridge IELTS book or similar)
+   * @returns Complete test data with all sections for multiple tests
+   */
+  async generateFullTestFromPdf(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('pdf_file', file);
+    
+    // Use longer timeout for full book processing (20 minutes)
+    return this.uploadFile('/tests/ai-generate-full/', formData, 1200000);
+  }
+
+  /**
+   * Save a complete IELTS test (all sections) to database
+   * @param testData Complete test data with listening, reading, writing, speaking
+   * @param audios Optional audio files mapping for listening parts
+   * @param images Optional image files for question groups
+   * @returns Success message with created object IDs for all sections
+   */
+  async saveFullTestContent(
+    testData: any,
+    audios?: Record<string, File>,
+    images?: Record<string, File>
+  ): Promise<any> {
+    const formData = new FormData();
+    formData.append('test_data', JSON.stringify(testData));
+
+    // Add audio files
+    if (audios) {
+      Object.entries(audios).forEach(([key, file]) => {
+        formData.append(`audios[${key}]`, file);
+      });
+    }
+
+    // Add image files
+    if (images) {
+      Object.entries(images).forEach(([key, file]) => {
+        formData.append(`images[${key}]`, file);
+      });
+    }
+
+    return this.uploadFile('/tests/ai-save-full/', formData);
+  }
+
+  /**
+   * Upload multiple audio files at once for listening parts
+   * @param files Array of audio files with their mappings
+   * @returns List of uploaded audio URLs with their mappings
+   */
+  async uploadBatchAudio(files: Array<{ key: string; file: File }>): Promise<any> {
+    const formData = new FormData();
+    
+    files.forEach(({ key, file }) => {
+      formData.append(`audio_${key}`, file);
+    });
+
+    return this.uploadFile('/tests/upload-batch-audio/', formData);
+  }
+
+  /**
+   * Upload a single audio file temporarily
+   * @param file Audio file
+   * @param partId Optional listening part ID
+   * @returns Audio URL
+   */
+  async uploadAudioTemp(file: File, partId?: number): Promise<any> {
+    const formData = new FormData();
+    formData.append('audio_file', file);
+    if (partId) {
+      formData.append('part_id', partId.toString());
+    }
+
+    return this.uploadFile('/tests/upload-audio-temp/', formData);
+  }
 }
 
 // Create singleton instance

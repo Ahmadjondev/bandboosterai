@@ -506,3 +506,198 @@ export async function clearDashboardCache(): Promise<{ success: boolean; message
   }
   return response.data;
 }
+
+// ============= Dashboard V2 API (Optimized parallel endpoints) =============
+
+export interface DashboardOverviewV2 {
+  total_tests: number;
+  tests_this_week: number;
+  tests_this_month: number;
+  streak_days: number;
+  target_score: number;
+  books: {
+    started: number;
+    completed: number;
+    sections_completed: number;
+    average_score: number;
+  };
+  last_activity: string | null;
+}
+
+export interface DashboardSectionsV2 {
+  listening: {
+    average_score: number | null;
+    tests_count: number;
+    best_score: number | null;
+    progress: number;
+  };
+  reading: {
+    average_score: number | null;
+    tests_count: number;
+    best_score: number | null;
+    progress: number;
+  };
+  writing: {
+    average_score: number | null;
+    tests_count: number;
+    best_score: number | null;
+    progress: number;
+  };
+  speaking: {
+    average_score: number | null;
+    tests_count: number;
+    best_score: number | null;
+    progress: number;
+  };
+  target_score: number;
+  overall_average: number | null;
+}
+
+export interface BookProgress {
+  id: number;
+  title: string;
+  cover_image: string | null;
+  level: string;
+  total_sections: number;
+  completed_sections: number;
+  percentage: number;
+  average_score: number | null;
+  is_completed: boolean;
+  last_accessed: string;
+}
+
+export interface DashboardBooksV2 {
+  in_progress: BookProgress[];
+  suggested: Array<{
+    id: number;
+    title: string;
+    cover_image: string | null;
+    level: string;
+    total_sections: number;
+  }>;
+  recent_activity: Array<{
+    section_title: string;
+    book_title: string;
+    score: number | null;
+    completed_at: string;
+    section_type: string;
+  }>;
+  stats: {
+    total_started: number;
+    total_completed: number;
+  };
+}
+
+export interface DashboardActivityV2 {
+  recent_tests: Array<{
+    id: number;
+    exam_name: string;
+    exam_type: string;
+    date: string;
+    listening_score: number | null;
+    reading_score: number | null;
+    overall_score: number | null;
+  }>;
+}
+
+export interface DashboardWeeklyV2 {
+  weekly_progress: Array<{
+    week: string;
+    tests: number;
+  }>;
+}
+
+export interface DashboardAchievementV2 {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  progress?: number;
+}
+
+/**
+ * Dashboard V2 - Get overview stats (fast endpoint)
+ */
+export async function getDashboardOverviewV2(): Promise<DashboardOverviewV2> {
+  const response = await apiClient.get<DashboardOverviewV2>(`${API_BASE}/dashboard/v2/overview/`);
+  if (!response.data) throw new Error("Failed to fetch dashboard overview");
+  return response.data;
+}
+
+/**
+ * Dashboard V2 - Get section scores
+ */
+export async function getDashboardSectionsV2(): Promise<DashboardSectionsV2> {
+  const response = await apiClient.get<DashboardSectionsV2>(`${API_BASE}/dashboard/v2/sections/`);
+  if (!response.data) throw new Error("Failed to fetch section scores");
+  return response.data;
+}
+
+/**
+ * Dashboard V2 - Get books progress
+ */
+export async function getDashboardBooksV2(): Promise<DashboardBooksV2> {
+  const response = await apiClient.get<DashboardBooksV2>(`${API_BASE}/dashboard/v2/books/`);
+  if (!response.data) throw new Error("Failed to fetch books progress");
+  return response.data;
+}
+
+/**
+ * Dashboard V2 - Get recent activity
+ */
+export async function getDashboardActivityV2(): Promise<DashboardActivityV2> {
+  const response = await apiClient.get<DashboardActivityV2>(`${API_BASE}/dashboard/v2/activity/`);
+  if (!response.data) throw new Error("Failed to fetch recent activity");
+  return response.data;
+}
+
+/**
+ * Dashboard V2 - Get weekly progress
+ */
+export async function getDashboardWeeklyV2(): Promise<DashboardWeeklyV2> {
+  const response = await apiClient.get<DashboardWeeklyV2>(`${API_BASE}/dashboard/v2/weekly/`);
+  if (!response.data) throw new Error("Failed to fetch weekly progress");
+  return response.data;
+}
+
+/**
+ * Dashboard V2 - Get achievements
+ */
+export async function getDashboardAchievementsV2(): Promise<{ achievements: DashboardAchievementV2[] }> {
+  const response = await apiClient.get<{ achievements: DashboardAchievementV2[] }>(`${API_BASE}/dashboard/v2/achievements/`);
+  if (!response.data) throw new Error("Failed to fetch achievements");
+  return response.data;
+}
+
+/**
+ * Dashboard V2 - Clear all caches
+ */
+export async function clearDashboardCacheV2(): Promise<{ success: boolean; message: string }> {
+  const response = await apiClient.post<{ success: boolean; message: string }>(`${API_BASE}/dashboard/v2/clear-cache/`);
+  if (!response.data) throw new Error("Failed to clear cache");
+  return response.data;
+}
+
+/**
+ * Dashboard V2 - Load all data in parallel for faster initial load
+ */
+export async function loadDashboardDataV2() {
+  const [overview, sections, books, activity, weekly, achievements] = await Promise.all([
+    getDashboardOverviewV2(),
+    getDashboardSectionsV2(),
+    getDashboardBooksV2(),
+    getDashboardActivityV2(),
+    getDashboardWeeklyV2(),
+    getDashboardAchievementsV2(),
+  ]);
+
+  return {
+    overview,
+    sections,
+    books,
+    activity,
+    weekly,
+    achievements,
+  };
+}

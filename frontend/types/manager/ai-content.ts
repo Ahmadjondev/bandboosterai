@@ -3,7 +3,7 @@
  * Matches the backend API response structure from manager_panel/ai_api.py
  */
 
-export type ContentType = 'auto' | 'reading' | 'listening' | 'writing' | 'speaking';
+export type ContentType = 'auto' | 'reading' | 'listening' | 'writing' | 'speaking' | 'full_test';
 
 export type QuestionType =
   | 'MCQ'           // Multiple Choice
@@ -119,7 +119,7 @@ export interface AISaveResponse {
 }
 
 // Upload mode
-export type UploadMode = 'pdf' | 'json';
+export type UploadMode = 'pdf' | 'json' | 'full_book';
 
 // Notification
 export interface Notification {
@@ -146,4 +146,91 @@ export interface SpeakingTopicGroup {
   part1?: SpeakingTopic;
   part2?: SpeakingTopic;
   part3?: SpeakingTopic;
+}
+
+// ============ Full Test Types (Cambridge IELTS Book Upload) ============
+
+// Book info from full test extraction
+export interface BookInfo {
+  title: string;
+  total_tests: number;
+  extracted_tests: number;
+}
+
+// Full test structure containing all sections
+export interface FullTest {
+  test_number: number;
+  test_name: string;
+  listening: {
+    parts: ListeningPart[];
+  };
+  reading: {
+    passages: ReadingPassage[];
+  };
+  writing: {
+    tasks: WritingTask[];
+  };
+  speaking: {
+    topics: SpeakingTopic[];
+  };
+}
+
+// Full test extraction response
+export interface FullTestExtractionResponse {
+  success: boolean;
+  content_type: 'full_test';
+  book_info: BookInfo;
+  tests: FullTest[];
+  partial?: boolean;
+  extracted_sections?: string[];
+  missing_sections?: string[];
+  metadata?: {
+    total_listening_parts: number;
+    total_reading_passages: number;
+    total_writing_tasks: number;
+    total_speaking_parts: number;
+    total_questions: number;
+    has_answer_key: boolean;
+    extraction_quality: 'high' | 'medium' | 'low';
+  };
+  error?: string;
+}
+
+// Full test save response
+export interface FullTestSaveResponse {
+  success: boolean;
+  message: string;
+  results: {
+    listening: AISaveResponse | null;
+    reading: AISaveResponse | null;
+    writing: AISaveResponse | null;
+    speaking: AISaveResponse | null;
+  };
+  saved_sections: string[];
+  error?: string;
+}
+
+// Audio file mapping for batch upload
+export interface AudioFileMapping {
+  file: File;
+  partIndex: number;
+  testIndex?: number;
+  preview?: string;
+}
+
+// Batch audio upload response
+export interface BatchAudioUploadResponse {
+  success: boolean;
+  uploaded: Array<{
+    key: string;
+    filename: string;
+    url: string;
+    size: number;
+  }>;
+  errors: Array<{
+    key: string;
+    filename: string;
+    error: string;
+  }>;
+  message: string;
 }

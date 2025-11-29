@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import ssl
@@ -198,11 +199,18 @@ def generate_ai(
             response = client.models.generate_content(
                 model=model,
                 contents=contents,
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    thinking_config=types.ThinkingConfig(
+                        include_thoughts=True,
+                    ),
+                ),
             )
 
             # Log raw response for debugging
             print("RAW AI RESPONSE RECEIVED")
-            response_file = f"ai_response_{random.randint(10000, 10000000)}.json"
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            response_file = f"ai_response_{timestamp}.json"
             with open(response_file, "w", encoding="utf-8") as f:
                 f.write(response.text)
             print(f"Saved raw response to {response_file}")

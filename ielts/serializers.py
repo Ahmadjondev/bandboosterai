@@ -180,6 +180,7 @@ class TestHeadSerializer(serializers.ModelSerializer):
     view_type = serializers.SerializerMethodField()
     answer_format = serializers.SerializerMethodField()
     question_data = serializers.SerializerMethodField()
+    example = serializers.SerializerMethodField()
 
     class Meta:
         model = TestHead
@@ -198,6 +199,7 @@ class TestHeadSerializer(serializers.ModelSerializer):
             "view_type",
             "answer_format",
             "question_data",
+            "example",
             "questions",
         ]
 
@@ -213,6 +215,19 @@ class TestHeadSerializer(serializers.ModelSerializer):
                     return {}
             return obj.question_data
         return {}
+
+    def get_example(self, obj):
+        """Get example question/answer if available."""
+        import json
+
+        if obj.example:
+            if isinstance(obj.example, str):
+                try:
+                    return json.loads(obj.example)
+                except json.JSONDecodeError:
+                    return None
+            return obj.example
+        return None
 
     def get_question_range(self, obj):
         """Get the question number range (e.g., '1-5')."""

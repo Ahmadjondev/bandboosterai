@@ -200,7 +200,7 @@ export default function ReadingPracticePage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Passage */}
         <div
-          className="overflow-y-auto bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+          className="overflow-y-auto bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 mb-8"
           style={{ width: `${splitPosition}%` }}
         >
           <div ref={passageRef} className="p-8">

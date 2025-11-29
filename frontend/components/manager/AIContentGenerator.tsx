@@ -1,12 +1,15 @@
 'use client';
 
 /**
- * AI Content Generator Component
- * Migrated from Vue.js to React + TypeScript
- * Allows managers to upload PDF files or JSON and generate IELTS test content using AI
+ * AI Content Generator Component - Redesigned
+ * Modern UI with support for:
+ * - Single section upload (Reading, Listening, Writing, Speaking)
+ * - Full book upload (Cambridge IELTS books with multiple tests)
+ * - Improved audio uploader with drag-drop and batch support
+ * - Test selection and preview
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   Upload,
   FileText,
@@ -29,6 +32,21 @@ import {
   Image,
   AlertTriangle,
   Music,
+  Book,
+  Layers,
+  Play,
+  Pause,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  FolderOpen,
+  FileAudio,
+  Sparkles,
+  RotateCcw,
+  Download,
+  Plus,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { managerAPI } from '@/lib/manager/api-client';
 import type {
@@ -44,51 +62,104 @@ import type {
   SpeakingTopic,
   QuestionGroup,
   SpeakingTopicGroup,
+  FullTest,
+  FullTestExtractionResponse,
 } from '@/types/manager/ai-content';
 
 const AIContentGenerator: React.FC = () => {
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
-  const steps: Step[] = [
-    { number: 1, title: 'Upload Content', icon: 'upload' },
-    { number: 2, title: 'Review Content', icon: 'eye' },
-    { number: 3, title: 'Save to Database', icon: 'database' },
-  ];
-
-  // Upload state
+  
+  // Upload state (declared early for useMemo dependency)
   const [uploadMode, setUploadMode] = useState<UploadMode>('pdf');
+  
+  // Add as Book state
+  const [addAsBook, setAddAsBook] = useState(false);
+  const [bookDetails, setBookDetails] = useState({
+    title: '',
+    description: '',
+    level: 'B2' as 'B1' | 'B2' | 'C1' | 'C2',
+    author: '',
+    publisher: 'Cambridge University Press',
+  });
+  const [savedContentIds, setSavedContentIds] = useState<{
+    listening: number[];
+    reading: number[];
+    writing: number[];
+    speaking: number[];
+  }>({ listening: [], reading: [], writing: [], speaking: [] });
+  const [isCreatingBook, setIsCreatingBook] = useState(false);
+  const [createdBookId, setCreatedBookId] = useState<number | null>(null);
+
+  // Dynamic steps based on addAsBook toggle
+  const steps: Step[] = useMemo(() => {
+    const baseSteps = [
+      { number: 1, title: 'Upload Content', icon: 'upload' },
+      { number: 2, title: 'Review Content', icon: 'eye' },
+      { number: 3, title: 'Save to Database', icon: 'database' },
+    ];
+    if (addAsBook && uploadMode === 'full_book') {
+      baseSteps.push({ number: 4, title: 'Create Book', icon: 'book' });
+    }
+    return baseSteps;
+  }, [addAsBook, uploadMode]);
+
+  // Rest of upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedJsonFile, setSelectedJsonFile] = useState<File | null>(null);
   const [contentType, setContentType] = useState<ContentType>('auto');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Generated content
+  // Generated content - Single section mode
   const [extractedData, setExtractedData] = useState<AIGenerateResponse | null>(null);
+
+  // Full book mode state
+  const [fullTestData, setFullTestData] = useState<FullTestExtractionResponse | null>(null);
+  const [selectedTestIndex, setSelectedTestIndex] = useState<number>(0);
+  const [selectedSections, setSelectedSections] = useState<Set<string>>(new Set(['listening', 'reading', 'writing', 'speaking']));
 
   // Edit state
   const [editingItem, setEditingItem] = useState<string | null>(null);
   
-
   // Save state
   const [isSaving, setIsSaving] = useState(false);
   const [savedItems, setSavedItems] = useState<any[]>([]);
+  const [saveProgress, setSaveProgress] = useState<{ current: number; total: number; section: string }>({ current: 0, total: 0, section: '' });
+  const [savedResult, setSavedResult] = useState<any>(null); // Store full save result with IDs
 
   // Image upload state for question groups
   const [groupImages, setGroupImages] = useState<Record<string, { file: File; preview: string }>>({});
 
-  // Audio upload state for listening parts
-  const [partAudios, setPartAudios] = useState<Record<string, { file: File; preview: string }>>({});
+  // Audio upload state for listening parts - Improved with batch support
+  const [partAudios, setPartAudios] = useState<Record<string, { file: File; preview: string; duration?: number }>>({});
+  const [isDraggingAudio, setIsDraggingAudio] = useState(false);
+  const [audioUploadQueue, setAudioUploadQueue] = useState<File[]>([]);
 
   // Review UI state: expansion and inline edit buffers
-  const [expanded, setExpanded] = useState<{ passages: Set<number>; parts: Set<number> }>({
+  const [expanded, setExpanded] = useState<{ 
+    passages: Set<number>; 
+    parts: Set<number>;
+    tests: Set<number>;
+    sections: Set<string>;
+    tasks: Set<number>;
+    topics: Set<number>;
+  }>({
     passages: new Set(),
     parts: new Set(),
+    tests: new Set([0]), // First test expanded by default
+    sections: new Set(['listening', 'reading']), // Default expanded sections
+    tasks: new Set(),
+    topics: new Set(),
   });
+
+  // Tab state for review
+  const [activeReviewTab, setActiveReviewTab] = useState<'listening' | 'reading' | 'writing' | 'speaking'>('reading');
 
   // Inline edit buffers keyed by editingItem string (e.g. "passage:2" or "question:2-0-1")
   const [editBuffer, setEditBuffer] = useState<Record<string, any>>({});
 
-  const toggleExpand = (key: 'passages' | 'parts', idx: number) => {
+  const toggleExpand = (key: 'passages' | 'parts' | 'tests' | 'sections' | 'tasks' | 'topics', idx: number | string) => {
     setExpanded((prev) => {
       const next = { ...prev } as any;
       const set = new Set(next[key]);
@@ -98,6 +169,66 @@ const AIContentGenerator: React.FC = () => {
       return next;
     });
   };
+
+  // Toggle section selection for full book mode
+  const toggleSectionSelection = (section: string) => {
+    setSelectedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
+
+  // Get current test data in full book mode
+  const currentTest = useMemo(() => {
+    if (!fullTestData?.tests || fullTestData.tests.length === 0) return null;
+    return fullTestData.tests[selectedTestIndex] || fullTestData.tests[0];
+  }, [fullTestData, selectedTestIndex]);
+
+  // Auto-select first available tab when currentTest changes (for full book mode)
+  useEffect(() => {
+    if (!currentTest) return;
+    
+    // Check which sections have data and select the first one
+    if (currentTest.listening?.parts?.length > 0) {
+      setActiveReviewTab('listening');
+    } else if (currentTest.reading?.passages?.length > 0) {
+      setActiveReviewTab('reading');
+    } else if (currentTest.writing?.tasks?.length > 0) {
+      setActiveReviewTab('writing');
+    } else if (currentTest.speaking?.topics?.length > 0) {
+      setActiveReviewTab('speaking');
+    }
+  }, [currentTest]);
+
+  // Calculate stats for current data
+  const contentStats = useMemo(() => {
+    if (uploadMode === 'full_book' && currentTest) {
+      return {
+        listening: currentTest.listening?.parts?.length || 0,
+        reading: currentTest.reading?.passages?.length || 0,
+        writing: currentTest.writing?.tasks?.length || 0,
+        speaking: currentTest.speaking?.topics?.length || 0,
+        totalQuestions: 
+          (currentTest.listening?.parts?.reduce((acc: number, p: any) => 
+            acc + (p.question_groups?.reduce((a: number, g: any) => a + (g.questions?.length || 0), 0) || 0), 0) || 0) +
+          (currentTest.reading?.passages?.reduce((acc: number, p: any) => 
+            acc + (p.question_groups?.reduce((a: number, g: any) => a + (g.questions?.length || 0), 0) || 0), 0) || 0),
+      };
+    }
+    if (extractedData) {
+      const passagesOrParts = extractedData.passages || extractedData.parts || [];
+      return {
+        items: passagesOrParts.length,
+        questions: passagesOrParts.reduce((acc: number, item: any) => 
+          acc + (item.question_groups?.reduce((a: number, g: any) => a + (g.questions?.length || 0), 0) || 0), 0),
+        tasks: extractedData.tasks?.length || 0,
+        topics: extractedData.topics?.length || 0,
+      };
+    }
+    return null;
+  }, [uploadMode, currentTest, extractedData]);
 
   const startInlineEdit = (kind: string, id: string | number) => {
     const editKey = `${kind}:${id}`;
@@ -222,6 +353,7 @@ const AIContentGenerator: React.FC = () => {
     'upload': <Upload className="w-5 h-5" />,
     'eye': <Eye className="w-5 h-5" />,
     'database': <Database className="w-5 h-5" />,
+    'book': <Book className="w-5 h-5" />,
   };
 
   // Utility functions
@@ -393,8 +525,10 @@ const AIContentGenerator: React.FC = () => {
     }
   };
 
-  const canProceedToReview = uploadMode === 'pdf' ? selectedFile && !isUploading : selectedJsonFile && !isUploading;
-  const canSaveContent = extractedData && extractedData.success;
+  const canProceedToReview = (uploadMode === 'pdf' || uploadMode === 'full_book') 
+    ? selectedFile && !isUploading 
+    : selectedJsonFile && !isUploading;
+  const canSaveContent = (extractedData && extractedData.success) || (fullTestData && fullTestData.success);
 
   // Upload mode toggle
   const handleUploadModeChange = (mode: UploadMode) => {
@@ -402,6 +536,9 @@ const AIContentGenerator: React.FC = () => {
     setSelectedFile(null);
     setSelectedJsonFile(null);
     setExtractedData(null);
+    setFullTestData(null);
+    setSelectedTestIndex(0);
+    setUploadProgress(0);
   };
 
   // File selection handlers
@@ -414,12 +551,17 @@ const AIContentGenerator: React.FC = () => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      showNotification('File size must be less than 10MB', 'error');
+    // Full book mode allows larger files (50MB) for Cambridge IELTS books
+    const maxSize = uploadMode === 'full_book' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    const maxSizeLabel = uploadMode === 'full_book' ? '50MB' : '10MB';
+
+    if (file.size > maxSize) {
+      showNotification(`File size must be less than ${maxSizeLabel}`, 'error');
       return;
     }
 
     setSelectedFile(file);
+    setUploadProgress(0);
   };
 
   const handleJsonFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -441,10 +583,48 @@ const AIContentGenerator: React.FC = () => {
 
   // Generate content
   const handleGenerateContent = async () => {
-    if (uploadMode === 'pdf') {
+    if (uploadMode === 'full_book') {
+      await generateFullBookFromPdf();
+    } else if (uploadMode === 'pdf') {
       await generateFromPdf();
     } else {
       await processJsonFile();
+    }
+  };
+
+  // Generate full book content (Cambridge IELTS)
+  const generateFullBookFromPdf = async () => {
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    setUploadProgress(10);
+
+    try {
+      // Simulate progress during upload
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 5, 90));
+      }, 2000);
+
+      const response = await managerAPI.generateFullTestFromPdf(selectedFile);
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (response.success && response.data) {
+        setFullTestData(response.data);
+        setCurrentStep(2);
+        showNotification(
+          `Successfully extracted ${response.data.book_info?.extracted_tests || 1} test(s) from the book!`,
+          'success'
+        );
+      } else {
+        showNotification(response.error || 'Failed to extract content from book', 'error');
+      }
+    } catch (error: any) {
+      showNotification('Upload error: ' + error.message, 'error');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -499,6 +679,195 @@ const AIContentGenerator: React.FC = () => {
 
   // Save content to database
   const handleSaveContent = async () => {
+    if (uploadMode === 'full_book') {
+      await saveFullTestContent();
+    } else {
+      await saveSingleSectionContent();
+    }
+  };
+
+  // Save a single test content (all sections)
+  const saveTestContent = async (test: any, testIndex: number, isPartOfBatch: boolean = false) => {
+    // Build test data based on selected sections
+    const testData: any = {};
+    
+    if (selectedSections.has('listening') && test.listening) {
+      testData.listening = test.listening;
+      if (!isPartOfBatch) setSaveProgress(prev => ({ ...prev, section: 'Listening' }));
+    }
+    if (selectedSections.has('reading') && test.reading) {
+      testData.reading = test.reading;
+      if (!isPartOfBatch) setSaveProgress(prev => ({ ...prev, section: 'Reading' }));
+    }
+    if (selectedSections.has('writing') && test.writing) {
+      testData.writing = test.writing;
+      if (!isPartOfBatch) setSaveProgress(prev => ({ ...prev, section: 'Writing' }));
+    }
+    if (selectedSections.has('speaking') && test.speaking) {
+      testData.speaking = test.speaking;
+      if (!isPartOfBatch) setSaveProgress(prev => ({ ...prev, section: 'Speaking' }));
+    }
+
+    // Get audio files for this test index (if available)
+    const audios: Record<string, File> = {};
+    Object.entries(partAudios).forEach(([key, { file }]) => {
+      // Audio keys are like "part-0", "part-1" for single test mode
+      // or "test-0-part-0" for multi-test mode
+      if (key.startsWith(`test-${testIndex}-`) || (!key.startsWith('test-') && testIndex === selectedTestIndex)) {
+        const newKey = key.replace(`test-${testIndex}-`, '');
+        audios[newKey || key] = file;
+      }
+    });
+
+    // Get image files for this test index
+    const images: Record<string, File> = {};
+    Object.entries(groupImages).forEach(([key, { file }]) => {
+      if (key.startsWith(`test-${testIndex}-`) || (!key.startsWith('test-') && testIndex === selectedTestIndex)) {
+        const newKey = key.replace(`test-${testIndex}-`, '');
+        images[newKey || key] = file;
+      }
+    });
+
+    return await managerAPI.saveFullTestContent(testData, audios, images);
+  };
+
+  // Save full test content (current test only)
+  const saveFullTestContent = async () => {
+    if (!currentTest) return;
+
+    setIsSaving(true);
+    setSaveProgress({ current: 0, total: selectedSections.size, section: '' });
+
+    try {
+      const response = await saveTestContent(currentTest, selectedTestIndex, false);
+
+      if (response.success) {
+        setSavedItems(response.saved_sections || []);
+        setSavedResult(response); // Store full response with IDs
+        
+        // Extract saved content IDs for book creation
+        if (response.results) {
+          setSavedContentIds({
+            listening: response.results.listening?.parts?.map((p: any) => p.part_id) || [],
+            reading: response.results.reading?.passages?.map((p: any) => p.passage_id) || [],
+            writing: response.results.writing?.tasks?.map((t: any) => t.task_id) || [],
+            speaking: response.results.speaking?.topics?.map((t: any) => t.topic_id) || [],
+          });
+        }
+        
+        // Auto-populate book title from extracted book info
+        if (addAsBook && fullTestData?.book_info?.title) {
+          setBookDetails(prev => ({
+            ...prev,
+            title: prev.title || `${fullTestData.book_info.title} - ${currentTest?.test_name || 'Test'}`,
+          }));
+        }
+        
+        // Proceed to step 4 if addAsBook is enabled, otherwise step 3
+        if (addAsBook) {
+          setCurrentStep(4);
+          showNotification('Content saved! Now configure your book.', 'success');
+        } else {
+          setCurrentStep(3);
+          showNotification(response.message || 'Content saved successfully!', 'success');
+        }
+        
+        // Clean up previews
+        cleanupPreviews();
+      } else {
+        showNotification(response.error || 'Failed to save content', 'error');
+      }
+    } catch (error: any) {
+      showNotification('Save error: ' + error.message, 'error');
+    } finally {
+      setIsSaving(false);
+      setSaveProgress({ current: 0, total: 0, section: '' });
+    }
+  };
+
+  // Save ALL tests from full book extraction
+  const saveAllTests = async () => {
+    if (!fullTestData?.tests || fullTestData.tests.length === 0) return;
+
+    const tests = fullTestData.tests;
+    const totalTests = tests.length;
+    
+    setIsSaving(true);
+    setSaveProgress({ current: 0, total: totalTests, section: '' });
+
+    const allSavedIds = {
+      listening: [] as number[],
+      reading: [] as number[],
+      writing: [] as number[],
+      speaking: [] as number[],
+    };
+    
+    const allSavedItems: any[] = [];
+    let successCount = 0;
+
+    try {
+      for (let i = 0; i < tests.length; i++) {
+        const test = tests[i];
+        setSaveProgress({ current: i + 1, total: totalTests, section: `Test ${i + 1}: ${test.test_name || `Test ${i + 1}`}` });
+
+        try {
+          const response = await saveTestContent(test, i, true);
+          
+          if (response.success) {
+            successCount++;
+            allSavedItems.push(...(response.saved_sections || []));
+            
+            // Accumulate saved content IDs
+            if (response.results) {
+              allSavedIds.listening.push(...(response.results.listening?.parts?.map((p: any) => p.part_id) || []));
+              allSavedIds.reading.push(...(response.results.reading?.passages?.map((p: any) => p.passage_id) || []));
+              allSavedIds.writing.push(...(response.results.writing?.tasks?.map((t: any) => t.task_id) || []));
+              allSavedIds.speaking.push(...(response.results.speaking?.topics?.map((t: any) => t.topic_id) || []));
+            }
+          } else {
+            showNotification(`Test ${i + 1} failed: ${response.error}`, 'error');
+          }
+        } catch (error: any) {
+          showNotification(`Test ${i + 1} error: ${error.message}`, 'error');
+        }
+      }
+
+      if (successCount > 0) {
+        setSavedItems(allSavedItems);
+        setSavedContentIds(allSavedIds);
+        
+        // Auto-populate book title from extracted book info
+        if (addAsBook && fullTestData?.book_info?.title) {
+          setBookDetails(prev => ({
+            ...prev,
+            title: prev.title || fullTestData.book_info.title,
+          }));
+        }
+        
+        // Proceed to next step
+        if (addAsBook) {
+          setCurrentStep(4);
+          showNotification(`${successCount}/${totalTests} tests saved! Now configure your book.`, 'success');
+        } else {
+          setCurrentStep(3);
+          showNotification(`${successCount}/${totalTests} tests saved successfully!`, 'success');
+        }
+        
+        // Clean up previews
+        cleanupPreviews();
+      } else {
+        showNotification('No tests were saved successfully', 'error');
+      }
+    } catch (error: any) {
+      showNotification('Save error: ' + error.message, 'error');
+    } finally {
+      setIsSaving(false);
+      setSaveProgress({ current: 0, total: 0, section: '' });
+    }
+  };
+
+  // Save single section content
+  const saveSingleSectionContent = async () => {
     if (!extractedData) return;
 
     setIsSaving(true);
@@ -531,18 +900,7 @@ const AIContentGenerator: React.FC = () => {
           setSavedItems(response.passages || response.parts || response.tasks || response.topics || []);
           setCurrentStep(3);
           showNotification(response.message, 'success');
-          
-          // Clean up image previews
-          Object.values(groupImages).forEach(({ preview }) => {
-            URL.revokeObjectURL(preview);
-          });
-          setGroupImages({});
-
-          // Clean up audio previews
-          Object.values(partAudios).forEach(({ preview }) => {
-            URL.revokeObjectURL(preview);
-          });
-          setPartAudios({});
+          cleanupPreviews();
         } else {
           showNotification(response.error || 'Failed to save content', 'error');
         }
@@ -563,6 +921,19 @@ const AIContentGenerator: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Cleanup preview URLs
+  const cleanupPreviews = () => {
+    Object.values(groupImages).forEach(({ preview }) => {
+      URL.revokeObjectURL(preview);
+    });
+    setGroupImages({});
+
+    Object.values(partAudios).forEach(({ preview }) => {
+      URL.revokeObjectURL(preview);
+    });
+    setPartAudios({});
   };
 
   // Edit functions
@@ -587,21 +958,109 @@ const AIContentGenerator: React.FC = () => {
     setSelectedJsonFile(null);
     setContentType('auto');
     setExtractedData(null);
+    setFullTestData(null);
+    setSelectedTestIndex(0);
+    setSelectedSections(new Set(['listening', 'reading', 'writing', 'speaking']));
     setSavedItems([]);
+    setSavedResult(null);
     setEditingItem(null);
     setEditBuffer({});
+    setUploadProgress(0);
     
-    // Clean up image previews
-    Object.values(groupImages).forEach(({ preview }) => {
-      URL.revokeObjectURL(preview);
+    // Reset book state
+    setAddAsBook(false);
+    setBookDetails({
+      title: '',
+      description: '',
+      level: 'B2',
+      author: '',
+      publisher: 'Cambridge University Press',
     });
-    setGroupImages({});
+    setSavedContentIds({ listening: [], reading: [], writing: [], speaking: [] });
+    setCreatedBookId(null);
+    
+    // Clean up previews
+    cleanupPreviews();
+  };
 
-    // Clean up audio previews
-    Object.values(partAudios).forEach(({ preview }) => {
-      URL.revokeObjectURL(preview);
-    });
-    setPartAudios({});
+  // Create book with sections from saved content
+  const createBookWithSections = async () => {
+    if (!bookDetails.title.trim()) {
+      showNotification('Please enter a book title', 'error');
+      return;
+    }
+
+    setIsCreatingBook(true);
+
+    try {
+      // Build sections array from saved content IDs
+      const sections: any[] = [];
+      let order = 1;
+
+      // Get actual titles from currentTest data
+      const listeningParts = currentTest?.listening?.parts || [];
+      const readingPassages = currentTest?.reading?.passages || [];
+
+      // Add listening sections with actual titles
+      // Only section 1 is unlocked, rest are locked when in book mode
+      savedContentIds.listening.forEach((id, idx) => {
+        const partData = listeningParts[idx];
+        const title = partData?.title || `Listening Part ${idx + 1}`;
+        const currentOrder = order++;
+        sections.push({
+          section_type: 'LISTENING',
+          listening_part: id,
+          order: currentOrder,
+          title: title,
+          is_locked: currentOrder > 1, // Only first section is unlocked
+        });
+      });
+
+      // Add reading sections with actual titles
+      savedContentIds.reading.forEach((id, idx) => {
+        const passageData = readingPassages[idx];
+        const title = passageData?.title || `Reading Passage ${idx + 1}`;
+        const currentOrder = order++;
+        sections.push({
+          section_type: 'READING',
+          reading_passage: id,
+          order: currentOrder,
+          title: title,
+          is_locked: currentOrder > 1, // Only first section is unlocked
+        });
+      });
+
+      // Create book first
+      const bookResponse = await managerAPI.createBook({
+        title: bookDetails.title,
+        description: bookDetails.description || `Auto-generated from ${fullTestData?.book_info?.title || 'IELTS'} content`,
+        level: bookDetails.level,
+        author: bookDetails.author,
+        publisher: bookDetails.publisher,
+        is_active: true,
+      });
+
+      if (bookResponse && bookResponse.id) {
+        setCreatedBookId(bookResponse.id);
+
+        // Now save sections in bulk
+        if (sections.length > 0) {
+          const formData = new FormData();
+          formData.append('sections', JSON.stringify(sections));
+
+          await managerAPI.bulkSaveBookSections(bookResponse.id, formData);
+        }
+
+        setCurrentStep(3);
+        showNotification(`Book "${bookDetails.title}" created successfully with ${sections.length} sections!`, 'success');
+      } else {
+        showNotification('Failed to create book', 'error');
+      }
+    } catch (error: any) {
+      showNotification('Error creating book: ' + error.message, 'error');
+    } finally {
+      setIsCreatingBook(false);
+    }
   };
 
   // Format question type
@@ -755,41 +1214,117 @@ const AIContentGenerator: React.FC = () => {
           <div className="max-w-2xl mx-auto">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-6">Upload Content</h2>
 
-            {/* Upload Mode Selection */}
+            {/* Upload Mode Selection - Redesigned with 3 options */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                 Upload Method
               </label>
-              <div className="flex gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                {/* Single Section PDF */}
                 <button
                   onClick={() => handleUploadModeChange('pdf')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                  className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all hover:shadow-md ${
                     uploadMode === 'pdf'
-                      ? 'border-orange-600 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400'
-                      : 'border-slate-200 text-slate-700 hover:border-orange-300 dark:border-slate-600 dark:text-slate-300'
+                      ? 'border-orange-600 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20'
+                      : 'border-slate-200 hover:border-orange-300 dark:border-slate-600'
                   }`}
                 >
-                  <FileText className="w-5 h-5" />
-                  <span className="font-medium">Upload PDF (AI Extract)</span>
+                  <div className={`p-3 rounded-lg ${uploadMode === 'pdf' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                    <FileText className={`w-6 h-6 ${uploadMode === 'pdf' ? 'text-orange-600' : 'text-slate-500 dark:text-slate-400'}`} />
+                  </div>
+                  <span className={`font-medium text-sm ${uploadMode === 'pdf' ? 'text-orange-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                    Single Section
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Reading, Listening, etc.
+                  </span>
                 </button>
+
+                {/* Full Book (Cambridge IELTS) */}
+                <button
+                  onClick={() => handleUploadModeChange('full_book')}
+                  className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                    uploadMode === 'full_book'
+                      ? 'border-purple-600 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20'
+                      : 'border-slate-200 hover:border-purple-300 dark:border-slate-600'
+                  }`}
+                >
+                  {uploadMode !== 'full_book' && (
+                    <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-[10px] font-bold rounded-full shadow-lg">
+                      NEW
+                    </div>
+                  )}
+                  <div className={`p-3 rounded-lg ${uploadMode === 'full_book' ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                    <Book className={`w-6 h-6 ${uploadMode === 'full_book' ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`} />
+                  </div>
+                  <span className={`font-medium text-sm ${uploadMode === 'full_book' ? 'text-purple-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                    Full Book
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Cambridge IELTS
+                  </span>
+                </button>
+
+                {/* JSON Upload */}
                 <button
                   onClick={() => handleUploadModeChange('json')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                  className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all hover:shadow-md ${
                     uploadMode === 'json'
-                      ? 'border-orange-600 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400'
-                      : 'border-slate-200 text-slate-700 hover:border-orange-300 dark:border-slate-600 dark:text-slate-300'
+                      ? 'border-emerald-600 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20'
+                      : 'border-slate-200 hover:border-emerald-300 dark:border-slate-600'
                   }`}
                 >
-                  <Code className="w-5 h-5" />
-                  <span className="font-medium">Upload JSON (Pre-formatted)</span>
+                  <div className={`p-3 rounded-lg ${uploadMode === 'json' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                    <Code className={`w-6 h-6 ${uploadMode === 'json' ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-400'}`} />
+                  </div>
+                  <span className={`font-medium text-sm ${uploadMode === 'json' ? 'text-emerald-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                    JSON Import
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Pre-formatted data
+                  </span>
                 </button>
               </div>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                {uploadMode === 'pdf' ? 'AI will extract content from PDF file' : 'Upload pre-formatted JSON response from AI'}
-              </p>
+
+              {/* Mode description */}
+              <div className={`mt-3 p-3 rounded-lg text-sm ${
+                uploadMode === 'full_book' 
+                  ? 'bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800' 
+                  : uploadMode === 'json'
+                  ? 'bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800'
+              }`}>
+                {uploadMode === 'pdf' && (
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
+                    <p className="text-orange-700 dark:text-orange-300">
+                      Upload a PDF with a single section (Reading, Listening, Writing, or Speaking). 
+                      AI will extract the content and questions automatically.
+                    </p>
+                  </div>
+                )}
+                {uploadMode === 'full_book' && (
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
+                    <p className="text-purple-700 dark:text-purple-300">
+                      Upload a complete Cambridge IELTS book or test preparation material. 
+                      AI will extract <strong>ALL sections</strong> (Listening, Reading, Writing, Speaking) from <strong>multiple tests</strong> at once!
+                    </p>
+                  </div>
+                )}
+                {uploadMode === 'json' && (
+                  <div className="flex items-start gap-2">
+                    <Code className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                    <p className="text-emerald-700 dark:text-emerald-300">
+                      Import pre-formatted JSON content from external AI tools or previous exports.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Content Type Selection */}
+            {/* Content Type Selection - Hidden in full_book mode */}
+            {uploadMode !== 'full_book' && (
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Content Type</label>
               <div className="grid grid-cols-5 gap-3">
@@ -817,9 +1352,10 @@ const AIContentGenerator: React.FC = () => {
                 ))}
               </div>
             </div>
+            )}
 
             {/* File Upload Area */}
-            {uploadMode === 'pdf' ? (
+            {(uploadMode === 'pdf' || uploadMode === 'full_book') ? (
               <div>
                 <input
                   ref={fileInputRef}
@@ -830,16 +1366,90 @@ const AIContentGenerator: React.FC = () => {
                 />
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-12 text-center hover:border-orange-400 transition-colors cursor-pointer"
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+                    uploadMode === 'full_book'
+                      ? 'border-purple-300 dark:border-purple-700 hover:border-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/10'
+                      : 'border-slate-300 dark:border-slate-600 hover:border-orange-400 hover:bg-orange-50/50 dark:hover:bg-orange-900/10'
+                  } ${selectedFile ? 'bg-slate-50 dark:bg-slate-900' : ''}`}
                 >
-                  <Upload className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                  <p className="text-slate-700 dark:text-slate-300 font-medium mb-2">
-                    {selectedFile ? selectedFile.name : 'Click to upload PDF file'}
-                  </p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : 'Maximum file size: 10MB'}
-                  </p>
+                  {selectedFile ? (
+                    <div className="flex flex-col items-center">
+                      <div className={`p-4 rounded-full mb-4 ${uploadMode === 'full_book' ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
+                        {uploadMode === 'full_book' ? (
+                          <Book className="w-10 h-10 text-purple-600 dark:text-purple-400" />
+                        ) : (
+                          <FileText className="w-10 h-10 text-orange-600 dark:text-orange-400" />
+                        )}
+                      </div>
+                      <p className="text-slate-900 dark:text-white font-medium mb-1">{selectedFile.name}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(null);
+                        }}
+                        className="mt-3 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                      >
+                        <X className="w-4 h-4" />
+                        Remove file
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`p-4 rounded-full mx-auto mb-4 inline-block ${
+                        uploadMode === 'full_book' ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-slate-100 dark:bg-slate-700'
+                      }`}>
+                        {uploadMode === 'full_book' ? (
+                          <Book className="w-10 h-10 text-purple-500 dark:text-purple-400" />
+                        ) : (
+                          <Upload className="w-10 h-10 text-slate-400" />
+                        )}
+                      </div>
+                      <p className="text-slate-700 dark:text-slate-300 font-medium mb-2">
+                        {uploadMode === 'full_book' 
+                          ? 'Drop your Cambridge IELTS book here or click to browse'
+                          : 'Click to upload PDF file'}
+                      </p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Maximum file size: {uploadMode === 'full_book' ? '50MB' : '10MB'}
+                      </p>
+                      {uploadMode === 'full_book' && (
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">
+                          Supports Cambridge IELTS books and similar test preparation materials
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
+
+                {/* Upload Progress */}
+                {isUploading && uploadProgress > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-slate-600 dark:text-slate-400">Extracting content...</span>
+                      <span className={`font-medium ${uploadMode === 'full_book' ? 'text-purple-600' : 'text-orange-600'}`}>
+                        {uploadProgress}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          uploadMode === 'full_book' 
+                            ? 'bg-gradient-to-r from-purple-500 to-indigo-500' 
+                            : 'bg-gradient-to-r from-orange-500 to-amber-500'
+                        }`}
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    {uploadMode === 'full_book' && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
+                        Processing full book may take a few minutes...
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -870,17 +1480,21 @@ const AIContentGenerator: React.FC = () => {
               <button
                 onClick={handleGenerateContent}
                 disabled={!canProceedToReview}
-                className="px-6 py-3 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
+                className={`px-6 py-3 text-white font-medium rounded-lg disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all ${
+                  uploadMode === 'full_book'
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-orange-600 hover:bg-orange-700'
+                }`}
               >
                 {isUploading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Processing...</span>
+                    <span>{uploadMode === 'full_book' ? 'Extracting Full Book...' : 'Processing...'}</span>
                   </>
                 ) : (
                   <>
-                    <ArrowRight className="w-5 h-5" />
-                    <span>Review Content</span>
+                    <Sparkles className="w-5 h-5" />
+                    <span>{uploadMode === 'full_book' ? 'Extract All Tests' : 'Extract Content'}</span>
                   </>
                 )}
               </button>
@@ -889,8 +1503,8 @@ const AIContentGenerator: React.FC = () => {
         </div>
       )}
 
-      {/* Step 2: Review */}
-      {currentStep === 2 && extractedData && (
+      {/* Step 2: Review - Single Section Mode */}
+      {currentStep === 2 && extractedData && uploadMode !== 'full_book' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-start justify-between mb-6">
@@ -1466,36 +2080,1043 @@ const AIContentGenerator: React.FC = () => {
         </div>
       )}
 
+      {/* Step 2: Review - Full Book Mode */}
+      {currentStep === 2 && fullTestData && uploadMode === 'full_book' && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {/* Header with Book Info */}
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 text-white">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-3">
+                  <Book className="w-7 h-7" />
+                  {fullTestData.book_info?.title || 'Cambridge IELTS Book'}
+                </h2>
+                <p className="text-purple-100 mt-1">
+                  {fullTestData.book_info?.extracted_tests || fullTestData.tests?.length || 0} test(s) extracted successfully
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Add as Book Toggle with Lock */}
+                <button
+                  onClick={() => setAddAsBook(!addAsBook)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+                    addAsBook
+                      ? 'bg-white text-purple-600 shadow-lg ring-2 ring-amber-400'
+                      : 'bg-white/20 hover:bg-white/30 text-white'
+                  }`}
+                  title={addAsBook ? 'Book mode enabled - all tests will be saved as a book' : 'Create a book with sections after saving'}
+                >
+                  {addAsBook ? <Lock className="w-4 h-4 text-amber-500" /> : <Unlock className="w-4 h-4" />}
+                  <span className="text-sm">{addAsBook ? 'Book Locked' : 'Add as Book'}</span>
+                  <div className={`w-10 h-5 rounded-full transition-colors relative ${
+                    addAsBook ? 'bg-amber-400' : 'bg-white/30'
+                  }`}>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      addAsBook ? 'translate-x-5' : 'translate-x-0.5'
+                    }`} />
+                  </div>
+                </button>
+                <button
+                  onClick={() => setCurrentStep(1)}
+                  className="p-2 hover:bg-white/20 rounded-lg transition"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Locked Book Mode Banner */}
+            {addAsBook && (
+              <div className="mt-4 p-3 bg-amber-500/20 border border-amber-400/50 rounded-lg flex items-center gap-3">
+                <Lock className="w-5 h-5 text-amber-300" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-100">Book Mode Enabled</p>
+                  <p className="text-xs text-amber-200/80">All {fullTestData.tests?.length || 0} tests will be saved and organized as a book. You can preview each test below.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Test Selector Tabs */}
+            {fullTestData.tests && fullTestData.tests.length > 1 && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-purple-200">
+                    {addAsBook ? (
+                      <span className="flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        Preview test {selectedTestIndex + 1} of {fullTestData.tests.length} (all will be saved)
+                      </span>
+                    ) : (
+                      <>Showing test {selectedTestIndex + 1} of {fullTestData.tests.length}</>
+                    )}
+                  </span>
+                  {fullTestData.tests.length > 10 && (
+                    <span className="text-xs text-purple-300 bg-purple-500/30 px-2 py-1 rounded">
+                      Scroll to see all tests →
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-wrap max-h-32 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-purple-400 scrollbar-track-purple-800/30">
+                  {fullTestData.tests.map((test, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedTestIndex(idx)}
+                      className={`px-3 py-1.5 rounded-lg font-medium text-sm transition shrink-0 ${
+                        selectedTestIndex === idx
+                          ? 'bg-white text-purple-600 shadow-lg'
+                          : 'bg-white/20 hover:bg-white/30'
+                      }`}
+                    >
+                      {test.test_name || `Test ${idx + 1}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6">
+            {/* Section Selection */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                Select sections to save:
+              </h3>
+              <div className="grid grid-cols-4 gap-3">
+                {['listening', 'reading', 'writing', 'speaking'].map((section) => {
+                  const sectionData = currentTest?.[section as keyof typeof currentTest];
+                  const hasData = sectionData && (
+                    (section === 'listening' && (sectionData as any)?.parts?.length > 0) ||
+                    (section === 'reading' && (sectionData as any)?.passages?.length > 0) ||
+                    (section === 'writing' && (sectionData as any)?.tasks?.length > 0) ||
+                    (section === 'speaking' && (sectionData as any)?.topics?.length > 0)
+                  );
+
+                  const icons = {
+                    listening: <Headphones className="w-5 h-5" />,
+                    reading: <BookOpen className="w-5 h-5" />,
+                    writing: <Edit className="w-5 h-5" />,
+                    speaking: <Mic className="w-5 h-5" />,
+                  };
+
+                  return (
+                    <button
+                      key={section}
+                      onClick={() => hasData && toggleSectionSelection(section)}
+                      disabled={!hasData}
+                      className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                        !hasData
+                          ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 opacity-50 cursor-not-allowed'
+                          : selectedSections.has(section)
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg ${
+                        selectedSections.has(section) && hasData
+                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                      }`}>
+                        {icons[section as keyof typeof icons]}
+                      </div>
+                      <span className={`font-medium capitalize ${
+                        selectedSections.has(section) && hasData
+                          ? 'text-purple-600'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}>
+                        {section}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {!hasData ? 'No data' : 
+                          section === 'listening' ? `${(sectionData as any)?.parts?.length || 0} parts` :
+                          section === 'reading' ? `${(sectionData as any)?.passages?.length || 0} passages` :
+                          section === 'writing' ? `${(sectionData as any)?.tasks?.length || 0} tasks` :
+                          `${(sectionData as any)?.topics?.length || 0} topics`
+                        }
+                      </span>
+                      {hasData && (
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          selectedSections.has(section)
+                            ? 'border-purple-500 bg-purple-500'
+                            : 'border-slate-300'
+                        }`}>
+                          {selectedSections.has(section) && (
+                            <Check className="w-3 h-3 text-white" />
+                          )}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Audio Upload Section for Listening */}
+            {selectedSections.has('listening') && currentTest?.listening?.parts && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10 rounded-xl border border-purple-200 dark:border-purple-800">
+                <h4 className="font-medium text-purple-900 dark:text-purple-100 mb-3 flex items-center gap-2">
+                  <FileAudio className="w-5 h-5" />
+                  Upload Audio Files for Listening Parts
+                </h4>
+                <div className="grid grid-cols-4 gap-3">
+                  {currentTest.listening.parts.map((part: any, idx: number) => (
+                    <div key={idx} className="relative">
+                      {partAudios[`part-${idx}`] ? (
+                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-green-300 dark:border-green-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-700 dark:text-green-300">Part {idx + 1}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 truncate">{partAudios[`part-${idx}`].file.name}</p>
+                          <button
+                            onClick={() => handleAudioRemove(`part-${idx}`)}
+                            className="mt-2 text-xs text-red-600 hover:text-red-700 flex items-center gap-1"
+                          >
+                            <X className="w-3 h-3" />
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center p-4 bg-white dark:bg-slate-800 rounded-lg border-2 border-dashed border-purple-300 dark:border-purple-700 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition">
+                          <Music className="w-6 h-6 text-purple-500 mb-1" />
+                          <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Part {idx + 1}</span>
+                          <span className="text-xs text-slate-500">{part.title || 'Upload audio'}</span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="audio/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleAudioUpload(`part-${idx}`, file);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Content Preview Tabs */}
+            <div className="border-b border-slate-200 dark:border-slate-700 mb-4">
+              <div className="flex gap-1">
+                {['reading', 'listening', 'writing', 'speaking'].map((tab) => {
+                  const tabData = currentTest?.[tab as keyof typeof currentTest];
+                  const hasData = tabData && (
+                    (tab === 'listening' && (tabData as any)?.parts?.length > 0) ||
+                    (tab === 'reading' && (tabData as any)?.passages?.length > 0) ||
+                    (tab === 'writing' && (tabData as any)?.tasks?.length > 0) ||
+                    (tab === 'speaking' && (tabData as any)?.topics?.length > 0)
+                  );
+
+                  if (!hasData) return null;
+
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveReviewTab(tab as any)}
+                      className={`px-4 py-2 font-medium text-sm capitalize transition border-b-2 -mb-px ${
+                        activeReviewTab === tab
+                          ? 'border-purple-600 text-purple-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Content Preview - Detailed with Questions */}
+            <div className="max-h-[70vh] overflow-y-auto space-y-4">
+              {/* Reading Passages */}
+              {activeReviewTab === 'reading' && currentTest?.reading?.passages && (
+                <div className="space-y-4">
+                  {currentTest.reading.passages.map((passage: any, pIdx: number) => (
+                    <div key={pIdx} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                      {/* Passage Header */}
+                      <button
+                        onClick={() => toggleExpand('passages', pIdx)}
+                        className="w-full p-4 bg-blue-50 dark:bg-blue-900/20 flex items-center justify-between hover:bg-blue-100 dark:hover:bg-blue-900/30 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-blue-500 text-white flex items-center justify-center font-bold">
+                            {passage.passage_number || pIdx + 1}
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-semibold text-slate-900 dark:text-white">{passage.title}</h4>
+                            <p className="text-sm text-slate-500">
+                              {passage.question_groups?.length || 0} question groups • {passage.question_groups?.reduce((acc: number, g: any) => acc + (g.questions?.length || 0), 0) || 0} questions
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${expanded.passages.has(pIdx) ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {/* Passage Content - Expanded */}
+                      {expanded.passages.has(pIdx) && (
+                        <div className="p-4 space-y-4">
+                          {/* Passage Text Preview */}
+                          <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg max-h-40 overflow-y-auto">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+                              {(passage.content || passage.text || '').substring(0, 500)}...
+                            </p>
+                          </div>
+
+                          {/* Question Groups */}
+                          {passage.question_groups?.map((group: any, gIdx: number) => (
+                            <div key={gIdx} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                              {/* Group Header */}
+                              <div className="p-3 bg-slate-100 dark:bg-slate-800 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-medium rounded">
+                                    {formatQuestionType(group.question_type)}
+                                  </span>
+                                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{group.title}</span>
+                                  <span className="text-xs text-slate-500">({group.questions?.length || 0} questions)</span>
+                                </div>
+                                {questionTypeRequiresImage(group.question_type) && (
+                                  <div className="flex items-center gap-2">
+                                    {groupImages[`fb-reading-${pIdx}-${gIdx}`] ? (
+                                      <span className="text-xs text-green-600 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" />
+                                        Image attached
+                                      </span>
+                                    ) : (
+                                      <label className="text-xs text-amber-600 flex items-center gap-1 cursor-pointer hover:text-amber-700">
+                                        <Image className="w-3 h-3" />
+                                        <span>Add image</span>
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          accept="image/*"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleImageUpload(`fb-reading-${pIdx}-${gIdx}`, file);
+                                          }}
+                                        />
+                                      </label>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Group Description */}
+                              {group.description && (
+                                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-900 text-sm text-slate-600 dark:text-slate-400 italic">
+                                  {group.description}
+                                </div>
+                              )}
+                              {/* Example if present */}
+                              {group.example && (
+                                <div className="mx-3 my-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded">Example</span>
+                                  </div>
+                                  <div className="text-sm space-y-1">
+                                    <p className="text-amber-900 dark:text-amber-100"><strong>Q:</strong> {group.example.question}</p>
+                                    <p className="text-amber-900 dark:text-amber-100"><strong>A:</strong> {group.example.answer}</p>
+                                    {group.example.explanation && (
+                                      <p className="text-xs text-amber-700 dark:text-amber-300 italic mt-1">💡 {group.example.explanation}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Questions List */}
+                              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {group.questions?.map((q: any, qIdx: number) => (
+                                  <div key={qIdx} className="p-3 flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-xs flex items-center justify-center font-medium text-slate-600 dark:text-slate-400 shrink-0">
+                                      {q.order || qIdx + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-slate-800 dark:text-slate-200">{q.text || q.question_text}</p>
+                                      {q.choices && (
+                                        <div className="mt-2 grid grid-cols-2 gap-1">
+                                          {q.choices.map((c: any, cIdx: number) => (
+                                            <span key={cIdx} className={`text-xs px-2 py-1 rounded ${c.key === q.correct_answer || q.correct_answer?.includes(c.key) ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
+                                              {c.key}. {c.text}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <p className="mt-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                                        Answer: {q.correct_answer}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Listening Parts */}
+              {activeReviewTab === 'listening' && currentTest?.listening?.parts && (
+                <div className="space-y-4">
+                  {currentTest.listening.parts.map((part: any, pIdx: number) => (
+                    <div key={pIdx} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                      {/* Part Header */}
+                      <button
+                        onClick={() => toggleExpand('parts', pIdx)}
+                        className="w-full p-4 bg-purple-50 dark:bg-purple-900/20 flex items-center justify-between hover:bg-purple-100 dark:hover:bg-purple-900/30 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-purple-500 text-white flex items-center justify-center font-bold">
+                            {part.part_number || pIdx + 1}
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-semibold text-slate-900 dark:text-white">{part.title}</h4>
+                            <p className="text-sm text-slate-500">
+                              {part.question_groups?.length || 0} question groups • {part.question_groups?.reduce((acc: number, g: any) => acc + (g.questions?.length || 0), 0) || 0} questions
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {partAudios[`part-${pIdx}`] ? (
+                            <span className="text-xs text-green-600 flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">
+                              <CheckCircle className="w-3 h-3" />
+                              Audio ready
+                            </span>
+                          ) : (
+                            <span className="text-xs text-amber-600 flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded">
+                              <AlertTriangle className="w-3 h-3" />
+                              No audio
+                            </span>
+                          )}
+                          <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${expanded.parts.has(pIdx) ? 'rotate-90' : ''}`} />
+                        </div>
+                      </button>
+
+                      {/* Part Content - Expanded */}
+                      {expanded.parts.has(pIdx) && (
+                        <div className="p-4 space-y-4">
+                          {/* Transcript Preview */}
+                          {part.transcript && (
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg max-h-32 overflow-y-auto">
+                              <p className="text-xs font-medium text-slate-500 mb-1">Transcript:</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+                                {part.transcript.substring(0, 300)}...
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Question Groups */}
+                          {part.question_groups?.map((group: any, gIdx: number) => (
+                            <div key={gIdx} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                              {/* Group Header */}
+                              <div className="p-3 bg-slate-100 dark:bg-slate-800 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-medium rounded">
+                                    {formatQuestionType(group.question_type)}
+                                  </span>
+                                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{group.title}</span>
+                                  <span className="text-xs text-slate-500">({group.questions?.length || 0} questions)</span>
+                                </div>
+                                {questionTypeRequiresImage(group.question_type) && (
+                                  <div className="flex items-center gap-2">
+                                    {groupImages[`fb-listening-${pIdx}-${gIdx}`] ? (
+                                      <span className="text-xs text-green-600 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" />
+                                        Image attached
+                                      </span>
+                                    ) : (
+                                      <label className="text-xs text-amber-600 flex items-center gap-1 cursor-pointer hover:text-amber-700">
+                                        <Image className="w-3 h-3" />
+                                        <span>Add image</span>
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          accept="image/*"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleImageUpload(`fb-listening-${pIdx}-${gIdx}`, file);
+                                          }}
+                                        />
+                                      </label>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Group Description */}
+                              {group.description && (
+                                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-900 text-sm text-slate-600 dark:text-slate-400 italic">
+                                  {group.description}
+                                </div>
+                              )}
+                              {/* Example if present */}
+                              {group.example && (
+                                <div className="mx-3 my-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded">Example</span>
+                                  </div>
+                                  <div className="text-sm space-y-1">
+                                    <p className="text-amber-900 dark:text-amber-100"><strong>Q:</strong> {group.example.question}</p>
+                                    <p className="text-amber-900 dark:text-amber-100"><strong>A:</strong> {group.example.answer}</p>
+                                    {group.example.explanation && (
+                                      <p className="text-xs text-amber-700 dark:text-amber-300 italic mt-1">💡 {group.example.explanation}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Questions List */}
+                              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {group.questions?.map((q: any, qIdx: number) => (
+                                  <div key={qIdx} className="p-3 flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-xs flex items-center justify-center font-medium text-slate-600 dark:text-slate-400 shrink-0">
+                                      {q.order || qIdx + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-slate-800 dark:text-slate-200">{q.text || q.question_text}</p>
+                                      {q.choices && (
+                                        <div className="mt-2 grid grid-cols-2 gap-1">
+                                          {q.choices.map((c: any, cIdx: number) => (
+                                            <span key={cIdx} className={`text-xs px-2 py-1 rounded ${c.key === q.correct_answer || q.correct_answer?.includes(c.key) ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
+                                              {c.key}. {c.text}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <p className="mt-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                                        Answer: {q.correct_answer}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Writing Tasks */}
+              {activeReviewTab === 'writing' && currentTest?.writing?.tasks && (
+                <div className="space-y-4">
+                  {currentTest.writing.tasks.map((task: any, tIdx: number) => (
+                    <div key={tIdx} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                      {/* Task Header */}
+                      <button
+                        onClick={() => toggleExpand('tasks', tIdx)}
+                        className="w-full p-4 bg-orange-50 dark:bg-orange-900/20 flex items-center justify-between hover:bg-orange-100 dark:hover:bg-orange-900/30 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-sm">
+                            {task.task_type?.replace('TASK_', 'T') || `T${tIdx + 1}`}
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-semibold text-slate-900 dark:text-white">{task.task_type || `Task ${tIdx + 1}`}</h4>
+                            <p className="text-sm text-slate-500">
+                              Min words: {task.min_words || 150} • {task.has_visual ? 'Has visual' : 'No visual'}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${expanded.tasks.has(tIdx) ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {/* Task Content - Expanded */}
+                      {expanded.tasks.has(tIdx) && (
+                        <div className="p-4 space-y-3">
+                          <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                            <p className="text-xs font-medium text-slate-500 mb-2">Prompt:</p>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{task.prompt}</p>
+                          </div>
+                          {task.visual_description && (
+                            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                              <p className="text-xs font-medium text-amber-600 mb-1">Visual Description:</p>
+                              <p className="text-sm text-amber-700 dark:text-amber-300">{task.visual_description}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Speaking Topics */}
+              {activeReviewTab === 'speaking' && currentTest?.speaking?.topics && (
+                <div className="space-y-4">
+                  {currentTest.speaking.topics.map((topic: any, tIdx: number) => (
+                    <div key={tIdx} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                      {/* Topic Header */}
+                      <button
+                        onClick={() => toggleExpand('topics', tIdx)}
+                        className="w-full p-4 bg-green-50 dark:bg-green-900/20 flex items-center justify-between hover:bg-green-100 dark:hover:bg-green-900/30 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-green-500 text-white flex items-center justify-center font-bold">
+                            P{topic.part_number}
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-semibold text-slate-900 dark:text-white">{topic.topic}</h4>
+                            <p className="text-sm text-slate-500">
+                              Part {topic.part_number} • {topic.part_number === 2 ? `${topic.cue_card?.bullet_points?.length || 0} bullet points` : `${topic.questions?.length || 0} questions`}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${expanded.topics.has(tIdx) ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {/* Topic Content - Expanded */}
+                      {expanded.topics.has(tIdx) && (
+                        <div className="p-4 space-y-3">
+                          {/* Part 2: Cue Card */}
+                          {topic.part_number === 2 && topic.cue_card && (
+                            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                              <p className="font-medium text-green-800 dark:text-green-200 mb-3">{topic.cue_card.main_prompt}</p>
+                              <p className="text-sm text-green-700 dark:text-green-300 mb-2">You should say:</p>
+                              <ul className="space-y-1">
+                                {topic.cue_card.bullet_points?.map((bp: string, bpIdx: number) => (
+                                  <li key={bpIdx} className="text-sm text-green-600 dark:text-green-400 flex items-start gap-2">
+                                    <span className="text-green-500">•</span>
+                                    {bp}
+                                  </li>
+                                ))}
+                              </ul>
+                              {topic.cue_card.follow_up && (
+                                <p className="mt-3 text-sm text-green-700 dark:text-green-300 italic">{topic.cue_card.follow_up}</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Part 1 & 3: Questions */}
+                          {(topic.part_number === 1 || topic.part_number === 3) && topic.questions && (
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                              {topic.questions.map((q: string, qIdx: number) => (
+                                <div key={qIdx} className="py-2 flex items-start gap-3">
+                                  <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-xs flex items-center justify-center font-medium text-green-600 dark:text-green-400 shrink-0">
+                                    {qIdx + 1}
+                                  </span>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300">{q}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Save Button */}
+            <div className="mt-6 flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="text-sm text-slate-500">
+                {selectedSections.size} section(s) selected for saving
+                {fullTestData?.tests && fullTestData.tests.length > 1 && (
+                  <span className="ml-2 text-purple-600">• {fullTestData.tests.length} tests available</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Save All Tests as Book Button - show when book mode is locked */}
+                {addAsBook && fullTestData?.tests && fullTestData.tests.length > 0 && (
+                  <button
+                    onClick={saveAllTests}
+                    disabled={isSaving || selectedSections.size === 0}
+                    className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-lg hover:from-amber-600 hover:to-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg ring-2 ring-amber-400/50"
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving {saveProgress.current}/{saveProgress.total}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-5 h-5" />
+                        <span>Save All {fullTestData.tests.length} Tests as Book</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                {/* Save All Tests Button - show when multiple tests exist but not in book mode */}
+                {!addAsBook && fullTestData?.tests && fullTestData.tests.length > 1 && (
+                  <button
+                    onClick={saveAllTests}
+                    disabled={isSaving || selectedSections.size === 0}
+                    className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSaving && saveProgress.total > 1 ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving {saveProgress.current}/{saveProgress.total}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Layers className="w-5 h-5" />
+                        <span>Save All {fullTestData.tests.length} Tests</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                {/* Save Current Test Button - hide when book mode is locked */}
+                {!addAsBook && (
+                  <button
+                    onClick={handleSaveContent}
+                    disabled={isSaving || selectedSections.size === 0}
+                    className="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSaving && saveProgress.total <= 1 ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving {saveProgress.section}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Database className="w-5 h-5" />
+                        <span>{fullTestData?.tests && fullTestData.tests.length > 1 ? 'Save Current Test' : 'Save Selected Sections'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step 3: Success */}
       {currentStep === 3 && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
           <div className="text-center max-w-2xl mx-auto">
-            <div className="w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-12 h-12 text-green-600" />
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${
+              createdBookId ? 'bg-indigo-100 dark:bg-indigo-900/20' : 
+              uploadMode === 'full_book' ? 'bg-purple-100 dark:bg-purple-900/20' : 'bg-green-100 dark:bg-green-900/20'
+            }`}>
+              <CheckCircle className={`w-12 h-12 ${
+                createdBookId ? 'text-indigo-600' :
+                uploadMode === 'full_book' ? 'text-purple-600' : 'text-green-600'
+              }`} />
             </div>
 
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Content Saved Successfully!</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-8">
-              Your IELTS test content has been extracted and saved to the database.
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+              {createdBookId 
+                ? 'Book Created Successfully!'
+                : uploadMode === 'full_book' ? 'Full Test Saved Successfully!' : 'Content Saved Successfully!'}
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
+              {createdBookId
+                ? `Your book "${bookDetails.title}" has been created with all sections linked.`
+                : uploadMode === 'full_book' 
+                ? 'All selected sections from the IELTS test have been saved to the database.'
+                : 'Your IELTS test content has been extracted and saved to the database.'
+              }
             </p>
+
+            {/* Show saved sections for full book mode */}
+            {uploadMode === 'full_book' && Array.isArray(savedItems) && savedItems.length > 0 && (
+              <div className="flex justify-center gap-2 mb-6 flex-wrap">
+                {savedItems.map((section, idx) => (
+                  <span 
+                    key={idx}
+                    className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium capitalize"
+                  >
+                    {section}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Show book info if created */}
+            {createdBookId && (
+              <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl inline-block">
+                <div className="flex items-center gap-3">
+                  <Book className="w-8 h-8 text-indigo-600" />
+                  <div className="text-left">
+                    <p className="font-semibold text-indigo-900 dark:text-indigo-100">{bookDetails.title}</p>
+                    <p className="text-sm text-indigo-600 dark:text-indigo-300">
+                      {savedContentIds.listening.length + savedContentIds.reading.length} sections
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-4 justify-center">
               <button
                 onClick={handleReset}
-                className="px-6 py-3 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700"
+                className={`px-6 py-3 text-white font-medium rounded-lg flex items-center gap-2 ${
+                  createdBookId ? 'bg-indigo-600 hover:bg-indigo-700' :
+                  uploadMode === 'full_book' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-600 hover:bg-orange-700'
+                }`}
               >
-                <Upload className="w-5 h-5 inline mr-2" />
-                Generate More Content
+                <RotateCcw className="w-5 h-5" />
+                {uploadMode === 'full_book' ? 'Upload Another Book' : 'Generate More Content'}
               </button>
+              {createdBookId && (
+                <button
+                  onClick={() => {
+                    window.location.href = `/manager/books/${createdBookId}`;
+                  }}
+                  className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                >
+                  <Book className="w-5 h-5" />
+                  View Book
+                </button>
+              )}
               <button
                 onClick={() => {
-                  const route = extractedData?.content_type === 'reading' ? '/manager/reading' : '/manager';
-                  window.location.href = route;
+                  window.location.href = '/manager';
                 }}
-                className="px-6 py-3 bg-slate-600 text-white font-medium rounded-lg hover:bg-slate-700"
+                className="px-6 py-3 bg-slate-600 text-white font-medium rounded-lg hover:bg-slate-700 flex items-center gap-2"
               >
-                <ArrowRight className="w-5 h-5 inline mr-2" />
-                View Content
+                <ArrowRight className="w-5 h-5" />
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4: Create Book */}
+      {currentStep === 4 && addAsBook && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-3">
+                  <Book className="w-7 h-7" />
+                  Create Book
+                </h2>
+                <p className="text-indigo-100 mt-1">
+                  Configure your book with the saved content sections
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setCurrentStep(3);
+                  setAddAsBook(false);
+                }}
+                className="p-2 hover:bg-white/20 rounded-lg transition"
+                title="Skip book creation"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {/* Book Details Form */}
+            <div className="grid grid-cols-2 gap-6 mb-8">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Book Title *
+                </label>
+                <input
+                  type="text"
+                  value={bookDetails.title}
+                  onChange={(e) => setBookDetails(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Cambridge IELTS 18 - Test 1"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={bookDetails.description}
+                  onChange={(e) => setBookDetails(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Optional description for this book..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  CEFR Level
+                </label>
+                <select
+                  value={bookDetails.level}
+                  onChange={(e) => setBookDetails(prev => ({ ...prev, level: e.target.value as any }))}
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="B1">B1 - Intermediate</option>
+                  <option value="B2">B2 - Upper Intermediate</option>
+                  <option value="C1">C1 - Advanced</option>
+                  <option value="C2">C2 - Proficient</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Publisher
+                </label>
+                <input
+                  type="text"
+                  value={bookDetails.publisher}
+                  onChange={(e) => setBookDetails(prev => ({ ...prev, publisher: e.target.value }))}
+                  placeholder="e.g., Cambridge University Press"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Author
+                </label>
+                <input
+                  type="text"
+                  value={bookDetails.author}
+                  onChange={(e) => setBookDetails(prev => ({ ...prev, author: e.target.value }))}
+                  placeholder="Optional author name"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Locked Sections Info Banner */}
+            <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+              <div className="flex items-start gap-3">
+                <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-amber-900 dark:text-amber-100">Progressive Unlock System</h4>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                    Only <strong>Section 1</strong> will be unlocked for learners. Other sections will unlock automatically as users complete previous sections.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Sections Preview */}
+            <div className="mb-8">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+                <Layers className="w-4 h-4" />
+                Sections to be added ({savedContentIds.listening.length + savedContentIds.reading.length})
+              </h3>
+              
+              {/* Combined Sections List with Order */}
+              <div className="space-y-2 mb-4">
+                {(() => {
+                  const listeningParts = currentTest?.listening?.parts || [];
+                  const readingPassages = currentTest?.reading?.passages || [];
+                  let order = 0;
+                  const allSections: Array<{type: 'listening' | 'reading', idx: number, title: string, order: number}> = [];
+                  
+                  savedContentIds.listening.forEach((id, idx) => {
+                    order++;
+                    const partData = listeningParts[idx];
+                    allSections.push({
+                      type: 'listening',
+                      idx,
+                      title: partData?.title || `Listening Part ${idx + 1}`,
+                      order
+                    });
+                  });
+                  
+                  savedContentIds.reading.forEach((id, idx) => {
+                    order++;
+                    const passageData = readingPassages[idx];
+                    allSections.push({
+                      type: 'reading',
+                      idx,
+                      title: passageData?.title || `Reading Passage ${idx + 1}`,
+                      order
+                    });
+                  });
+                  
+                  return allSections.map((section) => (
+                    <div 
+                      key={`${section.type}-${section.idx}`} 
+                      className={`flex items-center gap-3 p-3 rounded-lg border ${
+                        section.order === 1
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                          : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        section.order === 1
+                          ? 'bg-green-500 text-white'
+                          : 'bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        {section.order}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {section.type === 'listening' ? (
+                            <Headphones className="w-4 h-4 text-purple-600" />
+                          ) : (
+                            <BookOpen className="w-4 h-4 text-blue-600" />
+                          )}
+                          <span className="font-medium text-slate-900 dark:text-white text-sm">
+                            {section.title}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {section.type === 'listening' ? 'Listening' : 'Reading'}
+                        </span>
+                      </div>
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        section.order === 1
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                          : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {section.order === 1 ? (
+                          <>
+                            <Unlock className="w-3 h-3" />
+                            <span>Unlocked</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              {savedContentIds.listening.length === 0 && savedContentIds.reading.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No sections available for book creation.</p>
+                  <p className="text-sm">Only Listening and Reading sections can be added to books.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => {
+                  setCurrentStep(3);
+                  setAddAsBook(false);
+                }}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Skip Book Creation
+              </button>
+              <button
+                onClick={createBookWithSections}
+                disabled={isCreatingBook || !bookDetails.title.trim() || (savedContentIds.listening.length + savedContentIds.reading.length) === 0}
+                className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isCreatingBook ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Creating Book...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    <span>Create Book</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

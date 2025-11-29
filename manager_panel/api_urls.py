@@ -70,6 +70,9 @@ from .ai_api import (
     generate_content_from_pdf,
     save_generated_content,
     upload_audio_temp,
+    generate_full_test_from_pdf,
+    save_full_test_content,
+    upload_batch_audio,
 )
 from .api.exams import (
     get_exams_list,
@@ -333,6 +336,14 @@ urlpatterns = [
     path("tests/ai-generate/", generate_content_from_pdf, name="ai_generate_content"),
     path("tests/ai-save/", save_generated_content, name="ai_save_content"),
     path("tests/upload-audio-temp/", upload_audio_temp, name="upload_audio_temp"),
+    # AI Full Test Extraction (Cambridge IELTS books)
+    path(
+        "tests/ai-generate-full/",
+        generate_full_test_from_pdf,
+        name="ai_generate_full_test",
+    ),
+    path("tests/ai-save-full/", save_full_test_content, name="ai_save_full_test"),
+    path("tests/upload-batch-audio/", upload_batch_audio, name="upload_batch_audio"),
     # Books Management
     path("books/", get_books_manager, name="books_list"),
     path("books/create/", create_book, name="create_book"),

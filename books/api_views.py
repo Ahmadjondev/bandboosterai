@@ -162,7 +162,7 @@ def _calculate_section_score(section, user_answers_dict):
 
     # Calculate band score using the standard IELTS conversion
     band_type = "academic_reading" if section.section_type == "READING" else "listening"
-    band_score = calculate_band_score(total_score, max_possible_score, band_type)
+    band_score = calculate_band_score(total_score, max_possible_score, band_type, is_book=True)
 
     return {
         "correct_answers": int(total_score),

@@ -39,6 +39,12 @@ interface Question {
   picture_url?: string; // For diagram/map labelling
 }
 
+interface ExampleData {
+  question: string;
+  answer: string;
+  explanation?: string;
+}
+
 interface TestHead {
   id: number;
   title: string;
@@ -50,6 +56,7 @@ interface TestHead {
   view_type?: string;
   picture_url?: string;
   question_data?: any;
+  example?: ExampleData | null;
   questions: Question[];
 }
 
@@ -172,6 +179,55 @@ const renderInstruction = (group: TestHead | undefined): React.ReactNode => {
 
   return <div className="mb-6">{parts}</div>;
 };
+
+/**
+ * Render example question/answer box
+ * Shows students how to answer the question type
+ */
+const renderExample = (group: TestHead | undefined): React.ReactNode => {
+  if (!group?.example) return null;
+
+  // Normalize example to always be an array
+  const examples = Array.isArray(group.example)
+    ? group.example
+    : [group.example];
+
+  return (
+    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="inline-flex items-center justify-center px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded">
+          Example
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {examples.map((ex, idx) => (
+          <div
+            key={idx}
+            className="space-y-2 pb-3 border-b last:border-0 border-amber-200 dark:border-amber-700"
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200 shrink-0">Q:</span>
+              <p className="text-sm text-amber-900 dark:text-amber-100">{ex.question}</p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200 shrink-0">A:</span>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">{ex.answer}</p>
+            </div>
+
+            {ex.explanation && (
+              <p className="text-xs text-amber-700 dark:text-amber-300 italic">
+                💡 {ex.explanation}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 
 /**
  * Render MCQ (Multiple Choice - Single Answer)
@@ -781,22 +837,23 @@ const renderMatching = (
   // Parse matching data from question_data
   let headings: DropdownOption[] = [];
   let dropdownOptions: DropdownOption[] = [];
-  
+  console.log("QR: ", group.question_data);
   if (group.question_data) {
     try {
       const data = typeof group.question_data === 'string' 
         ? JSON.parse(group.question_data) 
         : group.question_data;
-      
+      let cacheHeadings = data.headings || data.options;
       // For MH (Matching Headings), use headings array
-      if (group.question_type === 'MH' && data.headings) {
-        headings = data.headings.map((h: any) => ({
-          key: h.key || '',
-          text: h.text || ''
+      if (group.question_type === 'MH' && cacheHeadings) {
+        headings = cacheHeadings.map((h: any) => ({
+          key: h.key || h.value || '',
+          text: h.text || h.label || ''
         }));
         dropdownOptions = headings;
       } else {
         // For MI, MF, use options array and normalize structure
+        console.log("MI, MF", data.toptions);
         const rawOptions = data.options || [];
         dropdownOptions = rawOptions.map((opt: any) => ({
           key: opt.key || opt.value || '',
@@ -826,6 +883,7 @@ const renderMatching = (
           </div>
         </div>
       )}
+    
       {/* Questions */}
       <div className="space-y-4">
         {group.questions.map((question) => {
@@ -1709,6 +1767,9 @@ export default function QuestionRenderer({
 
   // Render instruction header
   const instruction = renderInstruction(group);
+  
+  // Render example if available
+  const example = renderExample(group);
 
   // Route to appropriate renderer based on question type
   let content: React.ReactNode = null;
@@ -1752,6 +1813,7 @@ export default function QuestionRenderer({
   return (
     <div className={`${fontSize}`}>
       {instruction}
+      {example}
       {content}
     </div>
   );

@@ -1,13 +1,28 @@
 "use client";
 
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
-import { getDashboardStats, clearDashboardCache, type DashboardStats } from "@/lib/exam-api";
-import { BookOpen, Clock, Target, TrendingUp, RefreshCw } from "lucide-react";
+import { 
+  getDashboardStats, 
+  clearDashboardCache, 
+  type DashboardStats,
+  // V2 API
+  getDashboardOverviewV2,
+  getDashboardSectionsV2,
+  getDashboardBooksV2,
+  getDashboardActivityV2,
+  clearDashboardCacheV2,
+  type DashboardOverviewV2,
+  type DashboardSectionsV2,
+  type DashboardBooksV2,
+  type DashboardActivityV2,
+} from "@/lib/exam-api";
+import { BookOpen, Clock, Target, TrendingUp, RefreshCw, Zap, Library } from "lucide-react";
 
 // Lazy load heavy components for better initial load performance
 const BooksMotivationWidget = lazy(() => import("@/components/BooksMotivationWidget"));
+const BooksProgressWidget = lazy(() => import("@/components/dashboard/BooksProgressWidget"));
 const AchievementsWidget = lazy(() => import("@/components/dashboard/AchievementsWidget"));
 const WeeklyProgressChart = lazy(() => import("@/components/dashboard/WeeklyProgressChart"));
 const RecommendationsWidget = lazy(() => import("@/components/dashboard/RecommendationsWidget"));
@@ -29,15 +44,40 @@ const ComponentLoader = () => (
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  
+  // V2 API state - separate states for parallel loading (renamed to avoid conflicts)
+  const [overviewV2, setOverviewV2] = useState<DashboardOverviewV2 | null>(null);
+  const [sectionsV2, setSectionsV2] = useState<DashboardSectionsV2 | null>(null);
+  const [booksV2, setBooksV2] = useState<DashboardBooksV2 | null>(null);
+  const [activityV2, setActivityV2] = useState<DashboardActivityV2 | null>(null);
+  
+  // Legacy stats for components not yet migrated
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadStats = async () => {
+  // Load data in parallel for faster initial load
+  const loadStats = useCallback(async () => {
     try {
-      const data = await getDashboardStats();
-      setStats(data);
+      // Load V2 endpoints in parallel (fast endpoints) - these load first
+      const [overviewData, sectionsData, booksData, activityData] = await Promise.all([
+        getDashboardOverviewV2().catch(() => null),
+        getDashboardSectionsV2().catch(() => null),
+        getDashboardBooksV2().catch(() => null),
+        getDashboardActivityV2().catch(() => null),
+      ]);
+
+      setOverviewV2(overviewData);
+      setSectionsV2(sectionsData);
+      setBooksV2(booksData);
+      setActivityV2(activityData);
+
+      // Load legacy stats in background for remaining widgets
+      const legacyStats = await getDashboardStats().catch(() => null);
+      setStats(legacyStats);
+      
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
@@ -45,12 +85,15 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await clearDashboardCache();
+      await Promise.all([
+        clearDashboardCacheV2(),
+        clearDashboardCache(),
+      ]);
       await loadStats();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to refresh dashboard");
@@ -60,7 +103,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [loadStats]);
 
   if (loading) {
     return (
@@ -142,49 +185,57 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Overview Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Overview Stats - Uses V2 data with fallback to legacy */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             icon={<BookOpen className="w-6 h-6" />}
             label="Total Tests"
-            value={overview.total_tests}
+            value={overviewV2?.total_tests ?? overview.total_tests}
             bgColor="bg-blue-50 dark:bg-blue-900/20"
             iconColor="text-blue-600 dark:text-blue-400"
           />
           <StatCard
             icon={<Target className="w-6 h-6" />}
             label="Current Score"
-            value={overview.current_score?.toFixed(1) || "--"}
-            subtitle={`Target: ${overview.target_score}`}
+            value={sectionsV2?.overall_average?.toFixed(1) ?? overview.current_score?.toFixed(1) ?? "--"}
+            subtitle={`Target: ${overviewV2?.target_score ?? overview.target_score}`}
             bgColor="bg-purple-50 dark:bg-purple-900/20"
             iconColor="text-purple-600 dark:text-purple-400"
           />
           <StatCard
             icon={<TrendingUp className="w-6 h-6" />}
             label="Overall Progress"
-            value={`${overview.overall_progress}%`}
+            value={`${overview.overall_progress ?? 0}%`}
             bgColor="bg-green-50 dark:bg-green-900/20"
             iconColor="text-green-600 dark:text-green-400"
           />
           <StatCard
             icon={<Clock className="w-6 h-6" />}
             label="Study Streak"
-            value={overview.streak_days}
-            subtitle={`${overview.tests_this_week} tests this week`}
+            value={overviewV2?.streak_days ?? overview.streak_days}
+            subtitle={`${overviewV2?.tests_this_week ?? overview.tests_this_week} tests this week`}
             bgColor="bg-orange-50 dark:bg-orange-900/20"
             iconColor="text-orange-600 dark:text-orange-400"
           />
+          <StatCard
+            icon={<Library className="w-6 h-6" />}
+            label="Books Progress"
+            value={overviewV2?.books?.started ?? 0}
+            subtitle={`${overviewV2?.books?.completed ?? 0} completed`}
+            bgColor="bg-indigo-50 dark:bg-indigo-900/20"
+            iconColor="text-indigo-600 dark:text-indigo-400"
+          />
         </div>
 
-        {/* Books Motivation Widget */}
+        {/* Books Progress & Section Performance */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <Suspense fallback={<ComponentLoader />}>
-              <BooksMotivationWidget />
+              <BooksProgressWidget data={booksV2} loading={!booksV2 && loading} />
             </Suspense>
           </div>
           
-          {/* Section Performance */}
+          {/* Section Performance - Uses V2 sections data with fallback */}
           <div className="lg:col-span-2">
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
@@ -192,17 +243,26 @@ export default function DashboardPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {sections.map(({ key, name, icon }) => {
-              const sectionData = section_stats[key];
+              // Use V2 sections data when available, fallback to legacy
+              const sectionDataV2 = sectionsV2?.[key as keyof typeof sectionsV2];
+              const sectionDataLegacy = section_stats?.[key];
+              const sectionData = (typeof sectionDataV2 === 'object' && sectionDataV2) 
+                ? sectionDataV2 
+                : sectionDataLegacy;
+              
+              if (!sectionData) return null;
+              
               const score = sectionData.average_score?.toFixed(1) || "--";
-              const progress = sectionData.progress;
+              const progress = sectionData.progress ?? 0;
+              const targetScore = overviewV2?.target_score ?? overview.target_score;
               const gap = sectionData.average_score 
-                ? (overview.target_score - sectionData.average_score).toFixed(1)
+                ? (targetScore - sectionData.average_score).toFixed(1)
                 : "--";
               
               // Color based on score relative to target
               let progressColor = "bg-red-500";
               if (sectionData.average_score) {
-                if (sectionData.average_score >= overview.target_score) {
+                if (sectionData.average_score >= targetScore) {
                   progressColor = "bg-green-500";
                 } else if (sectionData.average_score >= 5.0) {
                   progressColor = "bg-yellow-500";

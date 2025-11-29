@@ -257,7 +257,7 @@ function SectionItem({ section, bookId }: SectionItemProps) {
       setStarting(false);
     }
   };
-
+  console.log(section);
   return (
     <div
       className={`group border-2 rounded-xl p-4 transition-all duration-300 ${
@@ -278,7 +278,7 @@ function SectionItem({ section, bookId }: SectionItemProps) {
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Section {section.order}
+                {section.title}
               </h3>
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                 section.section_type === 'READING'

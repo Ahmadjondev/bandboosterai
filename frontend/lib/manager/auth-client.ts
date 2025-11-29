@@ -170,11 +170,11 @@ class AuthClient {
   }
 
   /**
-   * Check if user has manager or superadmin role
+   * Check if user has manager role
    */
   isManager(): boolean {
     const user = this.getCurrentUser();
-    return user ? ['MANAGER', 'SUPERADMIN'].includes(user.role) : false;
+    return user ? ['MANAGER'].includes(user.role) : false;
   }
 
   /**

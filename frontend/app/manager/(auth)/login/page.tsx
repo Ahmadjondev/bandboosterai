@@ -20,9 +20,9 @@ export default function ManagerLoginPage() {
     try {
       const response = await authClient.login({ username, password });
       
-      // Check if user has manager or superadmin role
+      // Check if user has manager role
       if (!['MANAGER'].includes(response.user.role)) {
-        setError('Access denied. Manager or SuperAdmin role required.');
+        setError('Access denied. Manager role required.');
         await authClient.logout();
         setLoading(false);
         return;

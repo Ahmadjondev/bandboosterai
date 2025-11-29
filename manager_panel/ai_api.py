@@ -25,6 +25,7 @@ from ai.content_generator import (
     generate_listening_parts_from_pdf,
     generate_writing_tasks_from_pdf,
     generate_speaking_topics_from_pdf,
+    generate_cambridge_full_test_from_pdf,
 )
 
 
@@ -32,7 +33,7 @@ def check_manager_permission(user):
     """Check if user has manager/admin permissions"""
     if not user.is_authenticated:
         return False
-    return user.role in ["MANAGER", "SUPERADMIN"]
+    return user.role in ["MANAGER"]
 
 
 @api_view(["POST"])
@@ -238,6 +239,9 @@ def _save_reading_passages(data, user, images=None):
                 question_type=group_data.get("question_type"),
                 description=group_data.get("description", ""),
                 question_data=group_data.get("question_data"),
+                example=group_data.get(
+                    "example"
+                ),  # Store example question/answer if present
             )
 
             # Attach image if provided for this group
@@ -342,6 +346,9 @@ def _save_listening_parts(data, user, images=None, audios=None):
                 question_data=group_data.get(
                     "question_data"
                 ),  # Save question_data structure
+                example=group_data.get(
+                    "example"
+                ),  # Store example question/answer if present
             )
 
             # Attach image if provided for this group
@@ -593,5 +600,243 @@ def upload_audio_temp(request):
             "success": True,
             "audio_url": default_storage.url(saved_path),
             "audio_filename": audio_file.name,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_full_test_from_pdf(request):
+    """
+    Generate COMPLETE IELTS test(s) from a Cambridge IELTS book PDF or similar.
+    Extracts all sections: Listening, Reading, Writing, Speaking in one request.
+
+    POST /manager/api/tests/ai-generate-full/
+
+    Body (multipart/form-data):
+        - pdf_file: PDF file (Cambridge IELTS book or similar)
+
+    Returns:
+        - Complete test data with all sections for multiple tests
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if "pdf_file" not in request.FILES:
+        return Response(
+            {"error": "No PDF file provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    pdf_file = request.FILES["pdf_file"]
+
+    # Validate file type
+    if not pdf_file.name.endswith(".pdf"):
+        return Response(
+            {"error": "Only PDF files are supported"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Read PDF bytes
+    pdf_bytes = pdf_file.read()
+    pdf_mime_type = pdf_file.content_type or "application/pdf"
+
+    try:
+        result = generate_cambridge_full_test_from_pdf(pdf_bytes, pdf_mime_type)
+
+        if result.get("success"):
+            return Response(
+                {
+                    "success": True,
+                    "content_type": "full_test",
+                    "data": result,
+                    "message": "Full test content extracted successfully. Review and save sections.",
+                }
+            )
+        else:
+            return Response(
+                {
+                    "error": result.get("error", "Failed to extract content"),
+                    "details": result,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Error processing PDF: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def save_full_test_content(request):
+    """
+    Save a complete IELTS test (all sections) to database.
+
+    POST /manager/api/tests/ai-save-full/
+
+    Body (JSON or FormData):
+        - test_data: Complete test data with listening, reading, writing, speaking
+        - audios[part-X]: Audio files for listening parts (FormData only)
+        - images[key]: Image files for question groups (FormData only)
+
+    Returns:
+        - Success message with created object IDs for all sections
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Handle both JSON and FormData
+    test_data = request.data.get("test_data")
+
+    # If data is a string (from FormData), parse it as JSON
+    if isinstance(test_data, str):
+        import json
+
+        try:
+            test_data = json.loads(test_data)
+        except json.JSONDecodeError:
+            return Response(
+                {"error": "Invalid JSON in test_data field"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    if not test_data:
+        return Response(
+            {"error": "Missing test_data"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Extract files from request
+    images = {}
+    audios = {}
+    for key in request.FILES:
+        if key.startswith("images[") and key.endswith("]"):
+            group_key = key[7:-1]
+            images[group_key] = request.FILES[key]
+        elif key.startswith("audios[") and key.endswith("]"):
+            part_key = key[7:-1]
+            audios[part_key] = request.FILES[key]
+
+    try:
+        results = {
+            "listening": None,
+            "reading": None,
+            "writing": None,
+            "speaking": None,
+        }
+
+        # Save Listening Parts
+        if test_data.get("listening") and test_data["listening"].get("parts"):
+            listening_data = {"parts": test_data["listening"]["parts"]}
+            listening_result = _save_listening_parts(
+                listening_data, request.user, images, audios
+            )
+            if listening_result.status_code == 200:
+                results["listening"] = listening_result.data
+
+        # Save Reading Passages
+        if test_data.get("reading") and test_data["reading"].get("passages"):
+            reading_data = {"passages": test_data["reading"]["passages"]}
+            reading_result = _save_reading_passages(reading_data, request.user, images)
+            if reading_result.status_code == 200:
+                results["reading"] = reading_result.data
+
+        # Save Writing Tasks
+        if test_data.get("writing") and test_data["writing"].get("tasks"):
+            writing_data = {"tasks": test_data["writing"]["tasks"]}
+            writing_result = _save_writing_tasks(writing_data, request.user)
+            if writing_result.status_code == 200:
+                results["writing"] = writing_result.data
+
+        # Save Speaking Topics
+        if test_data.get("speaking") and test_data["speaking"].get("topics"):
+            speaking_data = {"topics": test_data["speaking"]["topics"]}
+            speaking_result = _save_speaking_topics(speaking_data, request.user)
+            if speaking_result.status_code == 200:
+                results["speaking"] = speaking_result.data
+
+        # Count what was saved
+        saved_sections = [k for k, v in results.items() if v and v.get("success")]
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Successfully saved {len(saved_sections)} section(s): {', '.join(saved_sections)}",
+                "results": results,
+                "saved_sections": saved_sections,
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Error saving content: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def upload_batch_audio(request):
+    """
+    Upload multiple audio files at once for listening parts.
+
+    POST /manager/api/tests/upload-batch-audio/
+
+    Body (multipart/form-data):
+        - audio_files[]: Multiple audio files
+        - mapping: JSON mapping of filename to part index
+
+    Returns:
+        - List of uploaded audio URLs with their mappings
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    uploaded_files = []
+    errors = []
+
+    # Get all audio files from request
+    for key in request.FILES:
+        if key.startswith("audio_"):
+            audio_file = request.FILES[key]
+            try:
+                # Save to media/listening/temp/
+                file_path = f"listening/temp/{audio_file.name}"
+                saved_path = default_storage.save(
+                    file_path, ContentFile(audio_file.read())
+                )
+
+                uploaded_files.append(
+                    {
+                        "key": key,
+                        "filename": audio_file.name,
+                        "url": default_storage.url(saved_path),
+                        "size": audio_file.size,
+                    }
+                )
+            except Exception as e:
+                errors.append(
+                    {"key": key, "filename": audio_file.name, "error": str(e)}
+                )
+
+    return Response(
+        {
+            "success": len(errors) == 0,
+            "uploaded": uploaded_files,
+            "errors": errors,
+            "message": f"Uploaded {len(uploaded_files)} audio file(s)"
+            + (f" with {len(errors)} error(s)" if errors else ""),
         }
     )

@@ -234,7 +234,7 @@ def identify_strengths_and_weaknesses(
 
 
 def calculate_band_score(
-    correct_count: int, total_count: int, section_type: str
+    correct_count: int, total_count: int, section_type: str, is_book: bool = False
 ) -> float:
     """
     Calculate IELTS band score based on correct answers.
@@ -255,6 +255,70 @@ def calculate_band_score(
 
     # Calculate percentage
     percentage = (correct_count / total_count) * 100
+
+    if is_book:
+        # Standard IELTS band score conversion (out of 40 questions)
+        # Used for tests with 20+ questions
+        band_conversion = {
+            "academic_reading": [
+                (0, 0.0),
+                (4, 2.5),
+                (10, 3.5),
+                (15, 4.5),
+                (19, 5.0),
+                (23, 5.5),
+                (27, 6.0),
+                (30, 6.5),
+                (33, 7.0),
+                (35, 7.5),
+                (37, 8.0),
+                (39, 8.5),
+                (40, 9.0),
+            ],
+            "listening": [
+                (0, 0.0),
+                (4, 2.5),
+                (10, 3.5),
+                (16, 4.5),
+                (19, 5.0),
+                (23, 5.5),
+                (26, 6.0),
+                (30, 6.5),
+                (32, 7.0),
+                (34, 7.5),
+                (36, 8.0),
+                (38, 8.5),
+                (40, 9.0),
+            ],
+        }
+
+        # Normalize to 40 questions standard
+        normalized_correct = (correct_count / total_count) * 40
+
+        conversion_table = band_conversion.get(
+            section_type.lower(), band_conversion["listening"]
+        )
+
+        # Find the band score
+        for i in range(len(conversion_table) - 1):
+            if (
+                normalized_correct >= conversion_table[i][0]
+                and normalized_correct < conversion_table[i + 1][0]
+            ):
+                # Linear interpolation between band scores
+                lower_score = conversion_table[i][1]
+                upper_score = conversion_table[i + 1][1]
+                lower_correct = conversion_table[i][0]
+                upper_correct = conversion_table[i + 1][0]
+
+                ratio = (normalized_correct - lower_correct) / (
+                    upper_correct - lower_correct
+                )
+                band = lower_score + (upper_score - lower_score) * ratio
+                return round(band * 2) / 2  # Round to nearest 0.5
+
+        # If above highest threshold
+        return conversion_table[-1][1]
 
     # For small question counts (< 20), use percentage-based scoring
     # This is more accurate than normalizing to 40
@@ -374,66 +438,3 @@ def calculate_band_score(
             return 2.5
         else:
             return 2.0
-
-    # Standard IELTS band score conversion (out of 40 questions)
-    # Used for tests with 20+ questions
-    band_conversion = {
-        "academic_reading": [
-            (0, 0.0),
-            (4, 2.5),
-            (10, 3.5),
-            (15, 4.5),
-            (19, 5.0),
-            (23, 5.5),
-            (27, 6.0),
-            (30, 6.5),
-            (33, 7.0),
-            (35, 7.5),
-            (37, 8.0),
-            (39, 8.5),
-            (40, 9.0),
-        ],
-        "listening": [
-            (0, 0.0),
-            (4, 2.5),
-            (10, 3.5),
-            (16, 4.5),
-            (19, 5.0),
-            (23, 5.5),
-            (26, 6.0),
-            (30, 6.5),
-            (32, 7.0),
-            (34, 7.5),
-            (36, 8.0),
-            (38, 8.5),
-            (40, 9.0),
-        ],
-    }
-
-    # Normalize to 40 questions standard
-    normalized_correct = (correct_count / total_count) * 40
-
-    conversion_table = band_conversion.get(
-        section_type.lower(), band_conversion["listening"]
-    )
-
-    # Find the band score
-    for i in range(len(conversion_table) - 1):
-        if (
-            normalized_correct >= conversion_table[i][0]
-            and normalized_correct < conversion_table[i + 1][0]
-        ):
-            # Linear interpolation between band scores
-            lower_score = conversion_table[i][1]
-            upper_score = conversion_table[i + 1][1]
-            lower_correct = conversion_table[i][0]
-            upper_correct = conversion_table[i + 1][0]
-
-            ratio = (normalized_correct - lower_correct) / (
-                upper_correct - lower_correct
-            )
-            band = lower_score + (upper_score - lower_score) * ratio
-            return round(band * 2) / 2  # Round to nearest 0.5
-
-    # If above highest threshold
-    return conversion_table[-1][1]

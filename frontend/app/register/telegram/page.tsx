@@ -199,7 +199,7 @@ export default function TelegramVerifyPage() {
 
         {/* Footer Note */}
         <p className="text-center text-sm text-slate-600 dark:text-slate-400 mt-6">
-          Code expires in 10 minutes. Make sure to enter it quickly!
+          Code expires in 1 minutes. Make sure to enter it quickly!
         </p>
       </div>
     </div>

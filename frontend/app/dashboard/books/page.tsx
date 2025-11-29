@@ -364,6 +364,7 @@ function BookCard({ book, viewMode }: BookCardProps) {
   };
 
   if (viewMode === 'list') {
+    console.log(book);
     return (
       <Link href={`/dashboard/books/${book.id}`} className="block group">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 overflow-hidden">
@@ -410,7 +411,7 @@ function BookCard({ book, viewMode }: BookCardProps) {
                   {progress && progress.average_score !== null && progress.average_score > 0 && (
                     <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold">
                       <Star className="w-4 h-4 fill-current" />
-                      {progress.average_score.toFixed(1)}%
+                      {progress.average_score.toFixed(1)}
                     </span>
                   )}
                 </div>
@@ -488,7 +489,7 @@ function BookCard({ book, viewMode }: BookCardProps) {
               {progress && progress.average_score !== null && progress.average_score > 0 && (
                 <div className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 font-semibold">
                   <Star className="w-4 h-4 fill-current" />
-                  {progress.average_score.toFixed(1)}%
+                  {progress.average_score.toFixed(1)}
                 </div>
               )}
             </div>
