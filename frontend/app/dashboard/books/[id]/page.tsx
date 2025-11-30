@@ -245,10 +245,10 @@ function SectionItem({ section, bookId }: SectionItemProps) {
     try {
       setStarting(true);
       
-      // Route to dedicated practice pages based on section type
+      // Route to fullscreen practice-session pages based on section type
       const practiceRoute = section.section_type === 'READING' 
-        ? `/practice/reading/${section.id}`
-        : `/practice/listening/${section.id}`;
+        ? `/practice-session/reading/${section.id}`
+        : `/practice-session/listening/${section.id}`;
       
       router.push(practiceRoute);
     } catch (err) {

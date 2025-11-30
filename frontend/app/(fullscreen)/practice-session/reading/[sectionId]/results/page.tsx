@@ -1,5 +1,11 @@
 'use client';
 
+/**
+ * Unified Reading Results Page
+ * Supports both book sections (numeric IDs) and section practices (UUIDs)
+ * URL: /practice-session/reading/[sectionId]/results
+ */
+
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
@@ -49,22 +55,32 @@ interface ResultData {
 export default function ReadingResultsPage() {
   const params = useParams();
   const router = useRouter();
-  const sectionId = parseInt(params.sectionId as string);
+  
+  // Support both numeric IDs (book sections) and UUIDs (section practices)
+  const sectionIdParam = params.sectionId as string;
+  const isUUID = sectionIdParam.includes('-');
+  const sectionId: number | string = isUUID ? sectionIdParam : parseInt(sectionIdParam);
 
   const [result, setResult] = useState<ResultData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPractice, setIsPractice] = useState(isUUID);
 
   useEffect(() => {
     loadResults();
-  }, [sectionId]);
+  }, [sectionIdParam]);
 
   const loadResults = async () => {
     try {
       setLoading(true);
-      const data = await getSectionResult(sectionId);
+      const data = await getSectionResult(sectionId) as ResultData;
+      
+      // Check if this is from section practice
+      if (data?.book?.id === 0) {
+        setIsPractice(true);
+      }
       
       // Type assertion and validation
-      const resultData = data as ResultData;
+      const resultData = data;
       
       // Validate that we have valid data
       if (!resultData || resultData.score === null || resultData.score === undefined) {
@@ -333,23 +349,34 @@ export default function ReadingResultsPage() {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
-            onClick={() => router.push(`/practice/reading/${sectionId}`)}
+            onClick={() => router.push(`/practice-session/reading/${sectionIdParam}`)}
             variant="primary"
           >
             Practice Again
           </Button>
-          <Button
-            onClick={() => router.push(`/dashboard/books/${result.book.id}`)}
-            variant="secondary"
-          >
-            Back to Book
-          </Button>
-          <Button
-            onClick={() => router.push('/dashboard/books')}
-            variant="secondary"
-          >
-            Browse Books
-          </Button>
+          {isPractice ? (
+            <Button
+              onClick={() => router.push('/practice')}
+              variant="secondary"
+            >
+              Back to Practice
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={() => router.push(`/dashboard/books/${result.book.id}`)}
+                variant="secondary"
+              >
+                Back to Book
+              </Button>
+              <Button
+                onClick={() => router.push('/dashboard/books')}
+                variant="secondary"
+              >
+                Browse Books
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

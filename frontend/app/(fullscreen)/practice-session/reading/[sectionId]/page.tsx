@@ -1,5 +1,11 @@
 'use client';
 
+/**
+ * Unified Reading Practice Page
+ * Supports both book sections (numeric IDs) and section practices (UUIDs)
+ * URL: /practice-session/reading/[sectionId]
+ */
+
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import QuestionRenderer from '@/components/exam/QuestionRenderer';
@@ -14,7 +20,11 @@ import type { SectionDetailResponse } from '@/types/books';
 export default function ReadingPracticePage() {
   const params = useParams();
   const router = useRouter();
-  const sectionId = parseInt(params.sectionId as string);
+  
+  // Support both numeric IDs (book sections) and UUIDs (section practices)
+  const sectionIdParam = params.sectionId as string;
+  const isUUID = sectionIdParam.includes('-');
+  const sectionId: number | string = isUUID ? sectionIdParam : parseInt(sectionIdParam);
 
   const [data, setData] = useState<SectionDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,7 +113,7 @@ export default function ReadingPracticePage() {
       });
 
       // Navigate to results page - results page will fetch data from API
-      router.push(`/practice/reading/${sectionId}/results`);
+      router.push(`/practice-session/reading/${sectionIdParam}/results`);
     } catch (err: any) {
       if (err instanceof EmailNotVerifiedError) {
         router.push('/verify-email');
@@ -119,7 +129,12 @@ export default function ReadingPracticePage() {
       'Are you sure you want to exit? Your progress will not be saved.'
     );
     if (confirmed) {
-      router.push(`/dashboard/books/${data?.book.id}`);
+      // For section practices, go back to practice page; for books, go to book detail
+      if (data?.source === 'practice' || data?.book.id === 0) {
+        router.push('/practice');
+      } else {
+        router.push(`/dashboard/books/${data?.book.id}`);
+      }
     }
   };
 

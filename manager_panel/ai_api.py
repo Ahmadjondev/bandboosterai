@@ -840,3 +840,257 @@ def upload_batch_audio(request):
             + (f" with {len(errors)} error(s)" if errors else ""),
         }
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_section_practice(request):
+    """
+    Create a SectionPractice from saved content (ListeningPart, ReadingPassage, WritingTask, or SpeakingTopic).
+
+    POST /manager/api/tests/create-practice/
+
+    Body (JSON):
+        - section_type: LISTENING | READING | WRITING | SPEAKING
+        - content_id: The ID of the content (part_id, passage_id, task_id, or topic_id)
+        - name: Optional name for the practice
+        - description: Optional description
+        - difficulty: EASY | MEDIUM | HARD | EXPERT (default: MEDIUM)
+        - time_limit: Optional time limit in minutes
+        - is_free: Whether the practice is free (default: True)
+        - is_active: Whether the practice is active (default: True)
+
+    Returns:
+        - Created practice details with ID
+    """
+    from practice.models import SectionPractice
+
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    section_type = request.data.get("section_type", "").upper()
+    content_id = request.data.get("content_id")
+
+    if not section_type or not content_id:
+        return Response(
+            {"error": "section_type and content_id are required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    valid_types = ["LISTENING", "READING", "WRITING", "SPEAKING"]
+    if section_type not in valid_types:
+        return Response(
+            {
+                "error": f"Invalid section_type. Must be one of: {', '.join(valid_types)}"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Get the content based on section type
+    content = None
+    content_name = ""
+
+    try:
+        if section_type == "LISTENING":
+            content = ListeningPart.objects.get(id=content_id)
+            content_name = content.title or f"Listening Part {content.part_number}"
+        elif section_type == "READING":
+            content = ReadingPassage.objects.get(id=content_id)
+            content_name = content.title
+        elif section_type == "WRITING":
+            content = WritingTask.objects.get(id=content_id)
+            content_name = (
+                f"Writing Task {content.task_number}: {content.title or 'Untitled'}"
+            )
+        elif section_type == "SPEAKING":
+            content = SpeakingTopic.objects.get(id=content_id)
+            content_name = (
+                f"Speaking Part {content.part_number}: {content.title or 'Untitled'}"
+            )
+    except Exception as e:
+        return Response(
+            {"error": f"Content with ID {content_id} not found for {section_type}"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Create the practice
+    practice_data = {
+        "section_type": section_type,
+        "title": request.data.get("name") or content_name,
+        "description": request.data.get("description", ""),
+        "difficulty": request.data.get("difficulty", "MEDIUM").upper(),
+        "duration_minutes": request.data.get("time_limit"),
+        "is_free": request.data.get("is_free", True),
+        "is_active": request.data.get("is_active", True),
+        "created_by": request.user,
+    }
+
+    # Link to appropriate content
+    if section_type == "LISTENING":
+        practice_data["listening_part"] = content
+    elif section_type == "READING":
+        practice_data["reading_passage"] = content
+    elif section_type == "WRITING":
+        practice_data["writing_task"] = content
+    elif section_type == "SPEAKING":
+        practice_data["speaking_topic"] = content
+
+    try:
+        practice = SectionPractice.objects.create(**practice_data)
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Practice created successfully",
+                "practice": {
+                    "id": practice.id,
+                    "uuid": str(practice.uuid),
+                    "title": practice.title,
+                    "section_type": practice.section_type,
+                    "difficulty": practice.difficulty,
+                    "content_id": content_id,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Error creating practice: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_practices_batch(request):
+    """
+    Create multiple SectionPractice records from saved content.
+
+    POST /manager/api/tests/create-practices-batch/
+
+    Body (JSON):
+        - practices: Array of practice data, each with:
+            - section_type: LISTENING | READING | WRITING | SPEAKING
+            - content_id: The ID of the content
+            - name: Optional name
+            - difficulty: EASY | MEDIUM | HARD | EXPERT (default: MEDIUM)
+        - default_difficulty: Default difficulty for all practices if not specified
+
+    Returns:
+        - Created practices with their IDs
+    """
+    from practice.models import SectionPractice
+
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    practices_data = request.data.get("practices", [])
+    default_difficulty = request.data.get("default_difficulty", "MEDIUM").upper()
+
+    if not practices_data:
+        return Response(
+            {"error": "No practices data provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    created_practices = []
+    errors = []
+
+    for idx, practice_info in enumerate(practices_data):
+        section_type = practice_info.get("section_type", "").upper()
+        content_id = practice_info.get("content_id")
+
+        if not section_type or not content_id:
+            errors.append(
+                {"index": idx, "error": "section_type and content_id are required"}
+            )
+            continue
+
+        # Get the content based on section type
+        content = None
+        content_name = ""
+
+        try:
+            if section_type == "LISTENING":
+                content = ListeningPart.objects.get(id=content_id)
+                content_name = content.title or f"Listening Part {content.part_number}"
+            elif section_type == "READING":
+                content = ReadingPassage.objects.get(id=content_id)
+                content_name = content.title
+            elif section_type == "WRITING":
+                content = WritingTask.objects.get(id=content_id)
+                content_name = (
+                    f"Writing Task {content.task_number}: {content.title or 'Untitled'}"
+                )
+            elif section_type == "SPEAKING":
+                content = SpeakingTopic.objects.get(id=content_id)
+                content_name = f"Speaking Part {content.part_number}: {content.title or 'Untitled'}"
+            else:
+                errors.append(
+                    {"index": idx, "error": f"Invalid section_type: {section_type}"}
+                )
+                continue
+        except Exception as e:
+            errors.append({"index": idx, "error": f"Content not found: {str(e)}"})
+            continue
+
+        # Create the practice
+        practice_data = {
+            "section_type": section_type,
+            "title": practice_info.get("name") or content_name,
+            "description": practice_info.get("description", ""),
+            "difficulty": practice_info.get("difficulty", default_difficulty).upper(),
+            "duration_minutes": practice_info.get("time_limit"),
+            "is_free": practice_info.get("is_free", True),
+            "is_active": practice_info.get("is_active", True),
+            "created_by": request.user,
+        }
+
+        # Link to appropriate content
+        if section_type == "LISTENING":
+            practice_data["listening_part"] = content
+        elif section_type == "READING":
+            practice_data["reading_passage"] = content
+        elif section_type == "WRITING":
+            practice_data["writing_task"] = content
+        elif section_type == "SPEAKING":
+            practice_data["speaking_topic"] = content
+
+        try:
+            practice = SectionPractice.objects.create(**practice_data)
+            created_practices.append(
+                {
+                    "id": practice.id,
+                    "uuid": str(practice.uuid),
+                    "title": practice.title,
+                    "section_type": practice.section_type,
+                    "difficulty": practice.difficulty,
+                    "content_id": content_id,
+                }
+            )
+        except Exception as e:
+            errors.append({"index": idx, "error": f"Error creating practice: {str(e)}"})
+
+    return Response(
+        {
+            "success": len(errors) == 0,
+            "created_count": len(created_practices),
+            "error_count": len(errors),
+            "created_practices": created_practices,
+            "errors": errors,
+            "message": f"Created {len(created_practices)} practice(s)"
+            + (f" with {len(errors)} error(s)" if errors else ""),
+        },
+        status=(
+            status.HTTP_201_CREATED
+            if created_practices
+            else status.HTTP_400_BAD_REQUEST
+        ),
+    )

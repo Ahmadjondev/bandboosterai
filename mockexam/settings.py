@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "manager_panel",
     "teacher",  # Teacher Room module
     "books",  # Book-based practice system
+    "practice",  # Section-by-section practice
 ]
 
 MIDDLEWARE = [

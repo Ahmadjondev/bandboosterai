@@ -1,0 +1,434 @@
+'use client';
+
+import { useEffect, useState, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import {
+  Headphones,
+  BookOpen,
+  PenTool,
+  Mic,
+  ChevronLeft,
+  Clock,
+  Trophy,
+  Target,
+  Filter,
+  Play,
+  CheckCircle,
+  Star,
+  Search,
+  X,
+} from 'lucide-react';
+import {
+  getSectionPracticesByType,
+  getDifficultyColor,
+} from '@/lib/api/section-practice';
+import type {
+  SectionPractice,
+  SectionPracticesByTypeResponse,
+  SectionType,
+  Difficulty,
+} from '@/types/section-practice';
+
+const sectionIcons = {
+  listening: Headphones,
+  reading: BookOpen,
+  writing: PenTool,
+  speaking: Mic,
+};
+
+const sectionDescriptions = {
+  listening: 'Practice your listening skills with audio-based exercises. Improve comprehension and note-taking abilities.',
+  reading: 'Enhance your reading comprehension with passages and various question types. Build vocabulary and speed.',
+  writing: 'Develop your writing skills with Task 1 and Task 2 practice. Get feedback on structure and coherence.',
+  speaking: 'Practice speaking topics with recording capabilities. Improve fluency and pronunciation.',
+};
+
+const sectionColors = {
+  listening: {
+    gradient: 'from-blue-500 to-cyan-500',
+    light: 'bg-blue-100 dark:bg-blue-900/30',
+    text: 'text-blue-600 dark:text-blue-400',
+  },
+  reading: {
+    gradient: 'from-green-500 to-emerald-500',
+    light: 'bg-green-100 dark:bg-green-900/30',
+    text: 'text-green-600 dark:text-green-400',
+  },
+  writing: {
+    gradient: 'from-purple-500 to-pink-500',
+    light: 'bg-purple-100 dark:bg-purple-900/30',
+    text: 'text-purple-600 dark:text-purple-400',
+  },
+  speaking: {
+    gradient: 'from-orange-500 to-amber-500',
+    light: 'bg-orange-100 dark:bg-orange-900/30',
+    text: 'text-orange-600 dark:text-orange-400',
+  },
+};
+
+export default function SectionTypePage() {
+  const params = useParams();
+  const router = useRouter();
+  const sectionType = (params.type as string)?.toLowerCase();
+
+  const [data, setData] = useState<SectionPracticesByTypeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterDifficulty, setFilterDifficulty] = useState<Difficulty | ''>('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const validSections = ['listening', 'reading', 'writing', 'speaking'];
+  const isValidSection = validSections.includes(sectionType);
+
+  useEffect(() => {
+    if (isValidSection) {
+      loadData();
+    }
+  }, [sectionType, isValidSection]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getSectionPracticesByType(
+        sectionType.toUpperCase() as SectionType
+      );
+      setData(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load practices');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredPractices = useMemo(() => {
+    if (!data) return [];
+    let practices = data.practices;
+    
+    // Filter by difficulty
+    if (filterDifficulty) {
+      practices = practices.filter((p) => p.difficulty === filterDifficulty);
+    }
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      practices = practices.filter((p) => 
+        p.title.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query)
+      );
+    }
+    
+    return practices;
+  }, [data, filterDifficulty, searchQuery]);
+
+  if (!isValidSection) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Invalid Section
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            The section &quot;{sectionType}&quot; does not exist.
+          </p>
+          <Link
+            href="/practice"
+            className="text-blue-600 hover:underline"
+          >
+            Go back to Section Practice
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const Icon = sectionIcons[sectionType as keyof typeof sectionIcons];
+  const colors = sectionColors[sectionType as keyof typeof sectionColors];
+  const description = sectionDescriptions[sectionType as keyof typeof sectionDescriptions];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">
+                Loading {sectionType} practices...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">❌</span>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                Failed to load
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+              <button
+                onClick={loadData}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Link */}
+        <Link
+          href="/practice"
+          className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Section Practice
+        </Link>
+
+        {/* Header */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 mb-8 shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col md:flex-row md:items-center gap-6">
+            <div className={`w-16 h-16 ${colors.light} rounded-2xl flex items-center justify-center shrink-0`}>
+              <Icon className={`w-8 h-8 ${colors.text}`} />
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white capitalize mb-2">
+                {sectionType} Practice
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">{description}</p>
+            </div>
+            {data?.stats && (
+              <div className="flex flex-wrap gap-4">
+                <div className="text-center px-4">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {data.stats.total_attempts}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Attempts</p>
+                </div>
+                <div className="text-center px-4 border-l border-gray-200 dark:border-gray-700">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {data.stats.average_score != null ? Number(data.stats.average_score).toFixed(1) : '-'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Avg Score</p>
+                </div>
+                <div className="text-center px-4 border-l border-gray-200 dark:border-gray-700">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {data.stats.best_score != null ? Number(data.stats.best_score).toFixed(1) : '-'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Best Score</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 mb-6 shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search Box */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search practices by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {/* Difficulty Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500 shrink-0" />
+              <div className="flex flex-wrap gap-2">
+                {['', 'EASY', 'MEDIUM', 'HARD', 'EXPERT'].map((diff) => (
+                  <button
+                    key={diff || 'all'}
+                    onClick={() => setFilterDifficulty(diff as Difficulty | '')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      filterDifficulty === diff
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {diff || 'All'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Active Filters Summary */}
+          {(searchQuery || filterDifficulty) && (
+            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-500">Active filters:</span>
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs">
+                  Search: &quot;{searchQuery}&quot;
+                  <button onClick={() => setSearchQuery('')} className="hover:text-blue-900">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filterDifficulty && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs">
+                  {filterDifficulty}
+                  <button onClick={() => setFilterDifficulty('')} className="hover:text-purple-900">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterDifficulty('');
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 underline"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Practice Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredPractices.map((practice) => (
+            <PracticeCard key={practice.id} practice={practice} colors={colors} />
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {filteredPractices.length === 0 && (
+          <div className="text-center py-12">
+            <div className={`w-16 h-16 ${colors.light} rounded-full flex items-center justify-center mx-auto mb-4`}>
+              <Icon className={`w-8 h-8 ${colors.text}`} />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No practices found
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              {filterDifficulty
+                ? `No ${filterDifficulty.toLowerCase()} difficulty practices available.`
+                : 'No practices available for this section yet.'}
+            </p>
+            {filterDifficulty && (
+              <button
+                onClick={() => setFilterDifficulty('')}
+                className="mt-4 text-blue-600 hover:underline"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface PracticeCardProps {
+  practice: SectionPractice;
+  colors: {
+    gradient: string;
+    light: string;
+    text: string;
+  };
+}
+
+function PracticeCard({ practice, colors }: PracticeCardProps) {
+  const hasAttempts = practice.attempts_count > 0;
+  const hasBestScore = practice.best_score !== null;
+
+  return (
+    <Link href={`/practice/detail/${practice.id}`}>
+      <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 dark:text-white truncate mb-1">
+              {practice.title}
+            </h3>
+            <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getDifficultyColor(practice.difficulty)}`}>
+              {practice.difficulty_display}
+            </span>
+          </div>
+          {practice.is_free && (
+            <span className="shrink-0 ml-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">
+              Free
+            </span>
+          )}
+        </div>
+
+        {/* Description */}
+        {practice.description && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-4 flex-1">
+            {practice.description}
+          </p>
+        )}
+
+        {/* Stats */}
+        <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <div className="flex items-center gap-1">
+            <Clock className="w-4 h-4" />
+            <span>{practice.duration}m</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Target className="w-4 h-4" />
+            <span>{practice.total_questions} Q</span>
+          </div>
+          {hasAttempts && (
+            <div className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              <span>{practice.attempts_count}x</span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
+          {hasBestScore ? (
+            <div className="flex items-center gap-1">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                Best: {practice.best_score != null ? Number(practice.best_score).toFixed(1) : '-'}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm text-gray-500 dark:text-gray-400">Not attempted</span>
+          )}
+          <div className={`flex items-center gap-1 ${colors.text} font-medium text-sm`}>
+            <Play className="w-4 h-4" />
+            <span>{hasAttempts ? 'Retry' : 'Start'}</span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}

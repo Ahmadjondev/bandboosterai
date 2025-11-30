@@ -55,14 +55,20 @@ export async function getBookSections(bookId: number): Promise<BookSection[]> {
 
 /**
  * Get section detail with content and user result
- * @param sectionId - BookSection ID
+ * Supports both book section IDs (number) and section practice UUIDs (string)
+ * @param sectionId - BookSection ID or Section Practice UUID
  */
 export async function getSectionDetail(
-  sectionId: number
+  sectionId: number | string
 ): Promise<SectionDetailResponse> {
-  const response = await apiClient.get<SectionDetailResponse>(
-    `${BOOKS_API_BASE}/sections/${sectionId}/`
-  );
+  // Check if it's a UUID (section practice) or a number (book section)
+  const isUUID = typeof sectionId === 'string' && sectionId.includes('-');
+  
+  const url = isUUID 
+    ? `/practice/unified/${sectionId}/`
+    : `${BOOKS_API_BASE}/sections/${sectionId}/`;
+  
+  const response = await apiClient.get<SectionDetailResponse>(url);
   if (!response.data) {
     throw new Error('Failed to fetch section details');
   }
@@ -71,17 +77,22 @@ export async function getSectionDetail(
 
 /**
  * Submit answers for a section
- * @param sectionId - BookSection ID
+ * Supports both book section IDs (number) and section practice UUIDs (string)
+ * @param sectionId - BookSection ID or Section Practice UUID
  * @param data - Answers and time spent
  */
 export async function submitSectionAnswers(
-  sectionId: number,
+  sectionId: number | string,
   data: SubmitSectionRequest
 ): Promise<SubmitSectionResponse> {
-  const response = await apiClient.post<SubmitSectionResponse>(
-    `${BOOKS_API_BASE}/sections/${sectionId}/submit/`,
-    data
-  );
+  // Check if it's a UUID (section practice) or a number (book section)
+  const isUUID = typeof sectionId === 'string' && sectionId.includes('-');
+  
+  const url = isUUID 
+    ? `/practice/unified/${sectionId}/submit/`
+    : `${BOOKS_API_BASE}/sections/${sectionId}/submit/`;
+  
+  const response = await apiClient.post<SubmitSectionResponse>(url, data);
   if (!response.data) {
     throw new Error('Failed to submit section answers');
   }
@@ -90,12 +101,18 @@ export async function submitSectionAnswers(
 
 /**
  * Get result for a section
- * @param sectionId - BookSection ID
+ * Supports both book section IDs (number) and section practice UUIDs (string)
+ * @param sectionId - BookSection ID or Section Practice UUID
  */
-export async function getSectionResult(sectionId: number) {
-  const response = await apiClient.get(
-    `${BOOKS_API_BASE}/sections/${sectionId}/result/`
-  );
+export async function getSectionResult(sectionId: number | string) {
+  // Check if it's a UUID (section practice) or a number (book section)
+  const isUUID = typeof sectionId === 'string' && sectionId.includes('-');
+  
+  const url = isUUID 
+    ? `/practice/unified/${sectionId}/result/`
+    : `${BOOKS_API_BASE}/sections/${sectionId}/result/`;
+  
+  const response = await apiClient.get(url);
   if (!response.data) {
     throw new Error('Failed to fetch section result');
   }

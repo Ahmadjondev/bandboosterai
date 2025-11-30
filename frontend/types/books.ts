@@ -141,18 +141,23 @@ export interface BookDetailResponse extends Book {
 
 export interface SectionDetailResponse {
   id: number;
+  uuid?: string; // For section practices
+  source?: 'book' | 'practice'; // Identifies data source
   book: {
     id: number;
     title: string;
   };
-  section_type: SectionType;
+  section_type: SectionType | 'READING' | 'LISTENING' | 'WRITING' | 'SPEAKING';
   title: string;
+  description?: string;
   reading_passage?: ReadingPassage;
   listening_part?: ListeningPart;
   order: number;
   is_locked: boolean;
   total_questions: number;
   duration_minutes?: number;
+  difficulty?: string; // For section practices
+  difficulty_display?: string; // For section practices
   user_status?: {
     completed: boolean;
     score: number | null;

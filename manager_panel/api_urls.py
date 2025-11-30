@@ -73,6 +73,8 @@ from .ai_api import (
     generate_full_test_from_pdf,
     save_full_test_content,
     upload_batch_audio,
+    create_section_practice,
+    create_practices_batch,
 )
 from .api.exams import (
     get_exams_list,
@@ -344,6 +346,13 @@ urlpatterns = [
     ),
     path("tests/ai-save-full/", save_full_test_content, name="ai_save_full_test"),
     path("tests/upload-batch-audio/", upload_batch_audio, name="upload_batch_audio"),
+    # Practice Creation from extracted content
+    path("tests/create-practice/", create_section_practice, name="create_practice"),
+    path(
+        "tests/create-practices-batch/",
+        create_practices_batch,
+        name="create_practices_batch",
+    ),
     # Books Management
     path("books/", get_books_manager, name="books_list"),
     path("books/create/", create_book, name="create_book"),

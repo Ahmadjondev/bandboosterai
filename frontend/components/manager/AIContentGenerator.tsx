@@ -91,6 +91,12 @@ const AIContentGenerator: React.FC = () => {
   const [isCreatingBook, setIsCreatingBook] = useState(false);
   const [createdBookId, setCreatedBookId] = useState<number | null>(null);
 
+  // Add as Practice state
+  const [addAsPractice, setAddAsPractice] = useState(false);
+  const [practiceDifficulty, setPracticeDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT'>('MEDIUM');
+  const [isCreatingPractices, setIsCreatingPractices] = useState(false);
+  const [createdPracticesCount, setCreatedPracticesCount] = useState(0);
+
   // Dynamic steps based on addAsBook toggle
   const steps: Step[] = useMemo(() => {
     const baseSteps = [
@@ -677,6 +683,103 @@ const AIContentGenerator: React.FC = () => {
     }
   };
 
+  // Create practices from saved content with AI-extracted difficulty
+  const createPracticesFromSavedContent = async (results: any, originalData?: any) => {
+    setIsCreatingPractices(true);
+    try {
+      const practicesData: Array<{
+        section_type: 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING';
+        content_id: number;
+        name?: string;
+        difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+      }> = [];
+
+      // Helper function to map difficulty from AI response
+      const mapDifficulty = (aiDifficulty: string | undefined): 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT' => {
+        const mapped = aiDifficulty?.toUpperCase();
+        if (mapped === 'EASY' || mapped === 'MEDIUM' || mapped === 'HARD' || mapped === 'EXPERT') {
+          return mapped;
+        }
+        return practiceDifficulty; // Fall back to user-selected difficulty
+      };
+
+      // Add listening parts with AI-extracted difficulty
+      if (results.listening?.parts) {
+        results.listening.parts.forEach((part: any, idx: number) => {
+          if (part.part_id) {
+            // Try to get difficulty from original data
+            const originalPart = originalData?.listening?.parts?.[idx];
+            practicesData.push({
+              section_type: 'LISTENING',
+              content_id: part.part_id,
+              name: part.title || `Listening Part ${part.part_number}`,
+              difficulty: mapDifficulty(originalPart?.difficulty),
+            });
+          }
+        });
+      }
+
+      // Add reading passages with AI-extracted difficulty
+      if (results.reading?.passages) {
+        results.reading.passages.forEach((passage: any, idx: number) => {
+          if (passage.passage_id) {
+            const originalPassage = originalData?.reading?.passages?.[idx];
+            practicesData.push({
+              section_type: 'READING',
+              content_id: passage.passage_id,
+              name: passage.title,
+              difficulty: mapDifficulty(originalPassage?.difficulty),
+            });
+          }
+        });
+      }
+
+      // Add writing tasks with AI-extracted difficulty
+      if (results.writing?.tasks) {
+        results.writing.tasks.forEach((task: any, idx: number) => {
+          if (task.task_id) {
+            const originalTask = originalData?.writing?.tasks?.[idx];
+            practicesData.push({
+              section_type: 'WRITING',
+              content_id: task.task_id,
+              name: `Writing Task ${task.task_number}`,
+              difficulty: mapDifficulty(originalTask?.difficulty),
+            });
+          }
+        });
+      }
+
+      // Add speaking topics with AI-extracted difficulty
+      if (results.speaking?.topics) {
+        results.speaking.topics.forEach((topic: any, idx: number) => {
+          if (topic.topic_id) {
+            const originalTopic = originalData?.speaking?.topics?.[idx];
+            practicesData.push({
+              section_type: 'SPEAKING',
+              content_id: topic.topic_id,
+              name: topic.title || `Speaking Part ${topic.part_number}`,
+              difficulty: mapDifficulty(originalTopic?.difficulty),
+            });
+          }
+        });
+      }
+
+      if (practicesData.length > 0) {
+        const response = await managerAPI.createPracticesBatch(practicesData, practiceDifficulty);
+        if (response.success || response.created_count > 0) {
+          setCreatedPracticesCount(response.created_count);
+          showNotification(`Created ${response.created_count} practice(s) successfully!`, 'success');
+        } else if (response.errors?.length > 0) {
+          showNotification(`Some practices failed to create: ${response.message}`, 'warning');
+        }
+      }
+    } catch (error: any) {
+      showNotification('Error creating practices: ' + error.message, 'error');
+    } finally {
+      setIsCreatingPractices(false);
+    }
+  };
+
   // Save content to database
   const handleSaveContent = async () => {
     if (uploadMode === 'full_book') {
@@ -753,6 +856,11 @@ const AIContentGenerator: React.FC = () => {
             writing: response.results.writing?.tasks?.map((t: any) => t.task_id) || [],
             speaking: response.results.speaking?.topics?.map((t: any) => t.topic_id) || [],
           });
+          
+          // Create practices if addAsPractice is enabled
+          if (addAsPractice) {
+            await createPracticesFromSavedContent(response.results, currentTest);
+          }
         }
         
         // Auto-populate book title from extracted book info
@@ -835,6 +943,25 @@ const AIContentGenerator: React.FC = () => {
       if (successCount > 0) {
         setSavedItems(allSavedItems);
         setSavedContentIds(allSavedIds);
+        
+        // Create practices if addAsPractice is enabled
+        // For batch mode, we need to combine original data from all tests
+        if (addAsPractice && fullTestData?.tests) {
+          // Combine all original parts/passages/tasks/topics from all tests
+          const allOriginalData = {
+            listening: { parts: fullTestData.tests.flatMap(t => t.listening?.parts || []) },
+            reading: { passages: fullTestData.tests.flatMap(t => t.reading?.passages || []) },
+            writing: { tasks: fullTestData.tests.flatMap(t => t.writing?.tasks || []) },
+            speaking: { topics: fullTestData.tests.flatMap(t => t.speaking?.topics || []) },
+          };
+          const allResults = {
+            listening: { parts: allSavedIds.listening.map(id => ({ part_id: id })) },
+            reading: { passages: allSavedIds.reading.map(id => ({ passage_id: id })) },
+            writing: { tasks: allSavedIds.writing.map(id => ({ task_id: id })) },
+            speaking: { topics: allSavedIds.speaking.map(id => ({ topic_id: id })) },
+          };
+          await createPracticesFromSavedContent(allResults, allOriginalData);
+        }
         
         // Auto-populate book title from extracted book info
         if (addAsBook && fullTestData?.book_info?.title) {
@@ -978,6 +1105,11 @@ const AIContentGenerator: React.FC = () => {
     });
     setSavedContentIds({ listening: [], reading: [], writing: [], speaking: [] });
     setCreatedBookId(null);
+    
+    // Reset practice state
+    setAddAsPractice(false);
+    setPracticeDifficulty('MEDIUM');
+    setCreatedPracticesCount(0);
     
     // Clean up previews
     cleanupPreviews();
@@ -2096,6 +2228,40 @@ const AIContentGenerator: React.FC = () => {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                {/* Add as Practice Toggle */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAddAsPractice(!addAsPractice)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+                      addAsPractice
+                        ? 'bg-white text-green-600 shadow-lg ring-2 ring-green-400'
+                        : 'bg-white/20 hover:bg-white/30 text-white'
+                    }`}
+                    title={addAsPractice ? 'Practice mode enabled - content will be added as individual practices' : 'Create practice items from saved content'}
+                  >
+                    <Sparkles className={`w-4 h-4 ${addAsPractice ? 'text-green-500' : ''}`} />
+                    <span className="text-sm">{addAsPractice ? 'Practice On' : 'Add as Practice'}</span>
+                    <div className={`w-10 h-5 rounded-full transition-colors relative ${
+                      addAsPractice ? 'bg-green-400' : 'bg-white/30'
+                    }`}>
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        addAsPractice ? 'translate-x-5' : 'translate-x-0.5'
+                      }`} />
+                    </div>
+                  </button>
+                  {addAsPractice && (
+                    <select
+                      value={practiceDifficulty}
+                      onChange={(e) => setPracticeDifficulty(e.target.value as 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT')}
+                      className="px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium border border-white/30 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    >
+                      <option value="EASY" className="text-gray-900">Easy</option>
+                      <option value="MEDIUM" className="text-gray-900">Medium</option>
+                      <option value="HARD" className="text-gray-900">Hard</option>
+                      <option value="EXPERT" className="text-gray-900">Expert</option>
+                    </select>
+                  )}
+                </div>
                 {/* Add as Book Toggle with Lock */}
                 <button
                   onClick={() => setAddAsBook(!addAsBook)}
@@ -2124,6 +2290,20 @@ const AIContentGenerator: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Practice Mode Banner */}
+            {addAsPractice && (
+              <div className="mt-4 p-3 bg-green-500/20 border border-green-400/50 rounded-lg flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-green-300" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-100">Practice Mode Enabled</p>
+                  <p className="text-xs text-green-200/80">
+                    All sections will be saved as individual {practiceDifficulty.toLowerCase()} difficulty practices. 
+                    Students can practice each section separately.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Locked Book Mode Banner */}
             {addAsBook && (

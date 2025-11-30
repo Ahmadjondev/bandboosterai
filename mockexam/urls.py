@@ -34,6 +34,8 @@ urlpatterns = [
     path("exams/", include("ielts.urls")),
     # Books - IELTS Practice Books
     path("books/", include("books.urls")),
+    # Practice - Practice by section type
+    path("practice/", include("practice.urls")),
     # Panel URLs
     path("manager/", include("manager_panel.urls")),
     path("teacher/api/", include("teacher.urls")),

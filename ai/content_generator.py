@@ -1798,6 +1798,33 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
 
 **TITLE REQUIREMENT:** For EVERY listening part, infer a clear, descriptive title from the scenario/speakers/context (e.g., "Booking a City Tour", "Lecture on Coral Reefs"). Do NOT leave titles generic like "Listening Part 1" unless the PDF explicitly names it that way.
 
+**DIFFICULTY ASSESSMENT (CRITICAL - Include for EVERY part/passage/task/topic):**
+Analyze the content and assign a difficulty level based on these criteria:
+
+DIFFICULTY LEVELS:
+- "EASY" (Band 4-5): Simple vocabulary, straightforward questions, familiar everyday topics, short answers
+  - Listening Part 1 scenarios (booking, reservations)
+  - Simple reading passages about daily life
+  - Task 1 with simple graphs, Task 2 on familiar topics
+  - Speaking Part 1 basic questions
+
+- "MEDIUM" (Band 5.5-6.5): Moderate vocabulary, some inferencing needed, general interest topics
+  - Listening Parts 2-3, Reading Passage 1-2
+  - Academic but accessible content
+  - Writing tasks requiring analysis
+  - Speaking with some abstract concepts
+
+- "HARD" (Band 7-8): Advanced vocabulary, complex ideas, academic/specialized content
+  - Listening Part 4, Reading Passage 3
+  - Scientific, historical, or technical content
+  - Writing tasks requiring nuanced arguments
+  - Speaking Part 3 with abstract discussion
+
+- "EXPERT" (Band 8.5-9): Highly academic, specialized vocabulary, subtle inferences required
+  - Very complex academic texts
+  - Obscure vocabulary or complex sentence structures
+  - Topics requiring deep critical thinking
+
 **LISTENING STRUCTURE:**
 {
     "parts": [
@@ -1806,6 +1833,7 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
             "title": "Section 1",
             "description": "A conversation between...",
             "scenario": "Phone booking / Hotel reservation / etc.",
+            "difficulty": "EASY",
             "speaker_count": 2,
             "question_groups": [
                 {
@@ -2185,6 +2213,7 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
             "passage_number": 1,
             "title": "A Chronicle of Timekeeping",
             "summary": "This passage explores the history of measuring time...",
+            "difficulty": "EASY",
             "content": "<strong>A</strong>\\nAccording to archaeological evidence...\\n\\n<strong>B</strong>\\nBefore the invention of artificial light...",
             "question_groups": [
                 {
@@ -2556,6 +2585,7 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
         {
             "task_type": "TASK_1",
             "prompt": "The graph below shows the consumption of three different types of fast food...",
+            "difficulty": "MEDIUM",
             "min_words": 150,
             "has_visual": true,
             "visual_description": "A line graph showing consumption trends of hamburgers, fish and chips, and pizza from 1970-1990",
@@ -2568,6 +2598,7 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
         {
             "task_type": "TASK_2",
             "prompt": "Some people believe that unpaid community service should be a compulsory part of high school programs. To what extent do you agree or disagree?",
+            "difficulty": "HARD",
             "min_words": 250,
             "has_visual": false,
             "data": {
@@ -2593,6 +2624,7 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
         {
             "part_number": 1,
             "topic": "Work and Studies",
+            "difficulty": "EASY",
             "questions": [
                 "Do you work or are you a student?",
                 "What do you like most about your job/studies?",
@@ -2603,6 +2635,7 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
         {
             "part_number": 2,
             "topic": "Describe a meeting you remember going to",
+            "difficulty": "MEDIUM",
             "cue_card": {
                 "main_prompt": "Describe a meeting you remember going to at work, college or school.",
                 "bullet_points": [
@@ -2618,6 +2651,7 @@ or similar test preparation material containing MULTIPLE FULL TESTS.
         {
             "part_number": 3,
             "topic": "Going to meetings",
+            "difficulty": "HARD",
             "questions": [
                 "What are the different types of meetings that people often go to?",
                 "Some people say that no-one likes to go to meetings - what do you think?",

@@ -143,14 +143,13 @@ class MockExam(models.Model):
                 or 0
             )
         return 0
-
-
 class ReadingPassage(models.Model):
     passage_number = models.PositiveSmallIntegerField(
         choices=[(1, "Passage 1"), (2, "Passage 2"), (3, "Passage 3")],
         validators=[MinValueValidator(1), MaxValueValidator(3)],
     )
     is_authentic = models.BooleanField(default=False)
+    is_practice = models.BooleanField(default=False)
     title = models.CharField(
         max_length=255,
         null=True,
@@ -206,6 +205,7 @@ class ListeningPart(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(4)],
     )
     is_authentic = models.BooleanField(default=False)
+    is_practice = models.BooleanField(default=False)
     title = models.CharField(max_length=150, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     audio_file = models.FileField(
@@ -445,6 +445,7 @@ class WritingTask(models.Model):
         TASK_2 = "TASK_2", "Task 2"
 
     is_authentic = models.BooleanField(default=False)
+    is_practice = models.BooleanField(default=False)
     task_type = models.CharField(max_length=10, choices=TaskType.choices)
     prompt = models.TextField(help_text="The full text of the task prompt.")
     picture = models.ImageField(
@@ -491,6 +492,7 @@ class SpeakingTopic(models.Model):
         PART_3 = "PART_3", "Part 3: Two-way Discussion"
 
     is_authentic = models.BooleanField(default=False)
+    is_practice = models.BooleanField(default=False)
     topic = models.CharField(max_length=255)
     speaking_type = models.CharField(
         max_length=10,

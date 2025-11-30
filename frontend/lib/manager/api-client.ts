@@ -959,6 +959,80 @@ class ManagerAPIClient {
 
     return this.uploadFile('/tests/upload-audio-temp/', formData);
   }
+
+  // ============================================================================
+  // Practice Creation APIs
+  // ============================================================================
+
+  /**
+   * Create a single section practice from saved content
+   * @param data Practice creation data
+   * @returns Created practice details
+   */
+  async createSectionPractice(data: {
+    section_type: 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING';
+    content_id: number;
+    name?: string;
+    description?: string;
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+    time_limit?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    practice: {
+      id: number;
+      uuid: string;
+      name: string;
+      section_type: string;
+      difficulty: string;
+      content_id: number;
+    };
+  }> {
+    return this.post('/tests/create-practice/', data);
+  }
+
+  /**
+   * Create multiple section practices in batch
+   * @param practices Array of practice data
+   * @param defaultDifficulty Default difficulty for all practices
+   * @returns Created practices with their IDs
+   */
+  async createPracticesBatch(
+    practices: Array<{
+      section_type: 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING';
+      content_id: number;
+      name?: string;
+      description?: string;
+      difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+      time_limit?: number;
+      is_free?: boolean;
+    }>,
+    defaultDifficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT' = 'MEDIUM'
+  ): Promise<{
+    success: boolean;
+    created_count: number;
+    error_count: number;
+    created_practices: Array<{
+      id: number;
+      uuid: string;
+      name: string;
+      section_type: string;
+      difficulty: string;
+      content_id: number;
+    }>;
+    errors: Array<{
+      index: number;
+      error: string;
+    }>;
+    message: string;
+  }> {
+    return this.post('/tests/create-practices-batch/', {
+      practices,
+      default_difficulty: defaultDifficulty,
+    });
+  }
 }
 
 // Create singleton instance

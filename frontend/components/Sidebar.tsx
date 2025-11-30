@@ -150,6 +150,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       section: 'Practice',
       items: [
         { href: '/dashboard/books', icon: '📚', label: 'Practice Books', badge: 'NEW' },
+        { href: '/practice/listening', icon: '🎧', label: 'Listening' },
+        { href: '/practice/reading', icon: '📖', label: 'Reading' },
+        { href: '/practice/writing', icon: '✍️', label: 'Writing' },
+        { href: '/practice/speaking', icon: '🎤', label: 'Speaking' },
         { href: '/dashboard/resources', icon: '✨', label: 'Study Resources' }
       ]
     },
