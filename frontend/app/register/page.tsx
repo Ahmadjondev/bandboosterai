@@ -222,7 +222,7 @@ export default function RegisterPage() {
                 className="w-14 h-14"
               />
               <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-                BandBooster
+                BandBooster AI
               </h1>
             </Link>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-4">

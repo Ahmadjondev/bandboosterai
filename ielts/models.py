@@ -143,6 +143,8 @@ class MockExam(models.Model):
                 or 0
             )
         return 0
+
+
 class ReadingPassage(models.Model):
     passage_number = models.PositiveSmallIntegerField(
         choices=[(1, "Passage 1"), (2, "Passage 2"), (3, "Passage 3")],
@@ -486,6 +488,11 @@ class WritingTask(models.Model):
 
 
 class SpeakingTopic(models.Model):
+    """
+    Speaking Topic model - represents a topic for IELTS speaking test.
+    Questions are stored separately in SpeakingQuestion model.
+    """
+
     class PartType(models.TextChoices):
         PART_1 = "PART_1", "Part 1: Introduction & Interview"
         PART_2 = "PART_2", "Part 2: Individual Long Turn"
@@ -501,14 +508,6 @@ class SpeakingTopic(models.Model):
         verbose_name="Speaking Part",
         help_text="The part of speaking test",
     )
-    question = models.TextField(
-        null=True, blank=True, help_text="Question or prompt for the topic."
-    )
-
-    # For Part 2: Cue card details
-    cue_card = models.JSONField(
-        null=True, blank=True, help_text="JSON array of points to cover (for Part 2)"
-    )
 
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
@@ -520,12 +519,90 @@ class SpeakingTopic(models.Model):
     def __str__(self):
         return f"{self.get_speaking_type_display()}: {self.topic}"
 
+    @property
+    def question_count(self):
+        """Return the number of questions for this topic"""
+        return self.questions.count()
+
+    @property
+    def has_audio(self):
+        """Check if any question has audio"""
+        return (
+            self.questions.filter(audio_url__isnull=False)
+            .exclude(audio_url="")
+            .exists()
+        )
+
+
+class SpeakingDefaultAudio(models.Model):
+    """
+    Default audio files that play before each speaking part.
+    These are intro/instruction audios that the examiner reads before each part.
+    """
+
+    class AudioType(models.TextChoices):
+        PART_1_INTRO = "PART_1_INTRO", "Part 1 Introduction"
+        PART_2_INTRO = "PART_2_INTRO", "Part 2 Introduction (Before Cue Card)"
+        PART_2_PREP = "PART_2_PREP", "Part 2 Preparation Time Announcement"
+        PART_2_START = "PART_2_START", "Part 2 Start Speaking"
+        PART_3_INTRO = "PART_3_INTRO", "Part 3 Introduction"
+        TEST_END = "TEST_END", "Test Ending Message"
+
+    audio_type = models.CharField(
+        max_length=20,
+        choices=AudioType.choices,
+        unique=True,
+        verbose_name="Audio Type",
+    )
+    audio_url = models.URLField(
+        help_text="URL to the default audio file",
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Description of what this audio says",
+    )
+    # Store the script that was used to generate this audio
+    script = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The text/script used to generate this audio",
+    )
+    voice = models.CharField(
+        max_length=50,
+        default="en-GB-SoniaNeural",
+        help_text="Voice used for TTS generation",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Speaking Default Audio"
+        verbose_name_plural = "Speaking Default Audios"
+        ordering = ["audio_type"]
+
+    def __str__(self):
+        return self.get_audio_type_display()
+
 
 class SpeakingQuestion(models.Model):
+    """
+    Individual questions for a speaking topic.
+    For Part 2, the first question is the main cue card prompt, and cue_card_points stores the bullet points.
+    """
+
     topic = models.ForeignKey(
         SpeakingTopic, related_name="questions", on_delete=models.CASCADE
     )
     question_text = models.TextField()
+
+    # For Part 2: Cue card points (only for the main question)
+    cue_card_points = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="JSON array of cue card points (for Part 2 main question only)",
+    )
 
     # audio is generated with Microsoft TTS
     audio_url = models.URLField(null=True, blank=True)
@@ -540,6 +617,15 @@ class SpeakingQuestion(models.Model):
 
     def __str__(self):
         return f"Q{self.order} - {self.topic.topic}"
+
+    @property
+    def is_cue_card(self):
+        """Check if this is a cue card question (Part 2 main question)"""
+        return (
+            self.topic.speaking_type == "PART_2"
+            and self.order == 1
+            and self.cue_card_points
+        )
 
 
 class ExamAttempt(models.Model):

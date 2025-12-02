@@ -21,8 +21,9 @@ import {
   Radio,
   Headphones
 } from "lucide-react";
+import { getSpeakingDefaultAudios, SpeakingDefaultAudios } from "@/lib/exam-api";
 
-// Extended type to include part info and audio_url (as mentioned by user)
+// Extended type to include part info and audio_url
 interface FlattenedQuestion extends SpeakingQuestion {
   partNumber: 1 | 2 | 3;
   partTitle: string;
@@ -30,16 +31,21 @@ interface FlattenedQuestion extends SpeakingQuestion {
   globalIndex: number;
   indexInPart: number;
   totalInPart: number;
-  audio_url?: string; // User mentioned this exists
+  audio_url?: string;
+  cue_card_points?: string[];
 }
 
 type SpeakingStatus = 
   | "idle" 
-  | "playing_question" 
-  | "countdown" 
-  | "recording" 
-  | "submitting" 
-  | "completed";
+  | "playing_intro"      // Playing part intro audio
+  | "playing_question"   // Playing question audio
+  | "playing_prep"       // Playing Part 2 prep instruction audio
+  | "playing_start"      // Playing Part 2 start speaking audio
+  | "countdown"          // Preparation countdown
+  | "prep_countdown"     // Part 2 preparation countdown (1 minute)
+  | "recording"          // Recording answer
+  | "submitting"         // Uploading recording
+  | "completed";         // All done
 
 export default function SpeakingSection() {
   const { 
@@ -57,6 +63,11 @@ export default function SpeakingSection() {
   const [status, setStatus] = useState<SpeakingStatus>("idle");
   const [countdown, setCountdown] = useState(0);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [defaultAudios, setDefaultAudios] = useState<SpeakingDefaultAudios>({});
+  const [defaultAudiosLoaded, setDefaultAudiosLoaded] = useState(false);
+  const [currentPartIntroPlayed, setCurrentPartIntroPlayed] = useState<number | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<'intro' | 'question' | 'prep' | 'recording' | 'completed'>('intro');
+  const [isDefaultAudioPlaying, setIsDefaultAudioPlaying] = useState(false);
   const [audioParams, setAudioParams] = useState({
     isPlaying: false,
     duration: 0,
@@ -91,7 +102,8 @@ export default function SpeakingSection() {
           globalIndex: globalIdx++,
           indexInPart: idx,
           totalInPart: topic.questions.length,
-          question_key: `speaking_${topic.speaking_type}_q${q.order}`
+          question_key: `speaking_${topic.speaking_type}_q${q.order}`,
+          cue_card_points: (q as any).cue_card_points,
         });
       });
     });
@@ -100,6 +112,21 @@ export default function SpeakingSection() {
   }, [speakingData]);
 
   const currentQuestion = allQuestions[currentIndex];
+
+  // Load default audios on mount
+  useEffect(() => {
+    const loadDefaultAudios = async () => {
+      try {
+        const audios = await getSpeakingDefaultAudios();
+        setDefaultAudios(audios);
+        setDefaultAudiosLoaded(true);
+      } catch (err) {
+        console.error("Failed to load default audios:", err);
+        setDefaultAudiosLoaded(true); // Proceed without default audios
+      }
+    };
+    loadDefaultAudios();
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -116,16 +143,19 @@ export default function SpeakingSection() {
     };
   }, []);
 
-  // Initialize first question
+  // Track current part to know when to play intro
+  const [lastPlayedPart, setLastPlayedPart] = useState<number | null>(null);
+
+  // Initialize first question (wait for default audios to load)
   useEffect(() => {
-    if (allQuestions.length > 0 && status === "idle") {
-      playQuestionAudio();
+    if (allQuestions.length > 0 && status === "idle" && defaultAudiosLoaded) {
+      startQuestionFlow();
     }
-  }, [allQuestions, status]);
+  }, [allQuestions, status, defaultAudiosLoaded]);
 
   // Watch for question change to auto-play and scroll to top
   useEffect(() => {
-    if (currentQuestion) {
+    if (currentQuestion && status !== "idle" && defaultAudiosLoaded) {
       // Scroll to top when question changes
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
@@ -134,41 +164,209 @@ export default function SpeakingSection() {
       setCountdown(0);
       chunksRef.current = [];
       
-      // Start flow
-      playQuestionAudio();
+      // Start flow for this question
+      startQuestionFlow();
     }
-  }, [currentIndex, currentQuestion]);
+  }, [currentIndex]);
 
   // ---------------------------------------------------------------------------
   // LOGIC
   // ---------------------------------------------------------------------------
 
+  // Get default audio by type
+  const getDefaultAudio = (type: keyof SpeakingDefaultAudios) => {
+    return defaultAudios[type];
+  };
+
+  // Main flow: determine if we need to play part intro first
+  const startQuestionFlow = () => {
+    if (!currentQuestion) return;
+    
+    const part = currentQuestion.partNumber;
+    
+    // Check if this is a new part (play intro)
+    if (lastPlayedPart !== part) {
+      setLastPlayedPart(part);
+      playPartIntro(part);
+    } else {
+      // Same part, go straight to question
+      playQuestionAudio();
+    }
+  };
+
+  // Play part intro audio
+  const playPartIntro = (part: number) => {
+    let introType: keyof SpeakingDefaultAudios;
+    
+    switch (part) {
+      case 1:
+        introType = 'PART_1_INTRO';
+        break;
+      case 2:
+        introType = 'PART_2_INTRO';
+        break;
+      case 3:
+        introType = 'PART_3_INTRO';
+        break;
+      default:
+        // Unknown part, skip intro
+        playQuestionAudio();
+        return;
+    }
+    
+    const introAudio = getDefaultAudio(introType);
+    
+    if (introAudio?.audio_url) {
+      setCurrentPhase('intro');
+      setIsDefaultAudioPlaying(true);
+      setStatus("playing_intro");
+      
+      if (audioRef.current) {
+        audioRef.current.src = introAudio.audio_url;
+        audioRef.current.play().catch(err => {
+          console.error("Intro audio playback failed:", err);
+          // Fallback - go to question
+          playQuestionAudio();
+        });
+      }
+    } else {
+      // No intro audio, go straight to question
+      playQuestionAudio();
+    }
+  };
+
+  // Handle audio ended - check what was playing
+  const handleAudioEnded = () => {
+    if (isDefaultAudioPlaying) {
+      setIsDefaultAudioPlaying(false);
+      
+      if (currentPhase === 'intro') {
+        // Intro ended, play question audio
+        playQuestionAudio();
+      } else if (currentPhase === 'prep') {
+        // PART_2_PREP audio ended, start 1-minute prep countdown
+        startPrepCountdown();
+      } else if (currentPhase === 'recording') {
+        // PART_2_START audio ended, start recording
+        startRecording();
+      }
+    } else {
+      // Question audio ended
+      if (currentQuestion?.partNumber === 2 && currentPhase === 'question') {
+        // For Part 2, play prep instruction audio first
+        playPrepAudio();
+      } else {
+        // For Part 1 and 3, go straight to countdown
+        startCountdown();
+      }
+    }
+  };
+
+  // Play Part 2 preparation audio
+  const playPrepAudio = () => {
+    const prepAudio = getDefaultAudio('PART_2_PREP');
+    
+    if (prepAudio?.audio_url) {
+      setCurrentPhase('prep');
+      setIsDefaultAudioPlaying(true);
+      setStatus("playing_prep");
+      
+      if (audioRef.current) {
+        audioRef.current.src = prepAudio.audio_url;
+        audioRef.current.play().catch(err => {
+          console.error("Prep audio playback failed:", err);
+          startPrepCountdown();
+        });
+      }
+    } else {
+      startPrepCountdown();
+    }
+  };
+
+  // Start Part 2 preparation countdown (1 minute)
+  const startPrepCountdown = () => {
+    setCurrentPhase('prep');
+    setStatus("prep_countdown");
+    const prepTime = 60; // 1 minute for Part 2 preparation
+    setCountdown(prepTime);
+    
+    if (timerRef.current) clearInterval(timerRef.current);
+    
+    timerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          // After prep, play the "start speaking" audio
+          playStartSpeakingAudio();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Play "start speaking" audio for Part 2
+  const playStartSpeakingAudio = () => {
+    const startAudio = getDefaultAudio('PART_2_START');
+    
+    if (startAudio?.audio_url) {
+      setCurrentPhase('recording'); // Set phase so handleAudioEnded knows to start recording
+      setIsDefaultAudioPlaying(true);
+      setStatus("playing_start");
+      
+      if (audioRef.current) {
+        audioRef.current.src = startAudio.audio_url;
+        audioRef.current.play().catch(err => {
+          console.error("Start speaking audio playback failed:", err);
+          startRecording();
+        });
+      }
+    } else {
+      startRecording();
+    }
+  };
+
+  // Start speaking countdown (after "start speaking" audio)
+  const startSpeakingCountdown = () => {
+    // Small countdown before recording starts
+    setCurrentPhase('recording');
+    startRecording();
+  };
+
   const playQuestionAudio = () => {
+    setCurrentPhase('question');
+    
     if (!currentQuestion?.audio_url) {
-      // If no audio, jump straight to recording preparation or start
-      startCountdown();
+      // If no audio, jump straight to next step
+      if (currentQuestion?.partNumber === 2) {
+        // For Part 2, still need to play prep audio and do prep countdown
+        playPrepAudio();
+      } else {
+        // For Part 1 and 3, go to countdown
+        startCountdown();
+      }
       return;
     }
 
     setStatus("playing_question");
+    setIsDefaultAudioPlaying(false);
     
     if (audioRef.current) {
       audioRef.current.src = currentQuestion.audio_url;
       audioRef.current.play().catch(err => {
         console.error("Audio playback failed:", err);
-        // Fallback if autoplay fails (browsers might block it)
-        // Maybe show a "Click to Start" button? 
-        // For now, we'll just proceed to countdown to avoid getting stuck
-        startCountdown();
+        // Fallback if autoplay fails
+        if (currentQuestion?.partNumber === 2) {
+          startPrepCountdown();
+        } else {
+          startCountdown();
+        }
       });
     }
   };
 
-  const handleAudioEnded = () => {
-    startCountdown();
-  };
-
   const startCountdown = () => {
+    setCurrentPhase('recording');
     setStatus("countdown");
     // Use preparation_time if available, otherwise default to 5 seconds
     const prepTime = currentQuestion?.preparation_time || 5;
@@ -279,6 +477,21 @@ export default function SpeakingSection() {
     return <div className="flex items-center justify-center h-full">Loading speaking section...</div>;
   }
 
+  // Handle case where there are no questions at all
+  if (allQuestions.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full flex-col gap-4">
+        <p className="text-lg text-gray-600 dark:text-gray-400">No speaking questions available.</p>
+        <button
+          onClick={() => handleNextSection()}
+          className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          Continue
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 dark:from-gray-950 dark:via-blue-950/20 dark:to-purple-950/10 overflow-hidden transition-all duration-500">
       
@@ -286,8 +499,14 @@ export default function SpeakingSection() {
       <audio 
         ref={audioRef}
         onEnded={handleAudioEnded}
-        onTimeUpdate={(e) => setAudioParams(prev => ({ ...prev, currentTime: e.currentTarget.currentTime }))}
-        onLoadedMetadata={(e) => setAudioParams(prev => ({ ...prev, duration: e.currentTarget.duration }))}
+        onTimeUpdate={(e) => {
+          const currentTime = e.currentTarget?.currentTime ?? 0;
+          setAudioParams(prev => ({ ...prev, currentTime }));
+        }}
+        onLoadedMetadata={(e) => {
+          const duration = e.currentTarget?.duration ?? 0;
+          setAudioParams(prev => ({ ...prev, duration }));
+        }}
         className="hidden"
       />
 
@@ -448,27 +667,21 @@ export default function SpeakingSection() {
             </div>
             
             {/* Optional Prompt/Cue Card Display for Part 2 */}
-            {currentQuestion?.partNumber === 2 && (
+            {currentQuestion?.partNumber === 2 && currentQuestion?.cue_card_points && currentQuestion.cue_card_points.length > 0 && (
                <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-yellow-900/10 dark:to-amber-900/10 border-2 border-amber-200 dark:border-yellow-900/30 p-6 rounded-2xl mt-8 shadow-xl shadow-amber-500/10">
-                 <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-500 mb-3">Describe:</h3>
-                 <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                    {/* If there's specific cue card text, render it here. 
-                        Otherwise re-render question text or specific instructions if available.
-                        Assuming question_text covers it for now.
-                     */}
-                     <p className="italic text-sm opacity-80">
-                       You should say:
-                       <br/>- What it is
-                       <br/>- When you did it
-                       <br/>- Who you did it with
-                       <br/>- And explain why...
-                       {/* Note: Real data might have these bullets in question_text or separate field */}
-                     </p>
-                 </div>
+                 <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-500 mb-3">You should say:</h3>
+                 <ul className="space-y-2 text-gray-700 dark:text-gray-300">
+                   {currentQuestion.cue_card_points.map((point, idx) => (
+                     <li key={idx} className="flex items-start gap-2">
+                       <span className="text-amber-500 dark:text-yellow-500 mt-1">•</span>
+                       <span>{point}</span>
+                     </li>
+                   ))}
+                 </ul>
                </div>
             )}
 
-            {status === "playing_question" && (
+            {(status === "playing_question" || status === "playing_intro" || status === "playing_prep" || status === "playing_start") && (
               <div className="flex items-center gap-4 px-6 py-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-200 dark:border-indigo-800 rounded-2xl mt-8 shadow-lg">
                 <div className="flex gap-1.5 h-8 items-end">
                    {[...Array(5)].map((_, i) => (
@@ -482,7 +695,12 @@ export default function SpeakingSection() {
                      />
                    ))}
                 </div>
-                <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Reading question...</span>
+                <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                  {status === "playing_intro" && "Listening to instructions..."}
+                  {status === "playing_question" && "Reading question..."}
+                  {status === "playing_prep" && "Preparation instructions..."}
+                  {status === "playing_start" && "Starting soon..."}
+                </span>
               </div>
             )}
           </div>
@@ -512,12 +730,17 @@ export default function SpeakingSection() {
             </div>
             <div className={`text-3xl font-bold transition-all duration-300 ${
               status === "recording" ? "text-transparent bg-gradient-to-r from-red-500 to-pink-600 bg-clip-text animate-pulse" : 
-              status === "countdown" ? "text-transparent bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text" :
+              (status === "countdown" || status === "prep_countdown") ? "text-transparent bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text" :
+              (status === "playing_intro" || status === "playing_question" || status === "playing_prep" || status === "playing_start") ? "text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text" :
               "text-gray-900 dark:text-white"
             }`}>
               {status === "idle" && "Ready"}
+              {status === "playing_intro" && "Listen to Instructions"}
               {status === "playing_question" && "Listen Carefully"}
+              {status === "playing_prep" && "Preparation Time"}
+              {status === "playing_start" && "Get Ready to Speak"}
               {status === "countdown" && "Get Ready..."}
+              {status === "prep_countdown" && "Prepare Your Answer"}
               {status === "recording" && "Recording..."}
               {status === "submitting" && "Saving..."}
               {status === "completed" && "Completed"}
@@ -539,12 +762,14 @@ export default function SpeakingSection() {
 
             {/* Center Content */}
             <div className="relative z-10 flex flex-col items-center justify-center">
-              {status === "countdown" && (
+              {(status === "countdown" || status === "prep_countdown") && (
                 <div className="flex flex-col items-center">
                   <div className="text-8xl font-bold text-transparent bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 bg-clip-text tabular-nums animate-bounce">
                     {countdown}
                   </div>
-                  <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mt-2">seconds</div>
+                  <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mt-2">
+                    {status === "prep_countdown" ? "seconds to prepare" : "seconds"}
+                  </div>
                 </div>
               )}
               
@@ -564,10 +789,10 @@ export default function SpeakingSection() {
                 </div>
               )}
 
-              {(status === "playing_question" || status === "idle" || status === "submitting") && (
+              {(status === "playing_question" || status === "playing_intro" || status === "playing_prep" || status === "playing_start" || status === "idle" || status === "submitting") && (
                 <div className="relative">
                   <div className={`absolute inset-0 rounded-full blur-2xl transition-all duration-500 ${
-                    status === "playing_question" ? "bg-indigo-500/30 animate-pulse" : 
+                    (status === "playing_question" || status === "playing_intro" || status === "playing_prep" || status === "playing_start") ? "bg-indigo-500/30 animate-pulse" : 
                     status === "submitting" ? "bg-purple-500/30 animate-pulse" : 
                     "bg-gray-300/20"
                   }`} />
@@ -575,7 +800,7 @@ export default function SpeakingSection() {
                      {status === "submitting" ? (
                        <div className="w-16 h-16 border-4 border-transparent border-t-indigo-500 border-r-purple-500 rounded-full animate-spin" />
                      ) : (
-                       <Volume2 className={`w-16 h-16 ${status === "playing_question" ? "text-indigo-500 animate-pulse" : "text-gray-400"}`} />
+                       <Volume2 className={`w-16 h-16 ${(status === "playing_question" || status === "playing_intro" || status === "playing_prep" || status === "playing_start") ? "text-indigo-500 animate-pulse" : "text-gray-400"}`} />
                      )}
                   </div>
                 </div>

@@ -29,7 +29,7 @@ urlpatterns = [
     path("logout/", custom_logout, name="logout"),
     # Authentication - API endpoints
     path("accounts/api/", include("accounts.api_urls")),
-    # Debug/Test pages (only in DEBUG mode)
+
     # Exams
     path("exams/", include("ielts.urls")),
     # Books - IELTS Practice Books

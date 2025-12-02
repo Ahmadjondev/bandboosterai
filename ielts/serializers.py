@@ -574,6 +574,7 @@ class SpeakingQuestionSerializer(serializers.ModelSerializer):
             "id",
             "question_text",
             "audio_url",
+            "cue_card_points",
             "order",
             "question_key",
             "preparation_time",
@@ -645,9 +646,7 @@ class SpeakingTopicSerializer(serializers.ModelSerializer):
             "speaking_type",
             "part_display",
             "topic",
-            "question",
             "questions",
-            "cue_card",
             "user_attempt",
         ]
 

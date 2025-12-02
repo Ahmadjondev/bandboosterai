@@ -47,8 +47,12 @@ export default function PracticeSessionRouterPage() {
         return;
       }
 
-      // For Writing/Speaking, show a not-implemented message
-      // These could be handled differently in the future
+      if (data.section_type === 'SPEAKING') {
+        router.replace(`/practice-session/speaking/${practiceUuid}`);
+        return;
+      }
+
+      // For Writing, show a not-implemented message
       setLoading(false);
     } catch (err: any) {
       if (err instanceof EmailNotVerifiedError) {
@@ -92,22 +96,13 @@ export default function PracticeSessionRouterPage() {
     );
   }
 
-  // Writing/Speaking not yet implemented message
+  // Writing not yet implemented message
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full p-8">
         <div className="text-center mb-8">
-          <div
-            className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${
-              practice.section_type === 'WRITING'
-                ? 'bg-purple-100 dark:bg-purple-900/30'
-                : 'bg-orange-100 dark:bg-orange-900/30'
-            }`}
-          >
-            <span className="text-2xl">
-              {practice.section_type === 'WRITING' && '✍️'}
-              {practice.section_type === 'SPEAKING' && '🎤'}
-            </span>
+          <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
+            <span className="text-2xl">✍️</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             {practice.title}
@@ -119,9 +114,7 @@ export default function PracticeSessionRouterPage() {
 
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-8">
           <p className="text-yellow-800 dark:text-yellow-200 text-center">
-            {practice.section_type === 'WRITING' 
-              ? 'Writing practice with AI feedback is coming soon!'
-              : 'Speaking practice with recording is coming soon!'}
+            Writing practice with AI feedback is coming soon!
           </p>
         </div>
 

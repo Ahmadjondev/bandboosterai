@@ -7,6 +7,7 @@ from ielts.models import (
     ListeningPart,
     WritingTask,
     SpeakingTopic,
+    SpeakingQuestion,
     TestHead,
     Question,
     Choice,
@@ -26,11 +27,14 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
     attempts_count = serializers.SerializerMethodField()
     best_score = serializers.SerializerMethodField()
     last_attempt_date = serializers.SerializerMethodField()
+    # Speaking-specific fields
+    speaking_part = serializers.SerializerMethodField()
+    speaking_topic_name = serializers.SerializerMethodField()
 
     class Meta:
         model = SectionPractice
         fields = [
-            "id",
+            # "id",
             "uuid",
             "title",
             "description",
@@ -45,6 +49,9 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
             "best_score",
             "last_attempt_date",
             "created_at",
+            # Speaking-specific
+            "speaking_part",
+            "speaking_topic_name",
         ]
 
     def get_attempts_count(self, obj):
@@ -71,6 +78,22 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
             last = obj.attempts.filter(student=user).order_by("-started_at").first()
             if last:
                 return last.started_at.isoformat()
+        return None
+
+    def get_speaking_part(self, obj):
+        """Get the speaking part number (1, 2, or 3) for speaking practices."""
+        if obj.section_type == "SPEAKING" and obj.speaking_topic:
+            # Extract part number from PART_1, PART_2, PART_3
+            speaking_type = obj.speaking_topic.speaking_type
+            if "_" in speaking_type:
+                return int(speaking_type.split("_")[-1])
+            return 1
+        return None
+
+    def get_speaking_topic_name(self, obj):
+        """Get the speaking topic name for speaking practices."""
+        if obj.section_type == "SPEAKING" and obj.speaking_topic:
+            return obj.speaking_topic.topic
         return None
 
 
@@ -235,12 +258,54 @@ class WritingTaskDetailSerializer(serializers.ModelSerializer):
         return None
 
 
+class SpeakingQuestionDetailSerializer(serializers.ModelSerializer):
+    """Serializer for speaking questions in practice"""
+
+    question_key = serializers.SerializerMethodField()
+    preparation_time = serializers.SerializerMethodField()
+    response_time = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Question
+        fields = [
+            "id",
+            "question_text",
+            "audio_url",
+            "cue_card_points",
+            "order",
+            "question_key",
+            "preparation_time",
+            "response_time",
+        ]
+
+    def get_question_key(self, obj):
+        """Generate question key for frontend."""
+        return f"speaking_{obj.topic.speaking_type}_q{obj.order}"
+
+    def get_preparation_time(self, obj):
+        """Get preparation time based on part type."""
+        if obj.topic.speaking_type == "PART_2":
+            return 60
+        return 0
+
+    def get_response_time(self, obj):
+        """Get response time based on part type."""
+        if obj.topic.speaking_type == "PART_1":
+            return 30
+        elif obj.topic.speaking_type == "PART_2":
+            return 120
+        elif obj.topic.speaking_type == "PART_3":
+            return 45
+        return 60
+
+
 class SpeakingTopicDetailSerializer(serializers.ModelSerializer):
     """Serializer for speaking topic with full content"""
 
     speaking_type_display = serializers.CharField(
         source="get_speaking_type_display", read_only=True
     )
+    questions = serializers.SerializerMethodField()
 
     class Meta:
         model = SpeakingTopic
@@ -249,8 +314,30 @@ class SpeakingTopicDetailSerializer(serializers.ModelSerializer):
             "topic",
             "speaking_type",
             "speaking_type_display",
-            "question",
-            "cue_card",
+            "questions",
+        ]
+
+    def get_questions(self, obj):
+        """Get all questions for this topic."""
+        from ielts.models import SpeakingQuestion
+
+        questions = obj.questions.all().order_by("order")
+        return [
+            {
+                "id": q.id,
+                "question_text": q.question_text,
+                "audio_url": q.audio_url,
+                "cue_card_points": q.cue_card_points,
+                "order": q.order,
+                "question_key": f"speaking_{obj.speaking_type}_q{q.order}",
+                "preparation_time": 60 if obj.speaking_type == "PART_2" else 0,
+                "response_time": (
+                    30
+                    if obj.speaking_type == "PART_1"
+                    else (120 if obj.speaking_type == "PART_2" else 45)
+                ),
+            }
+            for q in questions
         ]
 
 
@@ -270,7 +357,6 @@ class SectionPracticeDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = SectionPractice
         fields = [
-            "id",
             "uuid",
             "title",
             "description",
@@ -331,7 +417,6 @@ class SectionPracticeAttemptSerializer(serializers.ModelSerializer):
     class Meta:
         model = SectionPracticeAttempt
         fields = [
-            "id",
             "uuid",
             "practice_title",
             "section_type",

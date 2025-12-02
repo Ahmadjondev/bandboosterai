@@ -23,7 +23,7 @@ import "./globals.css";
  * @see https://blog.logrocket.com/dark-mode-react-in-depth-guide/
  */
 export const metadata: Metadata = {
-  title: "BandBooster - Master Your IELTS Journey",
+  title: "BandBooster AI - Master Your IELTS Journey",
   description: "Comprehensive IELTS preparation platform with authentic mock tests, instant feedback, and progress tracking. Practice Listening, Reading, Writing, and Speaking to achieve your target score.",
   keywords: ["IELTS", "mock test", "exam preparation", "English test", "IELTS practice", "BandBooster"],
   icons: {

@@ -15,12 +15,14 @@ from ielts.models import (
     ListeningPart,
     WritingTask,
     SpeakingTopic,
+    SpeakingQuestion,
 )
 from ..serializers import (
     ReadingPassageSerializer,
     ListeningPartSerializer,
     WritingTaskSerializer,
     SpeakingTopicSerializer,
+    SpeakingQuestionSerializer,
 )
 from .utils import (
     check_manager_permission,
@@ -367,28 +369,44 @@ def delete_writing_task(request, task_id):
 @permission_classes([IsAuthenticated])
 def get_speaking_topics(request):
     """
-    Get list of speaking topics
+    Get list of speaking topics with their questions
 
     Query Parameters:
     - speaking_type: Filter by speaking part (PART_1, PART_2, or PART_3)
-    - search: Search in topic and question
+    - search: Search in topic name
+    - has_audio: Filter by audio status ('yes', 'no', or 'all')
     """
     if not check_manager_permission(request.user):
         return permission_denied_response()
 
-    topics = SpeakingTopic.objects.all().order_by("-created_at")
+    topics = SpeakingTopic.objects.prefetch_related("questions").order_by("-created_at")
 
     # Filter by speaking_type if provided
     speaking_type = request.GET.get("speaking_type")
-    if speaking_type:
+    if speaking_type and speaking_type != "all":
         topics = topics.filter(speaking_type=speaking_type)
+
+    # Filter by audio status
+    has_audio = request.GET.get("has_audio")
+    if has_audio == "no":
+        # Topics where no questions have audio_url
+        topics = (
+            topics.exclude(questions__audio_url__isnull=False)
+            .exclude(questions__audio_url="")
+            .distinct()
+        )
+    elif has_audio == "yes":
+        # Topics where at least one question has audio_url
+        topics = (
+            topics.filter(questions__audio_url__isnull=False)
+            .exclude(questions__audio_url="")
+            .distinct()
+        )
 
     # Search functionality
     search = request.GET.get("search")
     if search:
-        topics = topics.filter(
-            Q(topic__icontains=search) | Q(question__icontains=search)
-        )
+        topics = topics.filter(topic__icontains=search)
 
     paginated = paginate_queryset(topics, request)
     serializer = SpeakingTopicSerializer(paginated["results"], many=True)
@@ -396,18 +414,49 @@ def get_speaking_topics(request):
     return Response({"topics": serializer.data, "pagination": paginated["pagination"]})
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_speaking_topic_detail(request, topic_id):
+    """Get detailed speaking topic with all questions"""
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    topic = get_object_or_404(
+        SpeakingTopic.objects.prefetch_related("questions"), id=topic_id
+    )
+    serializer = SpeakingTopicSerializer(topic)
+
+    return Response(serializer.data)
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_speaking_topic(request):
-    """Create a new speaking topic"""
+    """Create a new speaking topic with questions"""
     if not check_manager_permission(request.user):
         return permission_denied_response()
 
     data = request.data.copy()
+    questions_data = data.pop("questions", [])
+
     serializer = SpeakingTopicSerializer(data=data)
     if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        topic = serializer.save()
+
+        # Create questions for the topic
+        for i, q_data in enumerate(questions_data):
+            SpeakingQuestion.objects.create(
+                topic=topic,
+                question_text=q_data.get("question_text", ""),
+                cue_card_points=q_data.get("cue_card_points"),
+                audio_url=q_data.get("audio_url"),
+                order=q_data.get("order", i + 1),
+            )
+
+        # Refetch to include questions
+        topic.refresh_from_db()
+        result_serializer = SpeakingTopicSerializer(topic)
+        return Response(result_serializer.data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -415,13 +464,91 @@ def create_speaking_topic(request):
 @api_view(["PUT", "PATCH"])
 @permission_classes([IsAuthenticated])
 def update_speaking_topic(request, topic_id):
-    """Update a speaking topic"""
+    """Update a speaking topic and its questions"""
     if not check_manager_permission(request.user):
         return permission_denied_response()
 
     topic = get_object_or_404(SpeakingTopic, id=topic_id)
+    data = request.data.copy()
+    questions_data = data.pop("questions", None)
 
-    serializer = SpeakingTopicSerializer(topic, data=request.data, partial=True)
+    serializer = SpeakingTopicSerializer(topic, data=data, partial=True)
+    if serializer.is_valid():
+        topic = serializer.save()
+
+        # Update questions if provided
+        if questions_data is not None:
+            # Delete existing questions and recreate
+            topic.questions.all().delete()
+            for i, q_data in enumerate(questions_data):
+                SpeakingQuestion.objects.create(
+                    topic=topic,
+                    question_text=q_data.get("question_text", ""),
+                    cue_card_points=q_data.get("cue_card_points"),
+                    audio_url=q_data.get("audio_url"),
+                    order=q_data.get("order", i + 1),
+                )
+
+        # Refetch to include questions
+        topic.refresh_from_db()
+        result_serializer = SpeakingTopicSerializer(topic)
+        return Response(result_serializer.data)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_speaking_topic(request, topic_id):
+    """Delete a speaking topic and its questions"""
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    topic = get_object_or_404(SpeakingTopic, id=topic_id)
+    topic.delete()
+
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ============================================================================
+# SPEAKING QUESTION ENDPOINTS
+# ============================================================================
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_speaking_question(request, topic_id):
+    """Add a question to a speaking topic"""
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    topic = get_object_or_404(SpeakingTopic, id=topic_id)
+    data = request.data.copy()
+
+    # Get the next order number
+    from django.db.models import Max
+
+    max_order = topic.questions.aggregate(max_order=Max("order"))["max_order"] or 0
+    data.setdefault("order", max_order + 1)
+
+    serializer = SpeakingQuestionSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save(topic=topic)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
+def update_speaking_question(request, question_id):
+    """Update a speaking question"""
+    if not check_manager_permission(request.user):
+        return permission_denied_response()
+
+    question = get_object_or_404(SpeakingQuestion, id=question_id)
+    serializer = SpeakingQuestionSerializer(question, data=request.data, partial=True)
+
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
@@ -431,12 +558,12 @@ def update_speaking_topic(request, topic_id):
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
-def delete_speaking_topic(request, topic_id):
-    """Delete a speaking topic"""
+def delete_speaking_question(request, question_id):
+    """Delete a speaking question"""
     if not check_manager_permission(request.user):
         return permission_denied_response()
 
-    topic = get_object_or_404(SpeakingTopic, id=topic_id)
-    topic.delete()
+    question = get_object_or_404(SpeakingQuestion, id=question_id)
+    question.delete()
 
     return Response(status=status.HTTP_204_NO_CONTENT)

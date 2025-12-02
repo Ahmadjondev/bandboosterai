@@ -11,7 +11,6 @@ export type AttemptStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
  * Section Practice item
  */
 export interface SectionPractice {
-  id: number;
   uuid: string;
   title: string;
   description: string | null;
@@ -26,6 +25,9 @@ export interface SectionPractice {
   best_score: number | null;
   last_attempt_date: string | null;
   created_at: string;
+  // Speaking-specific fields
+  speaking_part: number | null;
+  speaking_topic_name: string | null;
 }
 
 /**
@@ -84,6 +86,20 @@ export interface WritingTaskContent {
 }
 
 /**
+ * Speaking question for practice
+ */
+export interface SpeakingPracticeQuestion {
+  id: number;
+  question_text: string;
+  audio_url: string | null;
+  cue_card_points: string[] | null;
+  order: number;
+  question_key: string;
+  preparation_time: number;
+  response_time: number;
+}
+
+/**
  * Speaking topic content
  */
 export interface SpeakingTopicContent {
@@ -91,8 +107,7 @@ export interface SpeakingTopicContent {
   topic: string;
   speaking_type: string;
   speaking_type_display: string;
-  question: string | null;
-  cue_card: string[] | null;
+  questions: SpeakingPracticeQuestion[];
 }
 
 /**
@@ -108,7 +123,6 @@ export type PracticeContent =
  * Section practice attempt
  */
 export interface SectionPracticeAttempt {
-  id: number;
   uuid: string;
   practice_title: string;
   section_type: SectionType;
@@ -132,6 +146,23 @@ export interface SectionPracticeDetail extends Omit<SectionPractice, 'attempts_c
 }
 
 /**
+ * Pagination info
+ */
+export interface PaginationInfo {
+  page: number;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+/**
+ * Status filter type
+ */
+export type StatusFilter = 'all' | 'completed' | 'uncompleted';
+
+/**
  * Section practice list response by type
  */
 export interface SectionPracticesByTypeResponse {
@@ -143,6 +174,7 @@ export interface SectionPracticesByTypeResponse {
     best_score: number | null;
     total_time_minutes: number;
   };
+  pagination: PaginationInfo;
 }
 
 /**
@@ -207,7 +239,7 @@ export interface SubmitWritingRequest {
  */
 export interface SubmitWritingResponse {
   message: string;
-  attempt_id: number;
+  attempt_uuid: string;
   status: string;
 }
 

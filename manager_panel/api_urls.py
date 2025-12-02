@@ -33,9 +33,14 @@ from .api import (
     delete_writing_task,
     # Speaking Tests
     get_speaking_topics,
+    get_speaking_topic_detail,
     create_speaking_topic,
     update_speaking_topic,
     delete_speaking_topic,
+    # Speaking Questions
+    add_speaking_question,
+    update_speaking_question,
+    delete_speaking_question,
     # Questions
     get_testheads,
     get_testhead,
@@ -75,6 +80,18 @@ from .ai_api import (
     upload_batch_audio,
     create_section_practice,
     create_practices_batch,
+    # TTS endpoints
+    generate_tts_for_topic,
+    generate_tts_for_question,
+    generate_tts_for_saved_question,
+    generate_tts_batch,
+    get_tts_voices,
+    # Default speaking audio endpoints
+    get_default_speaking_audios,
+    generate_default_speaking_audio,
+    generate_all_default_speaking_audios,
+    update_default_speaking_audio,
+    delete_default_speaking_audio,
 )
 from .api.exams import (
     get_exams_list,
@@ -251,6 +268,11 @@ urlpatterns = [
     # Speaking Tests
     path("tests/speaking/", get_speaking_topics, name="speaking_topics"),
     path(
+        "tests/speaking/<int:topic_id>/",
+        get_speaking_topic_detail,
+        name="speaking_topic_detail",
+    ),
+    path(
         "tests/speaking/create/",
         create_speaking_topic,
         name="create_speaking_topic",
@@ -264,6 +286,74 @@ urlpatterns = [
         "tests/speaking/<int:topic_id>/delete/",
         delete_speaking_topic,
         name="delete_speaking_topic",
+    ),
+    # Speaking Question Endpoints
+    path(
+        "tests/speaking/<int:topic_id>/questions/add/",
+        add_speaking_question,
+        name="add_speaking_question",
+    ),
+    path(
+        "tests/speaking/questions/<int:question_id>/update/",
+        update_speaking_question,
+        name="update_speaking_question",
+    ),
+    path(
+        "tests/speaking/questions/<int:question_id>/delete/",
+        delete_speaking_question,
+        name="delete_speaking_question",
+    ),
+    # Speaking TTS (Text-to-Speech) Endpoints
+    path(
+        "tests/speaking/<int:topic_id>/generate-tts/",
+        generate_tts_for_topic,
+        name="generate_tts_for_topic",
+    ),
+    path(
+        "tests/speaking/generate-tts/",
+        generate_tts_for_question,
+        name="generate_tts_for_question",
+    ),
+    path(
+        "tests/speaking/question/<int:question_id>/generate-tts/",
+        generate_tts_for_saved_question,
+        name="generate_tts_for_saved_question",
+    ),
+    path(
+        "tests/speaking/generate-tts-batch/",
+        generate_tts_batch,
+        name="generate_tts_batch",
+    ),
+    path(
+        "tests/speaking/tts-voices/",
+        get_tts_voices,
+        name="get_tts_voices",
+    ),
+    # Default Speaking Audio Endpoints
+    path(
+        "tests/speaking/default-audios/",
+        get_default_speaking_audios,
+        name="get_default_speaking_audios",
+    ),
+    path(
+        "tests/speaking/default-audios/generate/",
+        generate_default_speaking_audio,
+        name="generate_default_speaking_audio",
+    ),
+    path(
+        "tests/speaking/default-audios/generate-all/",
+        generate_all_default_speaking_audios,
+        name="generate_all_default_speaking_audios",
+    ),
+    path(
+        "tests/speaking/default-audios/<str:audio_type>/update/",
+        update_default_speaking_audio,
+        name="update_default_speaking_audio",
+    ),
+    path(
+        "tests/speaking/default-audios/<str:audio_type>/delete/",
+        delete_default_speaking_audio,
+        name="delete_default_speaking_audio",
     ),
     # Mock Tests
     path("mock-tests/", get_mock_tests, name="mock_tests"),

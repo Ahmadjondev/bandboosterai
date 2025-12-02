@@ -21,6 +21,7 @@ from ielts.models import (
     ListeningPart,
     WritingTask,
     SpeakingTopic,
+    SpeakingQuestion,
     TestHead,
     Question,
     Choice,
@@ -33,6 +34,7 @@ from .serializers import (
     ListeningPartSerializer,
     WritingTaskSerializer,
     SpeakingTopicSerializer,
+    SpeakingQuestionSerializer,
     TestHeadSerializer,
     QuestionSerializer,
     MockExamSerializer,
@@ -726,12 +728,23 @@ def delete_writing_task(request, task_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_speaking_topics(request):
-    """Get list of speaking topics"""
+    """Get list of speaking topics with their questions"""
     if not check_manager_permission(request.user):
         return Response(
             {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
         )
-    topics = SpeakingTopic.objects.all().order_by("-created_at")
+
+    topics = SpeakingTopic.objects.prefetch_related("questions").order_by("-created_at")
+
+    # Filter by speaking type
+    speaking_type = request.query_params.get("speaking_type")
+    if speaking_type and speaking_type != "all":
+        topics = topics.filter(speaking_type=speaking_type)
+
+    # Search by topic name
+    search = request.query_params.get("search")
+    if search:
+        topics = topics.filter(topic__icontains=search)
 
     paginated = paginate_queryset(topics, request)
 
@@ -740,23 +753,54 @@ def get_speaking_topics(request):
     return Response({"topics": serializer.data, "pagination": paginated["pagination"]})
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_speaking_topic_detail(request, topic_id):
+    """Get detailed speaking topic with all questions"""
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+        )
+
+    topic = get_object_or_404(
+        SpeakingTopic.objects.prefetch_related("questions"), id=topic_id
+    )
+    serializer = SpeakingTopicSerializer(topic)
+
+    return Response(serializer.data)
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_speaking_topic(request):
-    """Create a new speaking topic"""
+    """Create a new speaking topic with questions"""
     if not check_manager_permission(request.user):
         return Response(
             {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
         )
 
     data = request.data.copy()
+    questions_data = data.pop("questions", [])
 
     serializer = SpeakingTopicSerializer(data=data)
 
     if serializer.is_valid():
-        serializer.save()
+        topic = serializer.save()
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Create questions for the topic
+        for i, q_data in enumerate(questions_data):
+            SpeakingQuestion.objects.create(
+                topic=topic,
+                question_text=q_data.get("question_text", ""),
+                cue_card_points=q_data.get("cue_card_points"),
+                audio_url=q_data.get("audio_url"),
+                order=q_data.get("order", i + 1),
+            )
+
+        # Refetch to include questions
+        topic.refresh_from_db()
+        result_serializer = SpeakingTopicSerializer(topic)
+        return Response(result_serializer.data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -764,19 +808,38 @@ def create_speaking_topic(request):
 @api_view(["PUT", "PATCH"])
 @permission_classes([IsAuthenticated])
 def update_speaking_topic(request, topic_id):
-    """Update a speaking topic"""
+    """Update a speaking topic and its questions"""
     if not check_manager_permission(request.user):
         return Response(
             {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
         )
-    topic = get_object_or_404(SpeakingTopic, id=topic_id)
 
-    serializer = SpeakingTopicSerializer(topic, data=request.data, partial=True)
+    topic = get_object_or_404(SpeakingTopic, id=topic_id)
+    data = request.data.copy()
+    questions_data = data.pop("questions", None)
+
+    serializer = SpeakingTopicSerializer(topic, data=data, partial=True)
 
     if serializer.is_valid():
-        serializer.save()
+        topic = serializer.save()
 
-        return Response(serializer.data)
+        # Update questions if provided
+        if questions_data is not None:
+            # Delete existing questions and recreate
+            topic.questions.all().delete()
+            for i, q_data in enumerate(questions_data):
+                SpeakingQuestion.objects.create(
+                    topic=topic,
+                    question_text=q_data.get("question_text", ""),
+                    cue_card_points=q_data.get("cue_card_points"),
+                    audio_url=q_data.get("audio_url"),
+                    order=q_data.get("order", i + 1),
+                )
+
+        # Refetch to include questions
+        topic.refresh_from_db()
+        result_serializer = SpeakingTopicSerializer(topic)
+        return Response(result_serializer.data)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -784,7 +847,7 @@ def update_speaking_topic(request, topic_id):
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def delete_speaking_topic(request, topic_id):
-    """Delete a speaking topic"""
+    """Delete a speaking topic and its questions"""
     if not check_manager_permission(request.user):
         return Response(
             {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
@@ -792,6 +855,70 @@ def delete_speaking_topic(request, topic_id):
     topic = get_object_or_404(SpeakingTopic, id=topic_id)
 
     topic.delete()
+
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ============================================================================
+# SPEAKING QUESTION ENDPOINTS
+# ============================================================================
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_speaking_question(request, topic_id):
+    """Add a question to a speaking topic"""
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+        )
+
+    topic = get_object_or_404(SpeakingTopic, id=topic_id)
+    data = request.data.copy()
+    data["topic"] = topic.id
+
+    # Get the next order number
+    max_order = topic.questions.aggregate(max_order=Count("id"))["max_order"] or 0
+    data.setdefault("order", max_order + 1)
+
+    serializer = SpeakingQuestionSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save(topic=topic)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
+def update_speaking_question(request, question_id):
+    """Update a speaking question"""
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+        )
+
+    question = get_object_or_404(SpeakingQuestion, id=question_id)
+    serializer = SpeakingQuestionSerializer(question, data=request.data, partial=True)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_speaking_question(request, question_id):
+    """Delete a speaking question"""
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+        )
+
+    question = get_object_or_404(SpeakingQuestion, id=question_id)
+    question.delete()
 
     return Response(status=status.HTTP_204_NO_CONTENT)
 

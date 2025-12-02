@@ -33,9 +33,14 @@ from .tests import (
     delete_writing_task,
     # Speaking
     get_speaking_topics,
+    get_speaking_topic_detail,
     create_speaking_topic,
     update_speaking_topic,
     delete_speaking_topic,
+    # Speaking Questions
+    add_speaking_question,
+    update_speaking_question,
+    delete_speaking_question,
 )
 from .questions import (
     get_testheads,
@@ -91,9 +96,14 @@ __all__ = [
     "delete_writing_task",
     # Speaking
     "get_speaking_topics",
+    "get_speaking_topic_detail",
     "create_speaking_topic",
     "update_speaking_topic",
     "delete_speaking_topic",
+    # Speaking Questions
+    "add_speaking_question",
+    "update_speaking_question",
+    "delete_speaking_question",
     # Questions
     "get_testheads",
     "get_testhead",

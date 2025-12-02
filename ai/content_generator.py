@@ -1394,6 +1394,12 @@ You are an expert IELTS test content analyzer. Analyze this PDF document and ext
 3. Structure the topics and questions appropriately
 4. For Part 2, extract the cue card with bullet points
 
+**CRITICAL FOR PART 2 CUE CARDS:**
+- The "main_prompt" should contain ONLY the topic sentence (e.g., "Describe a memorable journey you have taken.")
+- Do NOT include "You should say:" phrase in the main_prompt or bullet_points - the UI will add this label
+- The "bullet_points" should contain ONLY the points themselves, not prefixes like "You should say:"
+- Each bullet point should start with lowercase and be a short phrase (e.g., "where you went", "who you were with")
+
 **OUTPUT FORMAT - Return a valid JSON object with this EXACT structure:**
 {
     "success": true,
@@ -2617,6 +2623,11 @@ DIFFICULTY LEVELS:
 - Part 1: Introduction & Interview (4-5 min) - familiar topics, 4-5 questions
 - Part 2: Individual Long Turn (3-4 min) - cue card with bullet points
 - Part 3: Two-way Discussion (4-5 min) - abstract/analytical questions
+
+**CRITICAL FOR PART 2 CUE CARDS:**
+- The "main_prompt" should contain ONLY the topic sentence (e.g., "Describe a meeting you remember going to at work, college or school.")
+- Do NOT include "You should say:" phrase in the main_prompt or bullet_points - the UI will add this label
+- The "bullet_points" should contain ONLY the points themselves, starting with lowercase (e.g., "when and where the meeting was held")
 
 **SPEAKING STRUCTURE:**
 {

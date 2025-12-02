@@ -11,24 +11,40 @@ urlpatterns = [
         api_views.get_section_types_overview,
         name="section_types_overview",
     ),
-    # Attempt management - these paths start with 'attempt/' so they're unambiguous
+    # Attempt management - UUID only
     path(
-        "attempt/<int:attempt_id>/",
+        "attempt/<uuid:attempt_uuid>/",
         api_views.get_attempt,
         name="get_attempt",
     ),
     path(
-        "attempt/<int:attempt_id>/submit/",
+        "attempt/<uuid:attempt_uuid>/submit/",
         api_views.submit_answers,
         name="submit_answers",
     ),
     path(
-        "attempt/<int:attempt_id>/submit-writing/",
+        "attempt/<uuid:attempt_uuid>/submit-writing/",
         api_views.submit_writing,
         name="submit_writing",
     ),
+    # Speaking submission endpoints
     path(
-        "attempt/<int:attempt_id>/abandon/",
+        "attempt/<uuid:attempt_uuid>/submit-speaking-answer/",
+        api_views.submit_speaking_answer,
+        name="submit_speaking_answer",
+    ),
+    path(
+        "attempt/<uuid:attempt_uuid>/submit-speaking-complete/",
+        api_views.submit_speaking_complete,
+        name="submit_speaking_complete",
+    ),
+    path(
+        "attempt/<uuid:attempt_uuid>/speaking-result/",
+        api_views.get_speaking_result,
+        name="speaking_result",
+    ),
+    path(
+        "attempt/<uuid:attempt_uuid>/abandon/",
         api_views.abandon_attempt,
         name="abandon_attempt",
     ),
@@ -48,28 +64,18 @@ urlpatterns = [
         api_views.get_active_attempt,
         name="active_attempt",
     ),
-    # Practice detail and start - support both int ID and UUID
+    # Practice detail and start - UUID only
     path(
-        "<int:practice_id>/",
+        "<uuid:practice_uuid>/",
         api_views.get_section_practice_detail,
         name="practice_detail",
     ),
     path(
-        "<uuid:practice_uuid>/",
-        api_views.get_section_practice_detail,
-        name="practice_detail_uuid",
-    ),
-    path(
-        "<int:practice_id>/start/",
+        "<uuid:practice_uuid>/start/",
         api_views.start_practice,
         name="start_practice",
     ),
-    path(
-        "<uuid:practice_uuid>/start/",
-        api_views.start_practice,
-        name="start_practice_uuid",
-    ),
-    # Section type listing - this is last to avoid conflicts with int paths
+    # Section type listing
     path(
         "sections/<str:section_type>/",
         api_views.get_section_practices_by_type,

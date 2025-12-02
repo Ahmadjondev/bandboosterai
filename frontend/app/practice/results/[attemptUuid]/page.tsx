@@ -20,7 +20,7 @@ import type { GetAttemptResponse } from '@/types/section-practice';
 export default function PracticeResultsPage() {
   const params = useParams();
   const router = useRouter();
-  const attemptId = Number(params.attemptId);
+  const attemptUuid = params.attemptUuid as string;
 
   const [data, setData] = useState<GetAttemptResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,13 +28,13 @@ export default function PracticeResultsPage() {
 
   useEffect(() => {
     loadResults();
-  }, [attemptId]);
+  }, [attemptUuid]);
 
   const loadResults = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getAttempt(attemptId);
+      const response = await getAttempt(attemptUuid);
       setData(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load results');
@@ -193,7 +193,7 @@ export default function PracticeResultsPage() {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
-                href={`/practice/detail/${practice.id}`}
+                href={`/practice/detail/${practice.uuid}`}
                 className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
               >
                 <RotateCcw className="w-5 h-5" />

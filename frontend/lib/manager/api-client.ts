@@ -579,6 +579,10 @@ class ManagerAPIClient {
     return this.get<PaginatedResponse<SpeakingTopic>>('/tests/speaking/', params);
   }
 
+  async getSpeakingTopicDetail(topicId: number): Promise<SpeakingTopic> {
+    return this.get<SpeakingTopic>(`/tests/speaking/${topicId}/`);
+  }
+
   async createSpeakingTopic(data: any): Promise<SpeakingTopic> {
     return this.post<SpeakingTopic>('/tests/speaking/create/', data);
   }
@@ -589,6 +593,155 @@ class ManagerAPIClient {
 
   async deleteSpeakingTopic(topicId: number): Promise<void> {
     return this.delete<void>(`/tests/speaking/${topicId}/delete/`);
+  }
+
+  // Speaking Question APIs
+  async addSpeakingQuestion(topicId: number, data: any): Promise<any> {
+    return this.post(`/tests/speaking/${topicId}/questions/add/`, data);
+  }
+
+  async updateSpeakingQuestion(questionId: number, data: any): Promise<any> {
+    return this.put(`/tests/speaking/questions/${questionId}/update/`, data);
+  }
+
+  async deleteSpeakingQuestion(questionId: number): Promise<void> {
+    return this.delete<void>(`/tests/speaking/questions/${questionId}/delete/`);
+  }
+
+  // Speaking TTS (Text-to-Speech) APIs
+  async generateTTSForTopic(topicId: number, voice: string = 'female_primary'): Promise<{
+    success: boolean;
+    topic_id: number;
+    audio_url: string;
+    audio_type: string;
+    metadata: Record<string, any>;
+  }> {
+    return this.post(`/tests/speaking/${topicId}/generate-tts/`, { voice });
+  }
+
+  async generateTTSForQuestion(questionText: string, speakingPart: string = 'PART_1', voice: string = 'female_primary'): Promise<{
+    success: boolean;
+    audio_url: string;
+    metadata: Record<string, any>;
+  }> {
+    return this.post('/tests/speaking/generate-tts/', {
+      question_text: questionText,
+      speaking_part: speakingPart,
+      voice,
+    });
+  }
+
+  async generateTTSBatch(topics: any[], voice: string = 'female_primary', generateAllQuestions: boolean = true): Promise<{
+    success: boolean;
+    generated: Array<{
+      topic_index: number;
+      part_number: number;
+      question_audios?: Array<{
+        question_index: number;
+        question_text: string;
+        audio_url: string;
+      }>;
+      cue_card_audio?: string;
+    }>;
+    errors: Array<{
+      topic_index: number;
+      question_index?: number;
+      error: string;
+    }>;
+  }> {
+    return this.post('/tests/speaking/generate-tts-batch/', {
+      topics,
+      voice,
+      generate_all_questions: generateAllQuestions,
+    });
+  }
+
+  async getTTSVoices(): Promise<{
+    voices: Array<{
+      id: string;
+      name: string;
+      voice_name: string;
+      gender: string;
+      description: string;
+      recommended: boolean;
+    }>;
+    default: string;
+  }> {
+    return this.get('/tests/speaking/tts-voices/');
+  }
+
+  // Generate TTS for a saved SpeakingQuestion
+  async generateTTSForSavedQuestion(questionId: number, voice: string = 'female_primary'): Promise<{
+    success: boolean;
+    question_id: number;
+    audio_url: string;
+    metadata: Record<string, any>;
+  }> {
+    return this.post(`/tests/speaking/question/${questionId}/generate-tts/`, { voice });
+  }
+
+  // Default Speaking Audio APIs
+  async getDefaultSpeakingAudios(): Promise<{
+    audios: Array<{
+      audio_type: string;
+      label: string;
+      audio_url: string | null;
+      default_script: string;
+      script?: string;
+      voice?: string;
+      exists: boolean;
+    }>;
+    total: number;
+    generated: number;
+  }> {
+    return this.get('/tests/speaking/default-audios/');
+  }
+
+  async generateDefaultSpeakingAudio(audioType: string, script?: string, voice: string = 'female_primary'): Promise<{
+    success: boolean;
+    audio_type: string;
+    audio_url: string;
+    script: string;
+    voice: string;
+    created: boolean;
+  }> {
+    return this.post('/tests/speaking/default-audios/generate/', {
+      audio_type: audioType,
+      script,
+      voice,
+    });
+  }
+
+  async generateAllDefaultSpeakingAudios(voice: string = 'female_primary'): Promise<{
+    success: boolean;
+    generated: Array<{
+      audio_type: string;
+      label: string;
+      audio_url: string;
+    }>;
+    errors: Array<{
+      audio_type: string;
+      error: string;
+    }>;
+    total_generated: number;
+    total_errors: number;
+  }> {
+    return this.post('/tests/speaking/default-audios/generate-all/', { voice });
+  }
+
+  async updateDefaultSpeakingAudio(audioType: string, script: string, voice?: string): Promise<{
+    success: boolean;
+    id: number;
+    audio_type: string;
+    script: string;
+    audio_url: string;
+    voice: string;
+  }> {
+    return this.put(`/tests/speaking/default-audios/${audioType}/update/`, { script, voice });
+  }
+
+  async deleteDefaultSpeakingAudio(audioType: string): Promise<{ success: boolean }> {
+    return this.delete(`/tests/speaking/default-audios/${audioType}/delete/`);
   }
 
   // Mock Tests

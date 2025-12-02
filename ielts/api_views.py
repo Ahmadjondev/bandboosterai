@@ -21,6 +21,7 @@ from .models import (
     Question,
     SpeakingQuestion,
     SpeakingAnswer,
+    SpeakingDefaultAudio,
     TestHead,
     UserAnswer,
     WritingAttempt,
@@ -407,9 +408,14 @@ def get_my_attempts(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def create_exam_attempt(request, exam_id):
-    """Create a new exam attempt for the given exam."""
+def create_exam_attempt(request, exam_identifier):
+    """Create a new exam attempt for the given exam.
+
+    Args:
+        exam_identifier: Can be either UUID string or integer ID
+    """
     from ielts.models import Exam
+    import uuid as uuid_module
 
     # Check if user's email is verified
     if not request.user.is_verified:
@@ -436,6 +442,7 @@ def create_exam_attempt(request, exam_id):
                 "error": "You have an active exam in progress. Please complete it before starting a new one.",
                 "active_attempt": {
                     "attempt_id": active_attempt.id,
+                    "attempt_uuid": str(active_attempt.uuid),
                     "exam_title": active_attempt.exam.name,
                     "status": active_attempt.status,
                     "current_section": active_attempt.current_section,
@@ -444,12 +451,27 @@ def create_exam_attempt(request, exam_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Get the exam (MockExam)
+    # Get the exam (MockExam) - support both UUID and integer ID
+    mock_exam = None
+
+    # Try UUID first
     try:
-        mock_exam = MockExam.objects.get(id=exam_id, is_active=True)
-    except MockExam.DoesNotExist:
+        uuid_obj = uuid_module.UUID(str(exam_identifier))
+        mock_exam = MockExam.objects.get(uuid=uuid_obj)
+    except (ValueError, MockExam.DoesNotExist):
+        pass
+
+    # Try integer ID if UUID didn't work
+    if mock_exam is None:
+        try:
+            int_id = int(exam_identifier)
+            mock_exam = MockExam.objects.get(id=int_id)
+        except (ValueError, TypeError, MockExam.DoesNotExist):
+            pass
+
+    if mock_exam is None:
         return Response(
-            {"error": "Exam not found or not available."},
+            {"error": "Exam not found."},
             status=status.HTTP_404_NOT_FOUND,
         )
 
@@ -728,6 +750,49 @@ def build_speaking_data(attempt, request):
             "topics": serializer.data,
             "time_remaining": time_remaining,
             "next_section_name": None,
+        }
+    )
+
+
+# ============================================================================
+# SPEAKING DEFAULT AUDIOS ENDPOINT
+# ============================================================================
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_speaking_default_audios(request):
+    """
+    Get all default speaking audios for the exam speaking section.
+    These are the intro/instruction audios that play before each part.
+
+    Returns:
+        {
+            "audios": {
+                "PART_1_INTRO": "url...",
+                "PART_2_INTRO": "url...",
+                "PART_2_PREP": "url...",
+                "PART_2_START": "url...",
+                "PART_3_INTRO": "url...",
+                "TEST_END": "url..."
+            }
+        }
+    """
+    audios = SpeakingDefaultAudio.objects.all()
+
+    audio_dict = {}
+    for audio in audios:
+        if audio.audio_url:
+            audio_dict[audio.audio_type] = {
+                "audio_url": audio.audio_url,
+                "script": audio.script,
+                "label": audio.get_audio_type_display(),
+            }
+
+    return Response(
+        {
+            "success": True,
+            "audios": audio_dict,
         }
     )
 

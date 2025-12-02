@@ -24,13 +24,35 @@ urlpatterns = [
         name="api_clear_dashboard_cache",
     ),
     # Dashboard v2 - Optimized parallel endpoints
-    path("api/dashboard/v2/overview/", get_dashboard_overview, name="api_dashboard_overview_v2"),
-    path("api/dashboard/v2/sections/", get_section_scores, name="api_dashboard_sections_v2"),
+    path(
+        "api/dashboard/v2/overview/",
+        get_dashboard_overview,
+        name="api_dashboard_overview_v2",
+    ),
+    path(
+        "api/dashboard/v2/sections/",
+        get_section_scores,
+        name="api_dashboard_sections_v2",
+    ),
     path("api/dashboard/v2/books/", get_books_progress, name="api_dashboard_books_v2"),
-    path("api/dashboard/v2/activity/", get_recent_activity, name="api_dashboard_activity_v2"),
-    path("api/dashboard/v2/weekly/", get_weekly_progress, name="api_dashboard_weekly_v2"),
-    path("api/dashboard/v2/achievements/", get_achievements, name="api_dashboard_achievements_v2"),
-    path("api/dashboard/v2/clear-cache/", clear_all_dashboard_cache, name="api_clear_dashboard_cache_v2"),
+    path(
+        "api/dashboard/v2/activity/",
+        get_recent_activity,
+        name="api_dashboard_activity_v2",
+    ),
+    path(
+        "api/dashboard/v2/weekly/", get_weekly_progress, name="api_dashboard_weekly_v2"
+    ),
+    path(
+        "api/dashboard/v2/achievements/",
+        get_achievements,
+        name="api_dashboard_achievements_v2",
+    ),
+    path(
+        "api/dashboard/v2/clear-cache/",
+        clear_all_dashboard_cache,
+        name="api_clear_dashboard_cache_v2",
+    ),
     # Web views for exam interface (use 'attempt' prefix to avoid conflicts)
     # Support both UUID and integer ID for public-facing URLs
     path("attempt/<str:attempt_id>/", views.exam_view, name="exam"),
@@ -48,7 +70,7 @@ urlpatterns = [
         name="api_my_attempts",
     ),
     path(
-        "api/tests/<int:exam_id>/start/",
+        "api/tests/<str:exam_identifier>/start/",
         api_views.create_exam_attempt,
         name="api_create_attempt",
     ),
@@ -92,6 +114,12 @@ urlpatterns = [
         "api/attempt/<str:attempt_id>/results/",
         api_views.get_test_results,
         name="api_test_results",
+    ),
+    # Speaking default audios
+    path(
+        "api/speaking/default-audios/",
+        api_views.get_speaking_default_audios,
+        name="api_speaking_default_audios",
     ),
     # AI Writing Checker endpoints
     path(

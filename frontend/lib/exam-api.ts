@@ -129,8 +129,9 @@ export async function getAttemptInfo(attemptId: number | string): Promise<ExamAt
 /**
  * Create a new exam attempt for a Full IELTS Test
  * Calls the backend API to create an ExamAttempt and returns the attempt ID and UUID
+ * @param examIdentifier - Exam ID (number) or UUID (string)
  */
-export async function createFullTestAttempt(examId: number): Promise<{ 
+export async function createFullTestAttempt(examIdentifier: number | string): Promise<{ 
   attemptId: number;
   attemptUuid: string;
 }> {
@@ -138,7 +139,7 @@ export async function createFullTestAttempt(examId: number): Promise<{
     attempt_id: number;
     attempt_uuid: string;
   }>(
-    `${API_BASE}/tests/${examId}/start/`,
+    `${API_BASE}/tests/${examIdentifier}/start/`,
     {}
   );
   
@@ -302,6 +303,39 @@ export async function getMyAttempts(): Promise<TestAttemptHistory[]> {
     throw new Error("No attempts data received from server");
   }
   return response.data.attempts;
+}
+
+// ============================================================================
+// SPEAKING DEFAULT AUDIOS
+// ============================================================================
+
+export interface SpeakingDefaultAudioInfo {
+  audio_url: string;
+  script: string;
+  label: string;
+}
+
+export interface SpeakingDefaultAudios {
+  PART_1_INTRO?: SpeakingDefaultAudioInfo;
+  PART_2_INTRO?: SpeakingDefaultAudioInfo;
+  PART_2_PREP?: SpeakingDefaultAudioInfo;
+  PART_2_START?: SpeakingDefaultAudioInfo;
+  PART_3_INTRO?: SpeakingDefaultAudioInfo;
+  TEST_END?: SpeakingDefaultAudioInfo;
+}
+
+/**
+ * Get default speaking audios for the exam
+ * These are intro/instruction audios that play before each part
+ */
+export async function getSpeakingDefaultAudios(): Promise<SpeakingDefaultAudios> {
+  const response = await apiClient.get<{ success: boolean; audios: SpeakingDefaultAudios }>(
+    `${API_BASE}/speaking/default-audios/`
+  );
+  if (!response.data || !response.data.audios) {
+    return {};
+  }
+  return response.data.audios;
 }
 
 // ============================================================================

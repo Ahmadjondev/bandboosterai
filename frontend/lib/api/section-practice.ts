@@ -20,6 +20,7 @@ import type {
   ActiveAttemptResponse,
   SectionType,
   Difficulty,
+  StatusFilter,
 } from '@/types/section-practice';
 
 const API_BASE = '';
@@ -45,14 +46,24 @@ export async function getSectionPractices(params?: {
 }
 
 /**
- * Get section practices by type with stats
+ * Get section practices by type with stats and pagination
  */
 export async function getSectionPracticesByType(
   sectionType: SectionType,
-  difficulty?: Difficulty
+  options?: {
+    difficulty?: Difficulty;
+    status?: StatusFilter;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }
 ): Promise<SectionPracticesByTypeResponse> {
   const searchParams = new URLSearchParams();
-  if (difficulty) searchParams.append('difficulty', difficulty);
+  if (options?.difficulty) searchParams.append('difficulty', options.difficulty);
+  if (options?.status && options.status !== 'all') searchParams.append('status', options.status);
+  if (options?.search) searchParams.append('search', options.search);
+  if (options?.page) searchParams.append('page', String(options.page));
+  if (options?.page_size) searchParams.append('page_size', String(options.page_size));
   
   const query = searchParams.toString();
   const url = `${API_BASE}/practice/sections/${sectionType.toLowerCase()}/${query ? `?${query}` : ''}`;
@@ -74,9 +85,10 @@ export async function getSectionTypesOverview(): Promise<SectionTypeOverview[]> 
 
 /**
  * Get section practice detail
+ * @param practiceUuid - UUID of the section practice
  */
-export async function getSectionPracticeDetail(practiceId: number | string): Promise<SectionPracticeDetail> {
-  const response = await apiClient.get<SectionPracticeDetail>(`${API_BASE}/practice/${practiceId}/`);
+export async function getSectionPracticeDetail(practiceUuid: string): Promise<SectionPracticeDetail> {
+  const response = await apiClient.get<SectionPracticeDetail>(`${API_BASE}/practice/${practiceUuid}/`);
   if (!response.data) {
     throw new Error('Failed to fetch practice detail');
   }
@@ -85,9 +97,10 @@ export async function getSectionPracticeDetail(practiceId: number | string): Pro
 
 /**
  * Start a new practice attempt
+ * @param practiceUuid - UUID of the section practice
  */
-export async function startPractice(practiceId: number | string): Promise<StartPracticeResponse> {
-  const response = await apiClient.post<StartPracticeResponse>(`${API_BASE}/practice/${practiceId}/start/`);
+export async function startPractice(practiceUuid: string): Promise<StartPracticeResponse> {
+  const response = await apiClient.post<StartPracticeResponse>(`${API_BASE}/practice/${practiceUuid}/start/`);
   if (!response.data) {
     throw new Error('Failed to start practice');
   }
@@ -96,9 +109,10 @@ export async function startPractice(practiceId: number | string): Promise<StartP
 
 /**
  * Get attempt details
+ * @param attemptUuid - UUID of the attempt
  */
-export async function getAttempt(attemptId: number): Promise<GetAttemptResponse> {
-  const response = await apiClient.get<GetAttemptResponse>(`${API_BASE}/practice/attempt/${attemptId}/`);
+export async function getAttempt(attemptUuid: string): Promise<GetAttemptResponse> {
+  const response = await apiClient.get<GetAttemptResponse>(`${API_BASE}/practice/attempt/${attemptUuid}/`);
   if (!response.data) {
     throw new Error('Failed to fetch attempt');
   }
@@ -107,13 +121,14 @@ export async function getAttempt(attemptId: number): Promise<GetAttemptResponse>
 
 /**
  * Submit answers for reading/listening practice
+ * @param attemptUuid - UUID of the attempt
  */
 export async function submitAnswers(
-  attemptId: number,
+  attemptUuid: string,
   data: SubmitAnswersRequest
 ): Promise<SubmitAnswersResponse> {
   const response = await apiClient.post<SubmitAnswersResponse>(
-    `${API_BASE}/practice/attempt/${attemptId}/submit/`,
+    `${API_BASE}/practice/attempt/${attemptUuid}/submit/`,
     data
   );
   if (!response.data) {
@@ -124,13 +139,14 @@ export async function submitAnswers(
 
 /**
  * Submit writing response
+ * @param attemptUuid - UUID of the attempt
  */
 export async function submitWriting(
-  attemptId: number,
+  attemptUuid: string,
   data: SubmitWritingRequest
 ): Promise<SubmitWritingResponse> {
   const response = await apiClient.post<SubmitWritingResponse>(
-    `${API_BASE}/practice/attempt/${attemptId}/submit-writing/`,
+    `${API_BASE}/practice/attempt/${attemptUuid}/submit-writing/`,
     data
   );
   if (!response.data) {
@@ -140,10 +156,135 @@ export async function submitWriting(
 }
 
 /**
- * Abandon an in-progress attempt
+ * Submit a single speaking answer (audio recording)
+ * @param attemptUuid - UUID of the attempt
+ * @param questionKey - Question key (e.g., "speaking_PART_1_q1")
+ * @param audioBlob - Audio blob from MediaRecorder
  */
-export async function abandonAttempt(attemptId: number): Promise<{ message: string }> {
-  const response = await apiClient.post<{ message: string }>(`${API_BASE}/practice/attempt/${attemptId}/abandon/`);
+export async function submitSpeakingAnswer(
+  attemptUuid: string,
+  questionKey: string,
+  audioBlob: Blob
+): Promise<{ success: boolean; message: string; question_key: string; file_url: string }> {
+  const formData = new FormData();
+  formData.append('question_key', questionKey);
+  formData.append('audio_file', audioBlob, `${questionKey}.webm`);
+  
+  // NOTE: Do NOT set Content-Type header - browser sets it automatically with boundary
+  const response = await apiClient.post<{ success: boolean; message: string; question_key: string; file_url: string }>(
+    `${API_BASE}/practice/attempt/${attemptUuid}/submit-speaking-answer/`,
+    formData
+  );
+  if (!response.data) {
+    throw new Error('Failed to submit speaking answer');
+  }
+  return response.data;
+}
+
+/**
+ * Complete speaking practice and trigger AI evaluation
+ * @param attemptUuid - UUID of the attempt
+ * @param timeSpent - Time spent in seconds
+ */
+export async function submitSpeakingComplete(
+  attemptUuid: string,
+  timeSpent: number
+): Promise<SpeakingEvaluationResponse> {
+  const response = await apiClient.post<SpeakingEvaluationResponse>(
+    `${API_BASE}/practice/attempt/${attemptUuid}/submit-speaking-complete/`,
+    { time_spent: timeSpent }
+  );
+  if (!response.data) {
+    throw new Error('Failed to complete speaking practice');
+  }
+  return response.data;
+}
+
+/**
+ * Get detailed speaking evaluation result
+ * @param attemptUuid - UUID of the attempt
+ */
+export async function getSpeakingResult(attemptUuid: string): Promise<SpeakingResultResponse> {
+  const response = await apiClient.get<SpeakingResultResponse>(
+    `${API_BASE}/practice/attempt/${attemptUuid}/speaking-result/`
+  );
+  if (!response.data) {
+    throw new Error('Failed to get speaking result');
+  }
+  return response.data;
+}
+
+// Speaking evaluation types
+export interface SpeakingEvaluationResponse {
+  success: boolean;
+  message: string;
+  attempt_uuid: string;
+  score?: number;
+  evaluation?: SpeakingEvaluation;
+}
+
+export interface SpeakingEvaluation {
+  fluency_and_coherence: {
+    score: number;
+    feedback: string;
+  };
+  lexical_resource: {
+    score: number;
+    feedback: string;
+  };
+  grammatical_range_and_accuracy: {
+    score: number;
+    feedback: string;
+  };
+  pronunciation: {
+    score: number;
+    feedback: string;
+  };
+  overall_band_score: number;
+  overall_feedback: string;
+  strengths: string[];
+  areas_for_improvement: string[];
+  pronunciation_improvements?: {
+    specific_words: string[];
+    phonetic_tips: string[];
+    practice_exercises: string[];
+  };
+}
+
+export interface SpeakingResultResponse {
+  success: boolean;
+  attempt_uuid: string;
+  practice_title: string;
+  score: number | null;
+  overall_feedback: string;
+  evaluation: SpeakingEvaluation;
+  azure_scores: {
+    pronunciation: number;
+    fluency: number;
+    accuracy: number;
+  };
+  transcripts: Array<{
+    question_key: string;
+    question_text: string;
+    transcript: string;
+    pronunciation_score: number;
+    fluency_score: number;
+    accuracy_score: number;
+    mispronounced_words: Array<{
+      word: string;
+      accuracy_score: number;
+    }>;
+  }>;
+  time_spent_seconds: number;
+  completed_at: string | null;
+}
+
+/**
+ * Abandon an in-progress attempt
+ * @param attemptUuid - UUID of the attempt
+ */
+export async function abandonAttempt(attemptUuid: string): Promise<{ message: string }> {
+  const response = await apiClient.post<{ message: string }>(`${API_BASE}/practice/attempt/${attemptUuid}/abandon/`);
   return response.data || { message: 'Attempt abandoned' };
 }
 

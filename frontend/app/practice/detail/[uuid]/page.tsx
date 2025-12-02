@@ -15,6 +15,8 @@ import {
   Mic,
   CheckCircle,
   AlertCircle,
+  ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getSectionPracticeDetail,
@@ -60,7 +62,7 @@ const sectionColors = {
 export default function PracticeDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const practiceId = params.id as string;
+  const practiceUuid = params.uuid as string;
 
   const [practice, setPractice] = useState<SectionPracticeDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,13 +70,13 @@ export default function PracticeDetailPage() {
 
   useEffect(() => {
     loadPractice();
-  }, [practiceId]);
+  }, [practiceUuid]);
 
   const loadPractice = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getSectionPracticeDetail(Number(practiceId));
+      const data = await getSectionPracticeDetail(practiceUuid);
       setPractice(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load practice');
@@ -98,8 +100,29 @@ export default function PracticeDetailPage() {
       return;
     }
 
-    // For writing and speaking, redirect to the router page which shows "coming soon"
+    // For speaking, navigate to speaking practice page
+    if (practice.section_type === 'SPEAKING') {
+      router.push(`/practice-session/speaking/${practice.uuid}`);
+      return;
+    }
+
+    // For writing, redirect to the router page which shows "coming soon"
     router.push(`/practice-session/${practice.uuid}`);
+  };
+
+  const handleContinue = () => {
+    if (!practice) return;
+
+    // Navigate to the appropriate session page - it will auto-detect in-progress attempt
+    if (practice.section_type === 'READING') {
+      router.push(`/practice-session/reading/${practice.uuid}`);
+    } else if (practice.section_type === 'LISTENING') {
+      router.push(`/practice-session/listening/${practice.uuid}`);
+    } else if (practice.section_type === 'SPEAKING') {
+      router.push(`/practice-session/speaking/${practice.uuid}`);
+    } else {
+      router.push(`/practice-session/${practice.uuid}`);
+    }
   };
 
   if (loading) {
@@ -151,6 +174,21 @@ export default function PracticeDetailPage() {
   const bestAttempt = practice.user_attempts.find(
     (a) => a.status === 'COMPLETED' && a.score !== null
   );
+  
+  // Check for in-progress attempt
+  const inProgressAttempt = practice.user_attempts.find(
+    (a) => a.status === 'IN_PROGRESS'
+  );
+  
+  // Get speaking-specific info
+  const speakingContent = practice.section_type === 'SPEAKING' ? practice.content as {
+    id: number;
+    topic: string;
+    speaking_type: string;
+    speaking_type_display: string;
+    questions: Array<{ id: number; question_text: string; order: number }>;
+  } | null : null;
+  const speakingPartNumber = speakingContent ? parseInt(speakingContent.speaking_type.split('_')[1]) : null;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
@@ -200,11 +238,23 @@ export default function PracticeDetailPage() {
             {/* Stats Grid */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 text-center">
-                <Clock className="w-6 h-6 mx-auto mb-2 text-gray-400" />
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {practice.duration}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Minutes</p>
+                {practice.section_type === 'SPEAKING' && speakingPartNumber ? (
+                  <>
+                    <Mic className="w-6 h-6 mx-auto mb-2 text-orange-500" />
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                      Part {speakingPartNumber}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Speaking</p>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                      {practice.duration}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Minutes</p>
+                  </>
+                )}
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 text-center">
                 <Target className="w-6 h-6 mx-auto mb-2 text-gray-400" />
@@ -221,6 +271,37 @@ export default function PracticeDetailPage() {
                 <p className="text-sm text-gray-600 dark:text-gray-400">Best Score</p>
               </div>
             </div>
+
+            {/* Speaking-specific info */}
+            {practice.section_type === 'SPEAKING' && speakingContent && (
+              <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-1 bg-orange-200 dark:bg-orange-800 text-orange-700 dark:text-orange-300 text-xs font-bold rounded-full">
+                    Part {speakingPartNumber}
+                  </span>
+                  <span className="text-sm text-orange-700 dark:text-orange-300 font-medium">
+                    {speakingContent.speaking_type_display}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Topic: <span className="font-medium text-gray-900 dark:text-white">{speakingContent.topic}</span>
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {speakingContent.questions?.length || 0} question(s) • AI evaluation included
+                </p>
+              </div>
+            )}
+
+            {/* Continue In-Progress Attempt Button */}
+            {inProgressAttempt && (
+              <button
+                onClick={handleContinue}
+                className="w-full py-4 mb-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
+              >
+                <RefreshCw className="w-5 h-5" />
+                Continue In-Progress Attempt
+              </button>
+            )}
 
             {/* Start Button */}
             <button
@@ -241,7 +322,7 @@ export default function PracticeDetailPage() {
             </h2>
             <div className="space-y-3">
               {practice.user_attempts.map((attempt) => (
-                <AttemptCard key={attempt.id} attempt={attempt} />
+                <AttemptCard key={attempt.uuid} attempt={attempt} sectionType={practice.section_type} practiceUuid={practice.uuid} />
               ))}
             </div>
           </div>
@@ -251,12 +332,40 @@ export default function PracticeDetailPage() {
   );
 }
 
-function AttemptCard({ attempt }: { attempt: SectionPracticeAttempt }) {
+interface AttemptCardProps {
+  attempt: SectionPracticeAttempt;
+  sectionType: string;
+  practiceUuid: string;
+}
+
+function AttemptCard({ attempt, sectionType, practiceUuid }: AttemptCardProps) {
+  const router = useRouter();
   const isCompleted = attempt.status === 'COMPLETED';
+  const isInProgress = attempt.status === 'IN_PROGRESS';
   const statusColors = {
     COMPLETED: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
     IN_PROGRESS: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
     ABANDONED: 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400',
+  };
+  
+  const handleViewResults = () => {
+    if (sectionType === 'SPEAKING') {
+      router.push(`/practice-session/speaking/results/${attempt.uuid}`);
+    } else {
+      router.push(`/practice/results/${attempt.uuid}`);
+    }
+  };
+
+  const handleContinue = () => {
+    if (sectionType === 'READING') {
+      router.push(`/practice-session/reading/${practiceUuid}`);
+    } else if (sectionType === 'LISTENING') {
+      router.push(`/practice-session/listening/${practiceUuid}`);
+    } else if (sectionType === 'SPEAKING') {
+      router.push(`/practice-session/speaking/${practiceUuid}`);
+    } else {
+      router.push(`/practice-session/${practiceUuid}`);
+    }
   };
 
   return (
@@ -265,6 +374,8 @@ function AttemptCard({ attempt }: { attempt: SectionPracticeAttempt }) {
         <div className="flex items-center gap-3">
           {isCompleted ? (
             <CheckCircle className="w-5 h-5 text-green-500" />
+          ) : isInProgress ? (
+            <RefreshCw className="w-5 h-5 text-yellow-500" />
           ) : (
             <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600" />
           )}
@@ -292,13 +403,33 @@ function AttemptCard({ attempt }: { attempt: SectionPracticeAttempt }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {isCompleted && attempt.score != null && (
-            <div className="text-right">
-              <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {Number(attempt.score).toFixed(1)}
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Band Score</p>
-            </div>
+          {isInProgress && (
+            <button
+              onClick={handleContinue}
+              className="px-3 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg transition-colors flex items-center gap-1"
+            >
+              Continue
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          )}
+          {isCompleted && (
+            <>
+              <button
+                onClick={handleViewResults}
+                className="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors flex items-center gap-1"
+              >
+                View Results
+                <ArrowRight className="w-3 h-3" />
+              </button>
+              {attempt.score != null && (
+                <div className="text-right">
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    {Number(attempt.score).toFixed(1)}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Band Score</p>
+                </div>
+              )}
+            </>
           )}
           <span
             className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[attempt.status]}`}

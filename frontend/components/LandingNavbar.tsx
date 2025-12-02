@@ -80,7 +80,7 @@ export function LandingNavbar() {
                   isScrolled ? 'text-xl' : 'text-2xl'
                 }`}
               >
-                BandBooster
+                BandBooster AI
               </span>
             </Link>
 

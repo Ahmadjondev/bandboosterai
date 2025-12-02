@@ -47,6 +47,9 @@ import {
   Plus,
   Lock,
   Unlock,
+  Volume2,
+  VolumeX,
+  Loader2,
 } from 'lucide-react';
 import { managerAPI } from '@/lib/manager/api-client';
 import type {
@@ -141,6 +144,21 @@ const AIContentGenerator: React.FC = () => {
   const [partAudios, setPartAudios] = useState<Record<string, { file: File; preview: string; duration?: number }>>({});
   const [isDraggingAudio, setIsDraggingAudio] = useState(false);
   const [audioUploadQueue, setAudioUploadQueue] = useState<File[]>([]);
+
+  // TTS (Text-to-Speech) state for speaking questions
+  const [ttsVoice, setTtsVoice] = useState<string>('female_primary');
+  const [ttsVoices, setTtsVoices] = useState<Array<{ id: string; name: string; gender: string; recommended: boolean }>>([]);
+  const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
+  const [ttsProgress, setTtsProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  // Per-test TTS audio state: { testIndex: { audioKey: audioUrl } }
+  const [allTestsTTSAudios, setAllTestsTTSAudios] = useState<Record<number, Record<string, string>>>({});
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Helper to get audio URLs for current test
+  const generatedTTSAudios = useMemo(() => {
+    return allTestsTTSAudios[selectedTestIndex] || {};
+  }, [allTestsTTSAudios, selectedTestIndex]);
 
   // Review UI state: expansion and inline edit buffers
   const [expanded, setExpanded] = useState<{ 
@@ -450,6 +468,195 @@ const AIContentGenerator: React.FC = () => {
       return updated;
     });
     showNotification('Audio removed', 'info');
+  };
+
+  // ============= TTS (Text-to-Speech) Functions =============
+
+  // Load TTS voices on mount
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        const data = await managerAPI.getTTSVoices();
+        setTtsVoices(data.voices);
+        setTtsVoice(data.default);
+      } catch (error) {
+        console.error('Failed to load TTS voices:', error);
+        // Use default voices if API fails
+        setTtsVoices([
+          { id: 'female_primary', name: 'Sonia (British Female)', gender: 'female', recommended: true },
+          { id: 'male_primary', name: 'Ryan (British Male)', gender: 'male', recommended: true },
+        ]);
+      }
+    };
+    loadVoices();
+  }, []);
+
+  // Helper to update TTS audios for current test
+  const setGeneratedTTSAudios = (updater: (prev: Record<string, string>) => Record<string, string>) => {
+    setAllTestsTTSAudios(prev => ({
+      ...prev,
+      [selectedTestIndex]: updater(prev[selectedTestIndex] || {}),
+    }));
+  };
+
+  // Generate TTS for a single question
+  const generateTTSForQuestion = async (questionText: string, speakingPart: string, questionKey: string) => {
+    try {
+      const result = await managerAPI.generateTTSForQuestion(questionText, speakingPart, ttsVoice);
+      if (result.success && result.audio_url) {
+        setGeneratedTTSAudios(prev => ({
+          ...prev,
+          [questionKey]: result.audio_url,
+        }));
+        return result.audio_url;
+      }
+      return null;
+    } catch (error) {
+      console.error('TTS generation failed:', error);
+      throw error;
+    }
+  };
+
+  // Generate TTS for all speaking topics in batch
+  const generateTTSBatch = async (topics: any[]) => {
+    if (!topics || topics.length === 0) return;
+
+    setIsGeneratingTTS(true);
+    const totalQuestions = topics.reduce((acc, topic) => {
+      if (topic.part_number === 2) return acc + 1; // Cue card counts as 1
+      return acc + (topic.questions?.length || 0);
+    }, 0);
+    setTtsProgress({ current: 0, total: totalQuestions });
+
+    try {
+      const result = await managerAPI.generateTTSBatch(topics, ttsVoice, true);
+      
+      if (result.generated) {
+        const newAudios: Record<string, string> = {};
+        let processedCount = 0;
+
+        result.generated.forEach((topicResult) => {
+          if (topicResult.cue_card_audio) {
+            newAudios[`topic-${topicResult.topic_index}-cuecard`] = topicResult.cue_card_audio;
+            processedCount++;
+          }
+          topicResult.question_audios?.forEach((qa) => {
+            newAudios[`topic-${topicResult.topic_index}-q-${qa.question_index}`] = qa.audio_url;
+            processedCount++;
+          });
+        });
+
+        setGeneratedTTSAudios(prev => ({ ...prev, ...newAudios }));
+        setTtsProgress({ current: processedCount, total: totalQuestions });
+        showNotification(`Generated ${processedCount} audio files`, 'success');
+      }
+
+      if (result.errors && result.errors.length > 0) {
+        showNotification(`${result.errors.length} audio(s) failed to generate`, 'warning');
+      }
+    } catch (error) {
+      console.error('Batch TTS generation failed:', error);
+      showNotification('Failed to generate audio files', 'error');
+    } finally {
+      setIsGeneratingTTS(false);
+    }
+  };
+
+  // Play/Pause TTS audio
+  const toggleAudioPlayback = (audioKey: string, audioUrl: string) => {
+    if (playingAudio === audioKey && audioRef.current) {
+      audioRef.current.pause();
+      setPlayingAudio(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      audioRef.current = new Audio(audioUrl);
+      audioRef.current.onended = () => setPlayingAudio(null);
+      audioRef.current.play();
+      setPlayingAudio(audioKey);
+    }
+  };
+
+  // Stop all audio playback
+  const stopAllAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingAudio(null);
+  };
+
+  // Generate TTS audio for all tests at once
+  const generateTTSForAllTests = async () => {
+    if (!fullTestData?.tests || fullTestData.tests.length === 0) return;
+    
+    setIsGeneratingTTS(true);
+    
+    // Calculate total questions across all tests
+    let totalQuestions = 0;
+    fullTestData.tests.forEach((test: any) => {
+      if (test.speaking?.topics) {
+        test.speaking.topics.forEach((topic: any) => {
+          if (topic.part_number === 2) totalQuestions += 1;
+          else totalQuestions += (topic.questions?.length || 0);
+        });
+      }
+    });
+    
+    setTtsProgress({ current: 0, total: totalQuestions });
+    let overallProgress = 0;
+    let overallSuccess = 0;
+    let overallErrors = 0;
+    
+    try {
+      // Process each test sequentially
+      for (let testIdx = 0; testIdx < fullTestData.tests.length; testIdx++) {
+        const test = fullTestData.tests[testIdx];
+        if (!test.speaking?.topics || test.speaking.topics.length === 0) continue;
+        
+        const result = await managerAPI.generateTTSBatch(test.speaking.topics, ttsVoice, true);
+        
+        if (result.generated) {
+          const newAudios: Record<string, string> = {};
+          
+          result.generated.forEach((topicResult: any) => {
+            if (topicResult.cue_card_audio) {
+              newAudios[`topic-${topicResult.topic_index}-cuecard`] = topicResult.cue_card_audio;
+              overallProgress++;
+              overallSuccess++;
+            }
+            topicResult.question_audios?.forEach((qa: any) => {
+              newAudios[`topic-${topicResult.topic_index}-q-${qa.question_index}`] = qa.audio_url;
+              overallProgress++;
+              overallSuccess++;
+            });
+          });
+          
+          // Update audio state for this specific test
+          setAllTestsTTSAudios(prev => ({
+            ...prev,
+            [testIdx]: { ...(prev[testIdx] || {}), ...newAudios },
+          }));
+          
+          setTtsProgress({ current: overallProgress, total: totalQuestions });
+        }
+        
+        if (result.errors) {
+          overallErrors += result.errors.length;
+        }
+      }
+      
+      showNotification(
+        `Generated ${overallSuccess} audio files across ${fullTestData.tests.length} tests${overallErrors > 0 ? ` (${overallErrors} failed)` : ''}`,
+        overallErrors > 0 ? 'warning' : 'success'
+      );
+    } catch (error) {
+      console.error('Batch TTS generation for all tests failed:', error);
+      showNotification('Failed to generate audio files', 'error');
+    } finally {
+      setIsGeneratingTTS(false);
+    }
   };
 
   // Sanitize and process HTML from AI so <strong> and basic tags render safely
@@ -807,7 +1014,13 @@ const AIContentGenerator: React.FC = () => {
       if (!isPartOfBatch) setSaveProgress(prev => ({ ...prev, section: 'Writing' }));
     }
     if (selectedSections.has('speaking') && test.speaking) {
-      testData.speaking = test.speaking;
+      // Include TTS audio URLs with the speaking data
+      const speakingData = { ...test.speaking };
+      const testTTSAudios = allTestsTTSAudios[testIndex] || {};
+      if (Object.keys(testTTSAudios).length > 0) {
+        speakingData.question_audios = testTTSAudios;
+      }
+      testData.speaking = speakingData;
       if (!isPartOfBatch) setSaveProgress(prev => ({ ...prev, section: 'Speaking' }));
     }
 
@@ -2825,6 +3038,75 @@ const AIContentGenerator: React.FC = () => {
               {/* Speaking Topics */}
               {activeReviewTab === 'speaking' && currentTest?.speaking?.topics && (
                 <div className="space-y-4">
+                  {/* TTS Controls Header */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                          <Volume2 className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-slate-900 dark:text-white">Examiner Audio (TTS)</h4>
+                          <p className="text-sm text-slate-500">Generate authentic IELTS examiner audio for questions</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {/* Voice Selection */}
+                        <select
+                          value={ttsVoice}
+                          onChange={(e) => setTtsVoice(e.target.value)}
+                          className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                          disabled={isGeneratingTTS}
+                        >
+                          {ttsVoices.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name} {v.recommended ? '★' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {/* Generate Current Test Button */}
+                        <button
+                          onClick={() => generateTTSBatch(currentTest.speaking.topics)}
+                          disabled={isGeneratingTTS}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isGeneratingTTS ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Generating... {ttsProgress.current}/{ttsProgress.total}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-4 h-4" />
+                              <span>Generate This Test</span>
+                            </>
+                          )}
+                        </button>
+                        {/* Generate All Tests Button - only show if multiple tests */}
+                        {fullTestData?.tests && fullTestData.tests.length > 1 && (
+                          <button
+                            onClick={generateTTSForAllTests}
+                            disabled={isGeneratingTTS}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isGeneratingTTS ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Generating All...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 className="w-4 h-4" />
+                                <span>Generate All {fullTestData.tests.length} Tests</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Topic Cards */}
                   {currentTest.speaking.topics.map((topic: any, tIdx: number) => (
                     <div key={tIdx} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                       {/* Topic Header */}
@@ -2840,6 +3122,11 @@ const AIContentGenerator: React.FC = () => {
                             <h4 className="font-semibold text-slate-900 dark:text-white">{topic.topic}</h4>
                             <p className="text-sm text-slate-500">
                               Part {topic.part_number} • {topic.part_number === 2 ? `${topic.cue_card?.bullet_points?.length || 0} bullet points` : `${topic.questions?.length || 0} questions`}
+                              {/* Show audio status */}
+                              {(topic.part_number === 2 ? generatedTTSAudios[`topic-${tIdx}-cuecard`] : 
+                                topic.questions?.some((_: any, qIdx: number) => generatedTTSAudios[`topic-${tIdx}-q-${qIdx}`])) && (
+                                <span className="ml-2 text-green-600">• Audio ready</span>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -2852,7 +3139,43 @@ const AIContentGenerator: React.FC = () => {
                           {/* Part 2: Cue Card */}
                           {topic.part_number === 2 && topic.cue_card && (
                             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                              <p className="font-medium text-green-800 dark:text-green-200 mb-3">{topic.cue_card.main_prompt}</p>
+                              <div className="flex items-start justify-between gap-4 mb-3">
+                                <p className="font-medium text-green-800 dark:text-green-200 flex-1">{topic.cue_card.main_prompt}</p>
+                                {/* TTS Play Button for Cue Card */}
+                                {generatedTTSAudios[`topic-${tIdx}-cuecard`] ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleAudioPlayback(`topic-${tIdx}-cuecard`, generatedTTSAudios[`topic-${tIdx}-cuecard`]);
+                                    }}
+                                    className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition ${
+                                      playingAudio === `topic-${tIdx}-cuecard`
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-300 hover:bg-green-300'
+                                    }`}
+                                  >
+                                    {playingAudio === `topic-${tIdx}-cuecard` ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        // Build cue card text for TTS
+                                        const cueCardText = `${topic.cue_card.main_prompt}. You should say: ${topic.cue_card.bullet_points?.join(', ')}.`;
+                                        const audioUrl = await generateTTSForQuestion(cueCardText, 'PART_2', `topic-${tIdx}-cuecard`);
+                                        if (audioUrl) showNotification('Cue card audio generated', 'success');
+                                      } catch (err) {
+                                        showNotification('Failed to generate audio', 'error');
+                                      }
+                                    }}
+                                    className="shrink-0 px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 flex items-center gap-1"
+                                  >
+                                    <Volume2 className="w-4 h-4" />
+                                    Generate
+                                  </button>
+                                )}
+                              </div>
                               <p className="text-sm text-green-700 dark:text-green-300 mb-2">You should say:</p>
                               <ul className="space-y-1">
                                 {topic.cue_card.bullet_points?.map((bp: string, bpIdx: number) => (
@@ -2868,17 +3191,50 @@ const AIContentGenerator: React.FC = () => {
                             </div>
                           )}
 
-                          {/* Part 1 & 3: Questions */}
+                          {/* Part 1 & 3: Questions with TTS */}
                           {(topic.part_number === 1 || topic.part_number === 3) && topic.questions && (
                             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                              {topic.questions.map((q: string, qIdx: number) => (
-                                <div key={qIdx} className="py-2 flex items-start gap-3">
-                                  <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-xs flex items-center justify-center font-medium text-green-600 dark:text-green-400 shrink-0">
-                                    {qIdx + 1}
-                                  </span>
-                                  <p className="text-sm text-slate-700 dark:text-slate-300">{q}</p>
-                                </div>
-                              ))}
+                              {topic.questions.map((q: string, qIdx: number) => {
+                                const audioKey = `topic-${tIdx}-q-${qIdx}`;
+                                const hasAudio = !!generatedTTSAudios[audioKey];
+                                
+                                return (
+                                  <div key={qIdx} className="py-3 flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-xs flex items-center justify-center font-medium text-green-600 dark:text-green-400 shrink-0">
+                                      {qIdx + 1}
+                                    </span>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 flex-1">{q}</p>
+                                    {/* TTS Button */}
+                                    {hasAudio ? (
+                                      <button
+                                        onClick={() => toggleAudioPlayback(audioKey, generatedTTSAudios[audioKey])}
+                                        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition ${
+                                          playingAudio === audioKey
+                                            ? 'bg-green-600 text-white'
+                                            : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200'
+                                        }`}
+                                      >
+                                        {playingAudio === audioKey ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            const audioUrl = await generateTTSForQuestion(q, `PART_${topic.part_number}`, audioKey);
+                                            if (audioUrl) showNotification('Audio generated', 'success');
+                                          } catch (err) {
+                                            showNotification('Failed to generate audio', 'error');
+                                          }
+                                        }}
+                                        className="shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-green-600 transition"
+                                        title="Generate audio"
+                                      >
+                                        <Volume2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>

@@ -13,6 +13,8 @@ Uses Microsoft Azure for Speech-to-Text and Google Gemini for AI evaluation.
 import logging
 import os
 import json
+import subprocess
+import tempfile
 from typing import Dict, List, Optional, Tuple
 from decimal import Decimal
 
@@ -23,6 +25,101 @@ from decouple import config
 from ai.tools import generate_ai, change_to_json
 
 logger = logging.getLogger(__name__)
+
+
+def convert_audio_to_wav(input_path: str) -> str:
+    """
+    Convert audio file to WAV format suitable for Azure Speech SDK.
+
+    Azure Speech SDK requires:
+    - WAV format with proper headers
+    - 16kHz sample rate (recommended)
+    - 16-bit PCM
+    - Mono channel
+
+    Args:
+        input_path: Path to the input audio file (WebM, MP3, etc.)
+
+    Returns:
+        Path to the converted WAV file (temporary file)
+
+    Raises:
+        RuntimeError: If conversion fails
+    """
+    # Check if input is already a proper WAV file
+    if input_path.lower().endswith(".wav"):
+        # Still convert to ensure proper format for Azure
+        pass
+
+    # Create a temporary file for the output
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".wav")
+    os.close(temp_fd)
+
+    try:
+        # Use ffmpeg to convert to WAV with Azure-compatible settings
+        # -ar 16000: 16kHz sample rate
+        # -ac 1: mono channel
+        # -sample_fmt s16: 16-bit signed integer
+        # -y: overwrite output file
+        cmd = [
+            "ffmpeg",
+            "-i",
+            input_path,
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            "-sample_fmt",
+            "s16",
+            "-y",
+            temp_path,
+        ]
+
+        logger.info(f"Converting audio: {input_path} -> {temp_path}")
+
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=60  # 60 second timeout
+        )
+
+        if result.returncode != 0:
+            logger.error(f"FFmpeg conversion failed: {result.stderr}")
+            # Try alternative conversion without sample_fmt (for older ffmpeg)
+            cmd_alt = [
+                "ffmpeg",
+                "-i",
+                input_path,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-acodec",
+                "pcm_s16le",
+                "-y",
+                temp_path,
+            ]
+            result = subprocess.run(cmd_alt, capture_output=True, text=True, timeout=60)
+            if result.returncode != 0:
+                raise RuntimeError(f"FFmpeg conversion failed: {result.stderr}")
+
+        # Verify the output file exists and has content
+        if not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0:
+            raise RuntimeError("Conversion produced empty or missing file")
+
+        logger.info(f"Audio conversion successful: {os.path.getsize(temp_path)} bytes")
+        return temp_path
+
+    except subprocess.TimeoutExpired:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise RuntimeError("Audio conversion timed out")
+    except FileNotFoundError:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise RuntimeError("FFmpeg not found. Please install FFmpeg.")
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise RuntimeError(f"Audio conversion failed: {str(e)}")
 
 
 class AzureSpeechRecognizer:
@@ -51,7 +148,19 @@ class AzureSpeechRecognizer:
                 - completeness_score: Completeness score (0-100)
                 - words: List of word-level details with pronunciation scores
         """
+        converted_path = None
         try:
+            # Convert audio to WAV format if needed (WebM, MP3, etc. -> WAV)
+            # Azure Speech SDK requires proper WAV format
+            if (
+                not audio_file_path.lower().endswith(".wav") or True
+            ):  # Always convert for safety
+                logger.info(f"Converting audio file to WAV format: {audio_file_path}")
+                converted_path = convert_audio_to_wav(audio_file_path)
+                audio_file_to_use = converted_path
+            else:
+                audio_file_to_use = audio_file_path
+
             # Configure speech recognition
             speech_config = speechsdk.SpeechConfig(
                 subscription=self.speech_key, region=self.speech_region
@@ -61,7 +170,7 @@ class AzureSpeechRecognizer:
             speech_config.speech_recognition_language = "en-US"
 
             # Configure audio input
-            audio_config = speechsdk.audio.AudioConfig(filename=audio_file_path)
+            audio_config = speechsdk.audio.AudioConfig(filename=audio_file_to_use)
 
             # Enable pronunciation assessment
             pronunciation_config = speechsdk.PronunciationAssessmentConfig(
@@ -204,6 +313,16 @@ class AzureSpeechRecognizer:
                 "success": False,
                 "error": str(e),
             }
+        finally:
+            # Clean up converted temporary file
+            if converted_path and os.path.exists(converted_path):
+                try:
+                    os.remove(converted_path)
+                    logger.debug(f"Cleaned up temporary WAV file: {converted_path}")
+                except Exception as cleanup_err:
+                    logger.warning(
+                        f"Failed to clean up temp file {converted_path}: {cleanup_err}"
+                    )
 
 
 class GeminiSpeakingEvaluator:

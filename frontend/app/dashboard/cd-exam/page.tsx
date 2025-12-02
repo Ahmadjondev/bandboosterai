@@ -148,8 +148,8 @@ export default function CDExamPage() {
     setError(null);
 
     try {
-      // Create exam attempt
-      const { attemptId, attemptUuid } = await createFullTestAttempt(fullTestExam.id);
+      // Create exam attempt using UUID for reliability
+      const { attemptId, attemptUuid } = await createFullTestAttempt(fullTestExam.uuid);
       
       // Strictly require UUID - if not present, show error
       if (!attemptUuid) {

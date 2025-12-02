@@ -15,6 +15,8 @@ from ielts.models import (
     ListeningPart,
     WritingTask,
     SpeakingTopic,
+    SpeakingQuestion,
+    SpeakingDefaultAudio,
     TestHead,
     Question,
     Choice,
@@ -26,6 +28,12 @@ from ai.content_generator import (
     generate_writing_tasks_from_pdf,
     generate_speaking_topics_from_pdf,
     generate_cambridge_full_test_from_pdf,
+)
+from ai.tts_generator import (
+    AzureTTSGenerator,
+    generate_speaking_question_audio,
+    generate_cue_card_audio,
+    batch_generate_speaking_audio,
 )
 
 
@@ -472,11 +480,13 @@ def _save_writing_tasks(data, user):
 def _save_speaking_topics(data, user):
     """Helper function to save speaking topics to database."""
     topics_data = data.get("topics", [])
+    # Audio URLs from AI preview (if any), keyed by question position
+    question_audios = data.get("question_audios", {})
     created_topics = []
 
     # Group topics by part_number to organize them properly
     # AI returns array like: [{part_number: 1, ...}, {part_number: 2, ...}, {part_number: 3, ...}, ...]
-    for topic_data in topics_data:
+    for topic_idx, topic_data in enumerate(topics_data):
         part_number = topic_data.get("part_number")
         topic_title = topic_data.get("topic", "Speaking Topic")
 
@@ -487,12 +497,22 @@ def _save_speaking_topics(data, user):
                 part1_topic = SpeakingTopic.objects.create(
                     topic=topic_title,
                     speaking_type="PART_1",
-                    question=(
-                        "\n".join(questions)
-                        if isinstance(questions, list)
-                        else str(questions)
-                    ),
                 )
+
+                # Create SpeakingQuestion objects for each question
+                created_question_ids = []
+                if isinstance(questions, list):
+                    for q_idx, question_text in enumerate(questions):
+                        audio_key = f"topic-{topic_idx}-q-{q_idx}"
+                        audio_url = question_audios.get(audio_key)
+                        sq = SpeakingQuestion.objects.create(
+                            topic=part1_topic,
+                            question_text=question_text,
+                            audio_url=audio_url,
+                            order=q_idx + 1,
+                        )
+                        created_question_ids.append(sq.id)
+
                 created_topics.append(
                     {
                         "topic_id": part1_topic.id,
@@ -501,6 +521,7 @@ def _save_speaking_topics(data, user):
                         "question_count": (
                             len(questions) if isinstance(questions, list) else 1
                         ),
+                        "question_ids": created_question_ids,
                     }
                 )
 
@@ -515,9 +536,19 @@ def _save_speaking_topics(data, user):
                 part2_topic = SpeakingTopic.objects.create(
                     topic=topic_title,
                     speaking_type="PART_2",
-                    question=main_prompt,
-                    cue_card=cue_card,  # Store the full cue card structure
                 )
+
+                # Create a single SpeakingQuestion for the cue card with cue_card_points
+                audio_key = f"topic-{topic_idx}-cuecard"
+                audio_url = question_audios.get(audio_key)
+                cue_sq = SpeakingQuestion.objects.create(
+                    topic=part2_topic,
+                    question_text=main_prompt,
+                    cue_card_points=bullet_points,  # Store bullet points in the question
+                    audio_url=audio_url,
+                    order=1,
+                )
+
                 created_topics.append(
                     {
                         "topic_id": part2_topic.id,
@@ -526,6 +557,7 @@ def _save_speaking_topics(data, user):
                         "bullet_points": (
                             len(bullet_points) if isinstance(bullet_points, list) else 0
                         ),
+                        "question_ids": [cue_sq.id],
                     }
                 )
 
@@ -536,12 +568,22 @@ def _save_speaking_topics(data, user):
                 part3_topic = SpeakingTopic.objects.create(
                     topic=topic_title,
                     speaking_type="PART_3",
-                    question=(
-                        "\n".join(questions)
-                        if isinstance(questions, list)
-                        else str(questions)
-                    ),
                 )
+
+                # Create SpeakingQuestion objects for each question
+                created_question_ids = []
+                if isinstance(questions, list):
+                    for q_idx, question_text in enumerate(questions):
+                        audio_key = f"topic-{topic_idx}-q-{q_idx}"
+                        audio_url = question_audios.get(audio_key)
+                        sq = SpeakingQuestion.objects.create(
+                            topic=part3_topic,
+                            question_text=question_text,
+                            audio_url=audio_url,
+                            order=q_idx + 1,
+                        )
+                        created_question_ids.append(sq.id)
+
                 created_topics.append(
                     {
                         "topic_id": part3_topic.id,
@@ -550,6 +592,7 @@ def _save_speaking_topics(data, user):
                         "question_count": (
                             len(questions) if isinstance(questions, list) else 1
                         ),
+                        "question_ids": created_question_ids,
                     }
                 )
 
@@ -759,7 +802,10 @@ def save_full_test_content(request):
 
         # Save Speaking Topics
         if test_data.get("speaking") and test_data["speaking"].get("topics"):
-            speaking_data = {"topics": test_data["speaking"]["topics"]}
+            speaking_data = {
+                "topics": test_data["speaking"]["topics"],
+                "question_audios": test_data["speaking"].get("question_audios", {}),
+            }
             speaking_result = _save_speaking_topics(speaking_data, request.user)
             if speaking_result.status_code == 200:
                 results["speaking"] = speaking_result.data
@@ -907,9 +953,13 @@ def create_section_practice(request):
             )
         elif section_type == "SPEAKING":
             content = SpeakingTopic.objects.get(id=content_id)
-            content_name = (
-                f"Speaking Part {content.part_number}: {content.title or 'Untitled'}"
+            # Extract part number: PART_1 -> 1, PART_2 -> 2, PART_3 -> 3
+            part_number = (
+                content.speaking_type.split("_")[-1]
+                if "_" in content.speaking_type
+                else "1"
             )
+            content_name = f"Speaking Part {part_number}: {content.topic or 'Untitled'}"
     except Exception as e:
         return Response(
             {"error": f"Content with ID {content_id} not found for {section_type}"},
@@ -1031,7 +1081,15 @@ def create_practices_batch(request):
                 )
             elif section_type == "SPEAKING":
                 content = SpeakingTopic.objects.get(id=content_id)
-                content_name = f"Speaking Part {content.part_number}: {content.title or 'Untitled'}"
+                # Extract part number: PART_1 -> 1, PART_2 -> 2, PART_3 -> 3
+                part_number = (
+                    content.speaking_type.split("_")[-1]
+                    if "_" in content.speaking_type
+                    else "1"
+                )
+                content_name = (
+                    f"Speaking Part {part_number}: {content.topic or 'Untitled'}"
+                )
             else:
                 errors.append(
                     {"index": idx, "error": f"Invalid section_type: {section_type}"}
@@ -1094,3 +1152,722 @@ def create_practices_batch(request):
             else status.HTTP_400_BAD_REQUEST
         ),
     )
+
+
+# =============================================================================
+# TTS (Text-to-Speech) API Endpoints for Speaking Questions
+# =============================================================================
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_tts_for_topic(request, topic_id):
+    """
+    Generate TTS audio for all questions in a speaking topic.
+
+    POST /manager/api/tests/speaking/<topic_id>/generate-tts/
+
+    Body (JSON):
+        - voice: Voice type (female_primary, male_primary, etc.) - optional
+        - generate_all_questions: Whether to generate audio for each question - optional
+
+    Returns:
+        - audio_urls: Dict of question_id -> audio_url
+        - metadata: Generation metadata
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        topic = SpeakingTopic.objects.prefetch_related("questions").get(id=topic_id)
+    except SpeakingTopic.DoesNotExist:
+        return Response(
+            {"error": "Speaking topic not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    voice = request.data.get("voice", "female_primary")
+
+    try:
+        generator = AzureTTSGenerator()
+        voice_name = generator.VOICE_OPTIONS.get(voice, generator.default_voice)
+
+        speaking_part = topic.speaking_type  # PART_1, PART_2, or PART_3
+        audio_results = {}
+
+        # Get or create SpeakingQuestion objects
+        questions = list(topic.questions.all())
+
+        if speaking_part == "PART_2":
+            # For Part 2, use the first question's cue_card_points
+            if questions and questions[0].cue_card_points:
+                # Build cue_card dict from SpeakingQuestion.cue_card_points
+                cue_card = {
+                    "main_prompt": questions[0].question_text,
+                    "bullet_points": questions[0].cue_card_points or [],
+                }
+                audio_url, metadata = generate_cue_card_audio(cue_card, voice)
+
+                # Save to the first SpeakingQuestion
+                questions[0].audio_url = audio_url
+                questions[0].save()
+                audio_results[questions[0].id] = audio_url
+
+                return Response(
+                    {
+                        "success": True,
+                        "topic_id": topic.id,
+                        "audio_urls": audio_results,
+                        "audio_type": "cue_card",
+                        "metadata": metadata,
+                    }
+                )
+            else:
+                # No cue_card_points, generate regular question audio
+                for q in questions:
+                    audio_url, metadata = generator.generate_and_save(
+                        text=q.question_text,
+                        filename_prefix=f"question_{q.id}",
+                        voice=voice_name,
+                        speaking_part=speaking_part,
+                    )
+                    q.audio_url = audio_url
+                    q.save()
+                    audio_results[q.id] = audio_url
+        else:
+            # Part 1 or Part 3: Generate audio for each question
+            for q in questions:
+                audio_url, metadata = generator.generate_and_save(
+                    text=q.question_text,
+                    filename_prefix=f"question_{q.id}",
+                    voice=voice_name,
+                    speaking_part=speaking_part,
+                )
+                q.audio_url = audio_url
+                q.save()
+                audio_results[q.id] = audio_url
+
+        return Response(
+            {
+                "success": True,
+                "topic_id": topic.id,
+                "audio_urls": audio_results,
+                "audio_type": "questions",
+                "question_count": len(audio_results),
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"TTS generation failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_tts_for_saved_question(request, question_id):
+    """
+    Generate TTS audio for a specific saved SpeakingQuestion.
+
+    POST /manager/api/tests/speaking/question/<question_id>/generate-tts/
+
+    Body (JSON):
+        - voice: Voice type (female_primary, male_primary, etc.)
+
+    Returns:
+        - audio_url: URL to the generated audio
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        question = SpeakingQuestion.objects.select_related("topic").get(id=question_id)
+    except SpeakingQuestion.DoesNotExist:
+        return Response(
+            {"error": "Speaking question not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    voice = request.data.get("voice", "female_primary")
+
+    try:
+        speaking_part = question.topic.speaking_type
+
+        if speaking_part == "PART_2" and question.cue_card_points:
+            # Generate cue card audio using the question's cue_card_points
+            cue_card = {
+                "main_prompt": question.question_text,
+                "bullet_points": question.cue_card_points or [],
+            }
+            audio_url, metadata = generate_cue_card_audio(cue_card, voice)
+        else:
+            audio_url, metadata = generate_speaking_question_audio(
+                question_text=question.question_text,
+                speaking_part=speaking_part,
+                voice=voice,
+            )
+
+        # Save to the SpeakingQuestion
+        question.audio_url = audio_url
+        question.save()
+
+        return Response(
+            {
+                "success": True,
+                "question_id": question.id,
+                "audio_url": audio_url,
+                "metadata": metadata,
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"TTS generation failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_tts_for_question(request):
+    """
+    Generate TTS audio for a single question text (without saving to a topic).
+
+    POST /manager/api/tests/speaking/generate-tts/
+
+    Body (JSON):
+        - question_text: The question text to synthesize
+        - speaking_part: PART_1, PART_2, or PART_3
+        - voice: Voice type (female_primary, male_primary, etc.)
+
+    Returns:
+        - audio_url: URL to the generated audio
+        - metadata: Generation metadata
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    question_text = request.data.get("question_text")
+    speaking_part = request.data.get("speaking_part", "PART_1")
+    voice = request.data.get("voice", "female_primary")
+
+    if not question_text:
+        return Response(
+            {"error": "question_text is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        audio_url, metadata = generate_speaking_question_audio(
+            question_text=question_text,
+            speaking_part=speaking_part,
+            voice=voice,
+        )
+
+        return Response(
+            {
+                "success": True,
+                "audio_url": audio_url,
+                "metadata": metadata,
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"TTS generation failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_tts_batch(request):
+    """
+    Batch generate TTS audio for multiple speaking topics from AI extraction.
+
+    POST /manager/api/tests/speaking/generate-tts-batch/
+
+    Body (JSON):
+        - topics: List of topic data (from AI extraction)
+        - voice: Voice type
+        - generate_all_questions: Whether to generate audio for each individual question
+
+    Returns:
+        - results: List of generated audio URLs per topic
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    topics_data = request.data.get("topics", [])
+    voice = request.data.get("voice", "female_primary")
+    generate_all = request.data.get("generate_all_questions", True)
+
+    if not topics_data:
+        return Response(
+            {"error": "No topics provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        results = batch_generate_speaking_audio(
+            topics_data=topics_data,
+            voice=voice,
+            generate_all_questions=generate_all,
+        )
+
+        return Response(results)
+
+    except Exception as e:
+        return Response(
+            {"error": f"Batch TTS generation failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_tts_voices(request):
+    """
+    Get available TTS voices for speaking questions.
+
+    GET /manager/api/tests/speaking/tts-voices/
+
+    Returns:
+        - voices: List of available voice options with descriptions
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    voices = [
+        {
+            "id": "female_primary",
+            "name": "Sonia (British Female)",
+            "voice_name": "en-GB-SoniaNeural",
+            "gender": "female",
+            "description": "Clear, professional British English female voice",
+            "recommended": True,
+        },
+        {
+            "id": "female_secondary",
+            "name": "Libby (British Female)",
+            "voice_name": "en-GB-LibbyNeural",
+            "gender": "female",
+            "description": "Alternative British English female voice",
+            "recommended": False,
+        },
+        {
+            "id": "male_primary",
+            "name": "Ryan (British Male)",
+            "voice_name": "en-GB-RyanNeural",
+            "gender": "male",
+            "description": "Clear, professional British English male voice",
+            "recommended": True,
+        },
+        {
+            "id": "male_secondary",
+            "name": "Thomas (British Male)",
+            "voice_name": "en-GB-ThomasNeural",
+            "gender": "male",
+            "description": "Alternative British English male voice",
+            "recommended": False,
+        },
+    ]
+
+    return Response(
+        {
+            "voices": voices,
+            "default": "female_primary",
+        }
+    )
+
+
+# =============================================================================
+# Default Speaking Audio Management
+# =============================================================================
+
+# Default scripts for speaking part intros (authentic IELTS examiner scripts)
+DEFAULT_SPEAKING_SCRIPTS = {
+    "PART_1_INTRO": "Now, in Part 1, I'm going to ask you some questions about yourself. Let's talk about your home or your work or studies.",
+    "PART_2_INTRO": "Now I'm going to give you a topic and I'd like you to talk about it for one to two minutes. Before you talk, you'll have one minute to think about what you're going to say. You can make some notes if you wish. Do you understand?",
+    "PART_2_PREP": "All right? Remember, you have one to two minutes for this, so don't worry if I stop you. I'll tell you when the time is up. Can you start speaking now, please?",
+    "PART_2_START": "Can you start speaking now, please?",
+    "PART_3_INTRO": "We've been talking about the topic from Part 2, and now I'd like to discuss with you some more general questions related to this. Let's consider some broader aspects.",
+    "TEST_END": "Thank you. That is the end of the Speaking test.",
+}
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_default_speaking_audios(request):
+    """
+    Get all default speaking audios.
+
+    GET /manager/api/tests/speaking/default-audios/
+
+    Returns list of default audios and which ones are missing.
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Get all existing default audios
+    existing_audios = SpeakingDefaultAudio.objects.all()
+    existing_dict = {
+        audio.audio_type: {
+            "id": audio.id,
+            "audio_type": audio.audio_type,
+            "audio_url": audio.audio_url,
+            "description": audio.description,
+            "script": audio.script,
+            "voice": audio.voice,
+            "created_at": audio.created_at,
+        }
+        for audio in existing_audios
+    }
+
+    # Build response with all audio types
+    audios = []
+    for audio_type, label in SpeakingDefaultAudio.AudioType.choices:
+        if audio_type in existing_dict:
+            audios.append(
+                {
+                    **existing_dict[audio_type],
+                    "label": label,
+                    "default_script": DEFAULT_SPEAKING_SCRIPTS.get(audio_type, ""),
+                    "exists": True,
+                }
+            )
+        else:
+            audios.append(
+                {
+                    "audio_type": audio_type,
+                    "label": label,
+                    "default_script": DEFAULT_SPEAKING_SCRIPTS.get(audio_type, ""),
+                    "exists": False,
+                    "audio_url": None,
+                }
+            )
+
+    return Response(
+        {
+            "audios": audios,
+            "total": len(SpeakingDefaultAudio.AudioType.choices),
+            "generated": existing_audios.count(),
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_default_speaking_audio(request):
+    """
+    Generate or regenerate a default speaking audio.
+
+    POST /manager/api/tests/speaking/default-audios/generate/
+
+    Body:
+        - audio_type: The type of audio to generate
+        - script: Optional custom script (uses default if not provided)
+        - voice: Voice to use (defaults to female_primary)
+
+    Returns:
+        - Generated audio details
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    audio_type = request.data.get("audio_type")
+    custom_script = request.data.get("script")
+    voice = request.data.get("voice", "female_primary")
+
+    if not audio_type:
+        return Response(
+            {"error": "audio_type is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate audio type
+    valid_types = [t[0] for t in SpeakingDefaultAudio.AudioType.choices]
+    if audio_type not in valid_types:
+        return Response(
+            {"error": f"Invalid audio_type. Must be one of: {valid_types}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Get script
+    script = custom_script or DEFAULT_SPEAKING_SCRIPTS.get(audio_type, "")
+    if not script:
+        return Response(
+            {"error": f"No script available for audio type: {audio_type}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        generator = AzureTTSGenerator()
+        voice_name = generator.VOICE_OPTIONS.get(voice, generator.default_voice)
+
+        # Generate audio
+        audio_url, metadata = generator.generate_and_save(
+            text=script,
+            filename_prefix=f"default_{audio_type.lower()}",
+            voice=voice_name,
+            speaking_part="PART_1",  # Use calm pacing for intro scripts
+        )
+
+        # Save or update the default audio
+        default_audio, created = SpeakingDefaultAudio.objects.update_or_create(
+            audio_type=audio_type,
+            defaults={
+                "audio_url": audio_url,
+                "description": dict(SpeakingDefaultAudio.AudioType.choices).get(
+                    audio_type
+                ),
+                "script": script,
+                "voice": voice_name,
+            },
+        )
+
+        return Response(
+            {
+                "success": True,
+                "audio_type": audio_type,
+                "audio_url": audio_url,
+                "script": script,
+                "voice": voice_name,
+                "created": created,
+                "metadata": metadata,
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to generate audio: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_all_default_speaking_audios(request):
+    """
+    Generate all default speaking audios at once.
+
+    POST /manager/api/tests/speaking/default-audios/generate-all/
+
+    Body:
+        - voice: Voice to use for all audios
+
+    Returns:
+        - List of generated audios
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    voice = request.data.get("voice", "female_primary")
+
+    try:
+        generator = AzureTTSGenerator()
+        voice_name = generator.VOICE_OPTIONS.get(voice, generator.default_voice)
+
+        results = []
+        errors = []
+
+        for audio_type, label in SpeakingDefaultAudio.AudioType.choices:
+            script = DEFAULT_SPEAKING_SCRIPTS.get(audio_type)
+            if not script:
+                errors.append({"audio_type": audio_type, "error": "No default script"})
+                continue
+
+            try:
+                audio_url, metadata = generator.generate_and_save(
+                    text=script,
+                    filename_prefix=f"default_{audio_type.lower()}",
+                    voice=voice_name,
+                    speaking_part="PART_1",
+                )
+
+                default_audio, created = SpeakingDefaultAudio.objects.update_or_create(
+                    audio_type=audio_type,
+                    defaults={
+                        "audio_url": audio_url,
+                        "description": label,
+                        "script": script,
+                        "voice": voice_name,
+                    },
+                )
+
+                results.append(
+                    {
+                        "audio_type": audio_type,
+                        "label": label,
+                        "audio_url": audio_url,
+                        "created": created,
+                    }
+                )
+
+            except Exception as e:
+                errors.append({"audio_type": audio_type, "error": str(e)})
+
+        return Response(
+            {
+                "success": len(errors) == 0,
+                "generated": results,
+                "errors": errors,
+                "total_generated": len(results),
+                "total_errors": len(errors),
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to generate audios: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
+def update_default_speaking_audio(request, audio_type):
+    """
+    Update a default speaking audio's script and regenerate audio.
+
+    PUT /manager/api/tests/speaking/default-audios/<audio_type>/update/
+
+    Body:
+        - script: The new script text
+        - voice: Voice to use for TTS (optional)
+
+    Returns:
+        - Updated audio details with regenerated audio
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Check if audio_type is valid
+    valid_types = [choice[0] for choice in SpeakingDefaultAudio.AudioType.choices]
+    if audio_type not in valid_types:
+        return Response(
+            {"error": f"Invalid audio type: {audio_type}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    script = request.data.get("script", "").strip()
+    voice = request.data.get("voice", "female_primary")
+
+    if not script:
+        # Fall back to default script
+        script = DEFAULT_SPEAKING_SCRIPTS.get(audio_type, "")
+
+    # Get or create the audio record
+    audio, created = SpeakingDefaultAudio.objects.get_or_create(
+        audio_type=audio_type,
+        defaults={
+            "description": dict(SpeakingDefaultAudio.AudioType.choices).get(
+                audio_type, ""
+            ),
+        },
+    )
+
+    # Update script
+    audio.script = script
+    audio.voice = voice
+
+    # Generate TTS audio
+    try:
+        generator = AzureTTSGenerator()
+        voice_name = generator.get_voice_name(voice)
+        audio_data = generator.synthesize_speech(script, voice_name)
+
+        if audio_data:
+            # Save audio file
+            from django.core.files.base import ContentFile
+            import uuid
+
+            filename = f"speaking_default/{audio_type}_{uuid.uuid4().hex[:8]}.mp3"
+            from django.core.files.storage import default_storage
+
+            # Delete old file if exists
+            if audio.audio_url:
+                try:
+                    old_path = audio.audio_url.replace("/media/", "")
+                    if default_storage.exists(old_path):
+                        default_storage.delete(old_path)
+                except Exception:
+                    pass
+
+            # Save new file
+            saved_path = default_storage.save(filename, ContentFile(audio_data))
+            audio.audio_url = f"/media/{saved_path}"
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to generate audio: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    audio.save()
+
+    return Response(
+        {
+            "success": True,
+            "id": audio.id,
+            "audio_type": audio.audio_type,
+            "script": audio.script,
+            "audio_url": audio.audio_url,
+            "voice": audio.voice,
+        }
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_default_speaking_audio(request, audio_type):
+    """
+    Delete a default speaking audio.
+
+    DELETE /manager/api/tests/speaking/default-audios/<audio_type>/delete/
+
+    Returns:
+        - Success status
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        audio = SpeakingDefaultAudio.objects.get(audio_type=audio_type)
+        audio.delete()
+        return Response({"success": True}, status=status.HTTP_200_OK)
+    except SpeakingDefaultAudio.DoesNotExist:
+        return Response(
+            {"error": "Default audio not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )

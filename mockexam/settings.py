@@ -468,3 +468,15 @@ OPENAI_MODEL = config("OPENAI_MODEL", default="gpt-4o")  # Use GPT-4o or gpt-4o-
 OPENAI_ORGANIZATION_ID = config(
     "OPENAI_ORGANIZATION_ID", default=""
 )  # Optional organization ID
+
+# ============================================================================
+# AZURE SPEECH SERVICES CONFIGURATION
+# ============================================================================
+# Used for both Speech-to-Text (speaking evaluation) and Text-to-Speech (TTS)
+AZURE_SPEECH_KEY = config("AZURE_SPEECH_KEY", default="")
+AZURE_SPEECH_REGION = config("AZURE_SPEECH_REGION", default="westeurope")
+
+# TTS-specific settings (falls back to AZURE_SPEECH_* if not set)
+AZURE_TTS_KEY = config("AZURE_TTS_KEY", default="")
+AZURE_TTS_REGION = config("AZURE_TTS_REGION", default="")
+AZURE_TTS_ENDPOINT = config("AZURE_TTS_ENDPOINT", default="")

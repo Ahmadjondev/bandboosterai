@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Mic,
   Plus,
@@ -16,7 +16,14 @@ import {
   Loader2,
   ListPlus,
   Minus,
+  Volume2,
+  Play,
+  Pause,
+  VolumeX,
+  Settings,
+  Sparkles,
 } from 'lucide-react';
+import Link from 'next/link';
 import { managerAPI } from '@/lib/manager/api-client';
 import {
   formatDate,
@@ -31,13 +38,18 @@ import {
   useToast,
   createToastHelpers,
 } from '@/components/manager/shared';
-import type { SpeakingTopic, PaginatedResponse } from '@/types/manager';
+import type { SpeakingTopic, SpeakingQuestion, PaginatedResponse } from '@/types/manager';
+
+interface QuestionForm {
+  question_text: string;
+  cue_card_points?: string[] | null;
+  audio_url?: string | null;
+}
 
 interface SpeakingTopicForm {
   speaking_type: 'PART_1' | 'PART_2' | 'PART_3';
   topic: string;
-  question: string;
-  cue_card?: string[] | null;
+  questions: QuestionForm[];
 }
 
 export default function SpeakingTopicsPage() {
@@ -49,6 +61,7 @@ export default function SpeakingTopicsPage() {
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'PART_1' | 'PART_2' | 'PART_3'>('all');
+  const [filterAudio, setFilterAudio] = useState<'all' | 'yes' | 'no'>('all');
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -59,18 +72,91 @@ export default function SpeakingTopicsPage() {
   const [formData, setFormData] = useState<SpeakingTopicForm>({
     speaking_type: 'PART_1',
     topic: '',
-    question: '',
-    cue_card: null,
+    questions: [{ question_text: '', cue_card_points: null, audio_url: null }],
   });
-  const [cueCardPoints, setCueCardPoints] = useState<string[]>(['', '', '', '']);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   // Delete confirmation
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
+  // TTS (Text-to-Speech) states
+  const [ttsVoice, setTtsVoice] = useState<string>('female_primary');
+  const [ttsVoices, setTtsVoices] = useState<Array<{ id: string; name: string; gender: string; recommended: boolean }>>([]);
+  const [generatingTTSForTopic, setGeneratingTTSForTopic] = useState<number | null>(null);
+  const [playingAudioForTopic, setPlayingAudioForTopic] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const { addToast } = useToast();
   const toast = createToastHelpers(addToast);
+
+  // Load TTS voices on mount
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        const data = await managerAPI.getTTSVoices();
+        setTtsVoices(data.voices);
+        setTtsVoice(data.default);
+      } catch (error) {
+        console.error('Failed to load TTS voices:', error);
+        // Use default voices if API fails
+        setTtsVoices([
+          { id: 'female_primary', name: 'Sonia (British Female)', gender: 'female', recommended: true },
+          { id: 'male_primary', name: 'Ryan (British Male)', gender: 'male', recommended: true },
+        ]);
+      }
+    };
+    loadVoices();
+  }, []);
+
+  // Generate TTS for a topic
+  const generateTTSForTopic = async (topic: SpeakingTopic) => {
+    setGeneratingTTSForTopic(topic.id);
+    try {
+      const result = await managerAPI.generateTTSForTopic(topic.id, ttsVoice);
+      if (result.success && result.audio_url) {
+        // Update the topic in the list with the new audio URL
+        setTopics(prev => prev.map(t => 
+          t.id === topic.id ? { ...t, audio_url: result.audio_url } : t
+        ));
+        toast.success('Audio generated successfully');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to generate audio');
+    } finally {
+      setGeneratingTTSForTopic(null);
+    }
+  };
+
+  // Toggle audio playback
+  const toggleAudioPlayback = (topicId: number, audioUrl: string) => {
+    if (playingAudioForTopic === topicId && audioRef.current) {
+      audioRef.current.pause();
+      setPlayingAudioForTopic(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      audioRef.current = new Audio(audioUrl);
+      audioRef.current.onended = () => setPlayingAudioForTopic(null);
+      audioRef.current.onerror = () => {
+        toast.error('Failed to play audio');
+        setPlayingAudioForTopic(null);
+      };
+      audioRef.current.play();
+      setPlayingAudioForTopic(topicId);
+    }
+  };
+
+  // Stop all audio playback when unmounting
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     loadTopics(1);
@@ -89,6 +175,10 @@ export default function SpeakingTopicsPage() {
 
       if (filterType !== 'all') {
         params.speaking_type = filterType;
+      }
+
+      if (filterAudio !== 'all') {
+        params.has_audio = filterAudio;
       }
 
       const data: any = await managerAPI.getSpeakingTopics(params);
@@ -117,7 +207,7 @@ export default function SpeakingTopicsPage() {
     debounce(() => {
       loadTopics(1);
     }, 500),
-    [searchQuery, filterType]
+    [searchQuery, filterType, filterAudio]
   );
 
   useEffect(() => {
@@ -128,7 +218,8 @@ export default function SpeakingTopicsPage() {
 
   useEffect(() => {
     loadTopics(1);
-  }, [filterType]);
+  }, [filterType, filterAudio]);
+  // }, [filterType]);
 
   // Modal management
   const openCreateModal = () => {
@@ -141,23 +232,21 @@ export default function SpeakingTopicsPage() {
   const openEditModal = (topic: SpeakingTopic) => {
     setIsEditMode(true);
     setCurrentTopic(topic);
+    
+    // Map questions from topic to form data
+    const questions: QuestionForm[] = topic.questions?.length > 0
+      ? topic.questions.map(q => ({
+          question_text: q.question_text,
+          cue_card_points: q.cue_card_points,
+          audio_url: q.audio_url,
+        }))
+      : [{ question_text: '', cue_card_points: null, audio_url: null }];
+    
     setFormData({
       speaking_type: topic.speaking_type,
       topic: topic.topic,
-      question: topic.question || '',
-      cue_card: topic.cue_card,
+      questions,
     });
-
-    // Load cue card points if available
-    if (topic.cue_card && Array.isArray(topic.cue_card)) {
-      const points = [...topic.cue_card];
-      while (points.length < 4) {
-        points.push('');
-      }
-      setCueCardPoints(points);
-    } else {
-      setCueCardPoints(['', '', '', '']);
-    }
 
     setFormErrors({});
     setShowModal(true);
@@ -172,27 +261,57 @@ export default function SpeakingTopicsPage() {
     setFormData({
       speaking_type: 'PART_1',
       topic: '',
-      question: '',
-      cue_card: null,
+      questions: [{ question_text: '', cue_card_points: null, audio_url: null }],
     });
-    setCueCardPoints(['', '', '', '']);
     setFormErrors({});
   };
 
-  const addCueCardPoint = () => {
-    setCueCardPoints([...cueCardPoints, '']);
+  // Question management
+  const addQuestion = () => {
+    setFormData({
+      ...formData,
+      questions: [...formData.questions, { question_text: '', cue_card_points: null, audio_url: null }],
+    });
   };
 
-  const removeCueCardPoint = (index: number) => {
-    if (cueCardPoints.length > 1) {
-      setCueCardPoints(cueCardPoints.filter((_, i) => i !== index));
+  const removeQuestion = (index: number) => {
+    if (formData.questions.length > 1) {
+      setFormData({
+        ...formData,
+        questions: formData.questions.filter((_, i) => i !== index),
+      });
     }
   };
 
-  const updateCueCardPoint = (index: number, value: string) => {
-    const newPoints = [...cueCardPoints];
-    newPoints[index] = value;
-    setCueCardPoints(newPoints);
+  const updateQuestion = (index: number, field: keyof QuestionForm, value: any) => {
+    const newQuestions = [...formData.questions];
+    newQuestions[index] = { ...newQuestions[index], [field]: value };
+    setFormData({ ...formData, questions: newQuestions });
+  };
+
+  // Cue card management for Part 2
+  const addCueCardPoint = (questionIndex: number) => {
+    const newQuestions = [...formData.questions];
+    const currentPoints = newQuestions[questionIndex].cue_card_points || [];
+    newQuestions[questionIndex].cue_card_points = [...currentPoints, ''];
+    setFormData({ ...formData, questions: newQuestions });
+  };
+
+  const removeCueCardPoint = (questionIndex: number, pointIndex: number) => {
+    const newQuestions = [...formData.questions];
+    const currentPoints = newQuestions[questionIndex].cue_card_points || [];
+    if (currentPoints.length > 1) {
+      newQuestions[questionIndex].cue_card_points = currentPoints.filter((_, i) => i !== pointIndex);
+      setFormData({ ...formData, questions: newQuestions });
+    }
+  };
+
+  const updateCueCardPoint = (questionIndex: number, pointIndex: number, value: string) => {
+    const newQuestions = [...formData.questions];
+    const currentPoints = [...(newQuestions[questionIndex].cue_card_points || [])];
+    currentPoints[pointIndex] = value;
+    newQuestions[questionIndex].cue_card_points = currentPoints;
+    setFormData({ ...formData, questions: newQuestions });
   };
 
   const validateForm = (): boolean => {
@@ -206,8 +325,16 @@ export default function SpeakingTopicsPage() {
       errors.topic = 'Topic is required';
     }
 
+    // Check if at least one question has text
+    const hasQuestion = formData.questions.some(q => q.question_text.trim() !== '');
+    if (!hasQuestion) {
+      errors.questions = 'At least one question is required';
+    }
+
+    // For Part 2, check if the first question has cue card points
     if (formData.speaking_type === 'PART_2') {
-      const filledPoints = cueCardPoints.filter((p) => p.trim() !== '');
+      const firstQuestion = formData.questions[0];
+      const filledPoints = (firstQuestion.cue_card_points || []).filter((p) => p.trim() !== '');
       if (filledPoints.length === 0) {
         errors.cue_card = 'At least one cue card point is required for Part 2';
       }
@@ -225,19 +352,23 @@ export default function SpeakingTopicsPage() {
     setSaving(true);
 
     try {
-      const data: any = {
-        speaking_type: formData.speaking_type,
-        topic: formData.topic,
-        question: formData.question,
-      };
+      // Clean up questions data
+      const cleanedQuestions = formData.questions
+        .filter(q => q.question_text.trim() !== '')
+        .map((q, index) => ({
+          question_text: q.question_text.trim(),
+          cue_card_points: formData.speaking_type === 'PART_2' && index === 0
+            ? (q.cue_card_points || []).filter((p) => p.trim() !== '')
+            : null,
+          audio_url: q.audio_url,
+          order: index + 1,
+        }));
 
-      // Add cue card points for Part 2
-      if (formData.speaking_type === 'PART_2') {
-        const filledPoints = cueCardPoints.filter((p) => p.trim() !== '').map((p) => p.trim());
-        data.cue_card = filledPoints;
-      } else {
-        data.cue_card = null;
-      }
+      const data = {
+        speaking_type: formData.speaking_type,
+        topic: formData.topic.trim(),
+        questions: cleanedQuestions,
+      };
 
       if (isEditMode && currentTopic) {
         await managerAPI.updateSpeakingTopic(currentTopic.id, data);
@@ -281,8 +412,6 @@ export default function SpeakingTopicsPage() {
     PART_3: 'Part 3: Two-way Discussion',
   };
 
-  const showCueCardSection = formData.speaking_type === 'PART_2';
-
   if (loading && !topics.length) {
     return <LoadingSpinner size="large" />;
   }
@@ -301,19 +430,44 @@ export default function SpeakingTopicsPage() {
               <p className="mt-1 text-white/80 dark:text-white/70">Manage IELTS speaking topics for all three parts</p>
             </div>
           </div>
-          <button
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-primary dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group"
-          >
-            <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
-            Add Speaking Topic
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Default Audios Link */}
+            <Link
+              href="/manager/speaking/default-audios"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 dark:bg-white/5 backdrop-blur-sm text-white hover:bg-white/20 rounded-lg font-medium transition-all"
+            >
+              <Sparkles className="h-4 w-4" />
+              Default Audios
+            </Link>
+            {/* TTS Voice Selector */}
+            <div className="flex items-center gap-2 bg-white/10 dark:bg-white/5 backdrop-blur-sm rounded-lg px-3 py-2">
+              <Volume2 className="h-4 w-4" />
+              <select
+                value={ttsVoice}
+                onChange={(e) => setTtsVoice(e.target.value)}
+                className="bg-transparent text-sm text-white border-none focus:ring-0 cursor-pointer"
+              >
+                {ttsVoices.map((v) => (
+                  <option key={v.id} value={v.id} className="text-gray-900">
+                    {v.name} {v.recommended ? '★' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-primary dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group"
+            >
+              <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
+              Add Speaking Topic
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Search */}
           <div>
             <label className="flex items-center text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -349,6 +503,23 @@ export default function SpeakingTopicsPage() {
               <option value="PART_1">👋 Part 1 (Introduction)</option>
               <option value="PART_2">📝 Part 2 (Long Turn)</option>
               <option value="PART_3">💬 Part 3 (Discussion)</option>
+            </select>
+          </div>
+
+          {/* Filter by Audio Status */}
+          <div>
+            <label className="flex items-center text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <Volume2 className="h-4 w-4 mr-2 text-primary dark:text-primary-400" />
+              Audio Status
+            </label>
+            <select
+              value={filterAudio}
+              onChange={(e) => setFilterAudio(e.target.value as any)}
+              className="block w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+            >
+              <option value="all">🔊 All Topics</option>
+              <option value="yes">✅ With Audio</option>
+              <option value="no">❌ Without Audio</option>
             </select>
           </div>
         </div>
@@ -409,11 +580,23 @@ export default function SpeakingTopicsPage() {
               >
                 <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
                 <Mic className="h-16 w-16 text-white/30" />
+                {/* Audio indicator badge */}
+                {topic.has_audio && (
+                  <div className="absolute top-3 right-3 bg-white/90 dark:bg-gray-800/90 rounded-full p-2 shadow-lg">
+                    <Volume2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                )}
+                {/* Question count badge */}
+                <div className="absolute top-3 left-3 bg-white/90 dark:bg-gray-800/90 rounded-full px-2 py-1 shadow-lg">
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    {topic.question_count || 0} Q
+                  </span>
+                </div>
               </div>
 
               {/* Content */}
               <div className="p-6">
-                <div className="mb-4">
+                <div className="mb-4 flex items-center justify-between">
                   <span
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg ${
                       topic.speaking_type === 'PART_1'
@@ -425,31 +608,66 @@ export default function SpeakingTopicsPage() {
                   >
                     {topic.speaking_type}
                   </span>
+                  {/* TTS Audio Controls - play first question's audio if available */}
+                  {topic.has_audio && topic.questions?.[0]?.audio_url ? (
+                    <button
+                      onClick={() => toggleAudioPlayback(topic.id, topic.questions[0].audio_url!)}
+                      className={`p-2 rounded-full transition-all ${
+                        playingAudioForTopic === topic.id
+                          ? 'bg-green-500 text-white shadow-lg'
+                          : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200'
+                      }`}
+                      title={playingAudioForTopic === topic.id ? 'Pause audio' : 'Play audio'}
+                    >
+                      {playingAudioForTopic === topic.id ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => generateTTSForTopic(topic)}
+                      disabled={generatingTTSForTopic === topic.id}
+                      className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-green-600 dark:hover:text-green-400 transition-all disabled:opacity-50"
+                      title="Generate examiner audio"
+                    >
+                      {generatingTTSForTopic === topic.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 min-h-12">
                   {topic.topic}
                 </h3>
 
-                {topic.question && (
+                {/* Show first question preview */}
+                {topic.questions && topic.questions.length > 0 && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed line-clamp-2">
-                    {truncateText(topic.question, 100)}
+                    {truncateText(topic.questions[0].question_text, 100)}
                   </p>
                 )}
 
-                {topic.cue_card && Array.isArray(topic.cue_card) && topic.cue_card.length > 0 && (
+                {/* Show cue card points for Part 2 */}
+                {topic.speaking_type === 'PART_2' && 
+                  topic.questions?.[0]?.cue_card_points && 
+                  topic.questions[0].cue_card_points.length > 0 && (
                   <div className="mb-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                     <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Cue Card Points:</p>
                     <ul className="space-y-1">
-                      {topic.cue_card.slice(0, 3).map((point, index) => (
+                      {topic.questions[0].cue_card_points.slice(0, 3).map((point, index) => (
                         <li key={index} className="text-xs text-gray-600 dark:text-gray-400 flex items-start">
                           <span className="mr-2">•</span>
                           <span className="line-clamp-1">{point}</span>
                         </li>
                       ))}
-                      {topic.cue_card.length > 3 && (
+                      {topic.questions[0].cue_card_points.length > 3 && (
                         <li className="text-xs text-gray-500 dark:text-gray-400 italic">
-                          +{topic.cue_card.length - 3} more...
+                          +{topic.questions[0].cue_card_points.length - 3} more...
                         </li>
                       )}
                     </ul>
@@ -550,9 +768,16 @@ export default function SpeakingTopicsPage() {
                 <button
                   key={type}
                   type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, speaking_type: type, cue_card: type === 'PART_2' ? [] : null })
-                  }
+                  onClick={() => {
+                    // Initialize with cue card points for Part 2
+                    const newQuestions = type === 'PART_2' 
+                      ? formData.questions.map((q, i) => ({
+                          ...q,
+                          cue_card_points: i === 0 ? (q.cue_card_points || ['', '', '', '']) : null,
+                        }))
+                      : formData.questions.map(q => ({ ...q, cue_card_points: null }));
+                    setFormData({ ...formData, speaking_type: type, questions: newQuestions });
+                  }}
                   className={`p-4 border-2 rounded-lg transition-all ${
                     formData.speaking_type === type
                       ? 'border-primary bg-orange-50 dark:bg-orange-900/20 text-primary dark:text-primary-400'
@@ -583,63 +808,98 @@ export default function SpeakingTopicsPage() {
             {formErrors.topic && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.topic}</p>}
           </div>
 
-          {/* Question */}
+          {/* Questions */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Question {formData.speaking_type !== 'PART_2' && '(Optional)'}
-            </label>
-            <textarea
-              value={formData.question}
-              onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              placeholder="Enter the question or prompt..."
-            />
-          </div>
-
-          {/* Cue Card Points (Part 2 only) */}
-          {showCueCardSection && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Cue Card Points <span className="text-red-500">*</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={addCueCardPoint}
-                  className="inline-flex items-center gap-1 text-xs text-primary dark:text-primary-400 hover:text-primary/80 dark:hover:text-primary-300"
-                >
-                  <ListPlus className="h-4 w-4" />
-                  Add Point
-                </button>
-              </div>
-              <div className="space-y-2">
-                {cueCardPoints.map((point, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={point}
-                      onChange={(e) => updateCueCardPoint(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                      placeholder={`Point ${index + 1}...`}
-                    />
-                    {cueCardPoints.length > 1 && (
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Questions <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={addQuestion}
+                className="inline-flex items-center gap-1 text-xs text-primary dark:text-primary-400 hover:text-primary/80 dark:hover:text-primary-300"
+              >
+                <ListPlus className="h-4 w-4" />
+                Add Question
+              </button>
+            </div>
+            {formErrors.questions && (
+              <p className="mb-2 text-sm text-red-600 dark:text-red-400">{formErrors.questions}</p>
+            )}
+            
+            <div className="space-y-4">
+              {formData.questions.map((question, qIndex) => (
+                <div key={qIndex} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Question {qIndex + 1}
+                    </span>
+                    {formData.questions.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => removeCueCardPoint(index)}
-                        className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        onClick={() => removeQuestion(qIndex)}
+                        className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                       >
-                        <Minus className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
                   </div>
-                ))}
-              </div>
-              {formErrors.cue_card && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.cue_card}</p>
-              )}
+                  
+                  <textarea
+                    value={question.question_text}
+                    onChange={(e) => updateQuestion(qIndex, 'question_text', e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                    placeholder="Enter the question..."
+                  />
+
+                  {/* Cue Card Points (Part 2, first question only) */}
+                  {formData.speaking_type === 'PART_2' && qIndex === 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                          Cue Card Points <span className="text-red-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => addCueCardPoint(qIndex)}
+                          className="inline-flex items-center gap-1 text-xs text-primary dark:text-primary-400"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Add Point
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {(question.cue_card_points || []).map((point, pIndex) => (
+                          <div key={pIndex} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={point}
+                              onChange={(e) => updateCueCardPoint(qIndex, pIndex, e.target.value)}
+                              className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                              placeholder={`Point ${pIndex + 1}...`}
+                            />
+                            {(question.cue_card_points?.length || 0) > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeCueCardPoint(qIndex, pIndex)}
+                                className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {formErrors.cue_card && (
+                        <p className="mt-1 text-xs text-red-600 dark:text-red-400">{formErrors.cue_card}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
       </Modal>
     </div>

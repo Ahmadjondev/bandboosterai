@@ -11,6 +11,7 @@ from ielts.models import (
     ListeningPart,
     WritingTask,
     SpeakingTopic,
+    SpeakingQuestion,
     TestHead,
     Question,
     Choice,
@@ -299,12 +300,32 @@ class WritingTaskSerializer(serializers.ModelSerializer):
         return None
 
 
+class SpeakingQuestionSerializer(serializers.ModelSerializer):
+    """Speaking question serializer"""
+
+    class Meta:
+        model = SpeakingQuestion
+        fields = [
+            "id",
+            "question_text",
+            "cue_card_points",
+            "audio_url",
+            "order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
 class SpeakingTopicSerializer(serializers.ModelSerializer):
-    """Speaking topic serializer"""
+    """Speaking topic serializer with nested questions"""
 
     speaking_type_display = serializers.CharField(
         source="get_speaking_type_display", read_only=True
     )
+    questions = SpeakingQuestionSerializer(many=True, read_only=True)
+    question_count = serializers.IntegerField(read_only=True)
+    has_audio = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = SpeakingTopic
@@ -313,12 +334,21 @@ class SpeakingTopicSerializer(serializers.ModelSerializer):
             "topic",
             "speaking_type",
             "speaking_type_display",
-            "question",
-            "cue_card",
+            "is_authentic",
+            "is_practice",
+            "questions",
+            "question_count",
+            "has_audio",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "question_count",
+            "has_audio",
+        ]
 
 
 # ExamResultSerializer removed - ExamResult model no longer exists

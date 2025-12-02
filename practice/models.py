@@ -327,3 +327,82 @@ class SectionPracticeAttempt(models.Model):
             self.time_spent_seconds = int(delta.total_seconds())
 
         self.save()
+
+
+class SpeakingPracticeRecording(models.Model):
+    """
+    Stores audio recordings for speaking practice attempts.
+    Each recording corresponds to a specific question/part in the speaking test.
+    """
+
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+        verbose_name="UUID",
+    )
+
+    attempt = models.ForeignKey(
+        SectionPracticeAttempt,
+        on_delete=models.CASCADE,
+        related_name="recordings",
+        verbose_name="Practice Attempt",
+    )
+
+    # Question identifier (e.g., "part1_q1", "part2", "part3_q1")
+    question_key = models.CharField(
+        max_length=50,
+        verbose_name="Question Key",
+        help_text="Identifier for the question (e.g., part1_q1, part2, part3_q1)",
+    )
+
+    # Audio file
+    audio_file = models.FileField(
+        upload_to="speaking_practice_recordings/%Y/%m/%d/",
+        verbose_name="Audio Recording",
+    )
+
+    # Duration in seconds
+    duration_seconds = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Duration (seconds)",
+    )
+
+    # Transcription (if available)
+    transcription = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Transcription",
+    )
+
+    # Individual question evaluation
+    ai_score = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(9)],
+        verbose_name="AI Score",
+    )
+    ai_feedback = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="AI Feedback",
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+
+    class Meta:
+        db_table = "speaking_practice_recordings"
+        verbose_name = "Speaking Practice Recording"
+        verbose_name_plural = "Speaking Practice Recordings"
+        ordering = ["attempt", "question_key"]
+        unique_together = [["attempt", "question_key"]]
+        indexes = [
+            models.Index(fields=["attempt", "question_key"]),
+        ]
+
+    def __str__(self):
+        return f"{self.attempt.student.username} - {self.question_key}"

@@ -149,14 +149,27 @@ export interface WritingTask {
   updated_at?: string;
 }
 
+// Speaking Question Types
+export interface SpeakingQuestion {
+  id: number;
+  question_text: string;
+  cue_card_points?: string[] | null;
+  audio_url?: string | null;
+  order: number;
+  created_at: string;
+  updated_at?: string;
+}
+
 // Speaking Topic Types
 export interface SpeakingTopic {
   id: number;
   speaking_type: 'PART_1' | 'PART_2' | 'PART_3';
   topic: string;
-  question?: string;
-  cue_card?: string[] | null;
-  is_active?: boolean;
+  is_authentic?: boolean;
+  is_practice?: boolean;
+  questions: SpeakingQuestion[];
+  question_count: number;
+  has_audio: boolean;
   created_at: string;
   updated_at?: string;
 }
