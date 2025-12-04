@@ -493,6 +493,12 @@ function PracticeCard({ practice, colors }: PracticeCardProps) {
   const speakingPartLabel = isSpeaking && practice.speaking_part 
     ? `Part ${practice.speaking_part}` 
     : null;
+    
+  // For writing practices, display task type
+  const isWriting = practice.section_type === 'WRITING';
+  const writingTaskLabel = isWriting && practice.writing_task_type 
+    ? practice.writing_task_type === 'TASK_1' ? 'Task 1' : 'Task 2'
+    : null;
 
   return (
     <Link href={`/practice/detail/${practice.uuid}`}>
@@ -513,6 +519,25 @@ function PracticeCard({ practice, colors }: PracticeCardProps) {
                 <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2">
                   {practice.speaking_topic_name || practice.title}
                 </h3>
+              </>
+            ) : isWriting && writingTaskLabel ? (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+                    {writingTaskLabel}
+                  </span>
+                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getDifficultyColor(practice.difficulty)}`}>
+                    {practice.difficulty_display}
+                  </span>
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2">
+                  {practice.title}
+                </h3>
+                {practice.writing_prompt_preview && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
+                    {practice.writing_prompt_preview}
+                  </p>
+                )}
               </>
             ) : (
               <>
@@ -588,6 +613,12 @@ function PracticeListItem({ practice, colors }: PracticeCardProps) {
   const speakingPartLabel = isSpeaking && practice.speaking_part 
     ? `Part ${practice.speaking_part}` 
     : null;
+    
+  // For writing practices, display task type
+  const isWriting = practice.section_type === 'WRITING';
+  const writingTaskLabel = isWriting && practice.writing_task_type 
+    ? practice.writing_task_type === 'TASK_1' ? 'Task 1' : 'Task 2'
+    : null;
 
   return (
     <Link href={`/practice/detail/${practice.uuid}`}>
@@ -612,6 +643,11 @@ function PracticeListItem({ practice, colors }: PracticeCardProps) {
                   {speakingPartLabel}
                 </span>
               )}
+              {isWriting && writingTaskLabel && (
+                <span className="shrink-0 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-semibold rounded-full">
+                  {writingTaskLabel}
+                </span>
+              )}
               <h3 className="font-semibold text-gray-900 dark:text-white truncate">
                 {isSpeaking && practice.speaking_topic_name ? practice.speaking_topic_name : practice.title}
               </h3>
@@ -621,6 +657,12 @@ function PracticeListItem({ practice, colors }: PracticeCardProps) {
                 </span>
               )}
             </div>
+            {/* Show writing prompt preview in list view */}
+            {isWriting && practice.writing_prompt_preview && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mb-1">
+                {practice.writing_prompt_preview}
+              </p>
+            )}
             <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
               <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getDifficultyColor(practice.difficulty)}`}>
                 {practice.difficulty_display}

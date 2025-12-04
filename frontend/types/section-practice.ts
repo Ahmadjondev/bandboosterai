@@ -28,6 +28,9 @@ export interface SectionPractice {
   // Speaking-specific fields
   speaking_part: number | null;
   speaking_topic_name: string | null;
+  // Writing-specific fields
+  writing_task_type: 'TASK_1' | 'TASK_2' | null;
+  writing_prompt_preview: string | null;
 }
 
 /**
@@ -235,12 +238,70 @@ export interface SubmitWritingRequest {
 }
 
 /**
- * Submit writing response
+ * Writing evaluation criteria scores
+ */
+export interface WritingCriteriaScores {
+  task_response_or_achievement: number | null;
+  coherence_and_cohesion: number | null;
+  lexical_resource: number | null;
+  grammatical_range_and_accuracy: number | null;
+}
+
+/**
+ * Submit writing response with AI evaluation
  */
 export interface SubmitWritingResponse {
   message: string;
   attempt_uuid: string;
-  status: string;
+  status: 'evaluated' | 'submitted_for_review';
+  word_count: number;
+  min_words: number;
+  meets_word_count: boolean;
+  band_score?: number;
+  feedback?: string;
+  evaluation?: WritingCriteriaScores;
+  ai_error?: string;
+}
+
+/**
+ * Full writing result response
+ */
+export interface WritingResultResponse {
+  uuid: string;
+  practice: {
+    uuid: string;
+    title: string;
+    section_type: string;
+    difficulty: string;
+  };
+  task: {
+    task_type: 'TASK_1' | 'TASK_2';
+    prompt: string;
+    min_words: number;
+    picture: string | null;
+  };
+  submission: {
+    response: string;
+    word_count: number;
+    meets_word_count: boolean;
+    time_spent_seconds: number;
+    completed_at: string | null;
+  };
+  evaluation: {
+    overall_band_score: number | null;
+    band_score_text: string | null;
+    criteria: WritingCriteriaScores;
+    feedback_summary: string | null;
+    inline_corrections: string;
+    corrected_essay: string;
+    sentence_feedback: Array<{
+      original: string;
+      corrected: string;
+      explanation: string;
+    }>;
+  };
+  has_ai_evaluation: boolean;
+  ai_error?: string;
 }
 
 /**

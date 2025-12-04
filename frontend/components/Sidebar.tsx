@@ -246,7 +246,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
           ))}
         </nav>
 
-        {/* Bottom Controls */}
+        {/* Bottom Controls 
         <div className="px-4 border-t border-slate-200 dark:border-slate-800">
           <button
             onClick={onToggleCollapse}
@@ -282,7 +282,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
             </svg>
             <span className="font-medium">Close Menu</span>
           </button>
-        </div>
+        </div> */}
       </aside>
     </>
   );

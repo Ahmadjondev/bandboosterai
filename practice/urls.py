@@ -81,6 +81,12 @@ urlpatterns = [
         api_views.get_section_practices_by_type,
         name="practices_by_type",
     ),
+    # Writing practice result with AI evaluation
+    path(
+        "attempt/<uuid:attempt_uuid>/writing-result/",
+        api_views.get_writing_result,
+        name="writing_result",
+    ),
     # Unified section endpoints (compatible with books API format)
     path(
         "unified/<uuid:practice_uuid>/",

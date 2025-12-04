@@ -140,6 +140,9 @@ const AIContentGenerator: React.FC = () => {
   // Image upload state for question groups
   const [groupImages, setGroupImages] = useState<Record<string, { file: File; preview: string }>>({});
 
+  // Image upload state for writing tasks (Task 1 charts/graphs)
+  const [writingTaskImages, setWritingTaskImages] = useState<Record<string, { file: File; preview: string }>>({});
+
   // Audio upload state for listening parts - Improved with batch support
   const [partAudios, setPartAudios] = useState<Record<string, { file: File; preview: string; duration?: number }>>({});
   const [isDraggingAudio, setIsDraggingAudio] = useState(false);
@@ -429,6 +432,45 @@ const AIContentGenerator: React.FC = () => {
       return updated;
     });
     showNotification('Image removed', 'info');
+  };
+
+  // Handle image upload for writing tasks (Task 1 charts/graphs)
+  const handleWritingTaskImageUpload = (taskKey: string, file: File) => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showNotification('Please select a valid image file', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Image size must be less than 5MB', 'error');
+      return;
+    }
+
+    // Create preview URL
+    const preview = URL.createObjectURL(file);
+
+    setWritingTaskImages(prev => ({
+      ...prev,
+      [taskKey]: { file, preview }
+    }));
+
+    showNotification('Writing task image uploaded successfully', 'success');
+  };
+
+  // Remove uploaded writing task image
+  const handleWritingTaskImageRemove = (taskKey: string) => {
+    setWritingTaskImages(prev => {
+      const updated = { ...prev };
+      // Revoke the preview URL to free memory
+      if (updated[taskKey]?.preview) {
+        URL.revokeObjectURL(updated[taskKey].preview);
+      }
+      delete updated[taskKey];
+      return updated;
+    });
+    showNotification('Writing task image removed', 'info');
   };
 
   // Handle audio upload for listening parts
@@ -946,10 +988,12 @@ const AIContentGenerator: React.FC = () => {
         results.writing.tasks.forEach((task: any, idx: number) => {
           if (task.task_id) {
             const originalTask = originalData?.writing?.tasks?.[idx];
+            // Extract task number from task_type: TASK_1 -> 1, TASK_2 -> 2
+            const taskNumber = task.task_type?.split('_').pop() || (idx + 1);
             practicesData.push({
               section_type: 'WRITING',
               content_id: task.task_id,
-              name: `Writing Task ${task.task_number}`,
+              name: `Writing Task ${taskNumber}`,
               difficulty: mapDifficulty(originalTask?.difficulty),
             });
           }
@@ -1041,6 +1085,15 @@ const AIContentGenerator: React.FC = () => {
       if (key.startsWith(`test-${testIndex}-`) || (!key.startsWith('test-') && testIndex === selectedTestIndex)) {
         const newKey = key.replace(`test-${testIndex}-`, '');
         images[newKey || key] = file;
+      }
+    });
+
+    // Get writing task image files for this test index
+    Object.entries(writingTaskImages).forEach(([key, { file }]) => {
+      if (key.startsWith(`test-${testIndex}-`) || (!key.startsWith('test-') && testIndex === selectedTestIndex)) {
+        const newKey = key.replace(`test-${testIndex}-`, '');
+        // Prefix writing task images with 'writing-' to distinguish them
+        images[`writing-${newKey || key}`] = file;
       }
     });
 
@@ -1269,6 +1322,11 @@ const AIContentGenerator: React.FC = () => {
       URL.revokeObjectURL(preview);
     });
     setGroupImages({});
+
+    Object.values(writingTaskImages).forEach(({ preview }) => {
+      URL.revokeObjectURL(preview);
+    });
+    setWritingTaskImages({});
 
     Object.values(partAudios).forEach(({ preview }) => {
       URL.revokeObjectURL(preview);
@@ -2771,7 +2829,7 @@ const AIContentGenerator: React.FC = () => {
                                 </div>
                                 {questionTypeRequiresImage(group.question_type) && (
                                   <div className="flex items-center gap-2">
-                                    {groupImages[`fb-reading-${pIdx}-${gIdx}`] ? (
+                                    {groupImages[`test-${selectedTestIndex}-fb-reading-${pIdx}-${gIdx}`] ? (
                                       <span className="text-xs text-green-600 flex items-center gap-1">
                                         <CheckCircle className="w-3 h-3" />
                                         Image attached
@@ -2786,7 +2844,7 @@ const AIContentGenerator: React.FC = () => {
                                           accept="image/*"
                                           onChange={(e) => {
                                             const file = e.target.files?.[0];
-                                            if (file) handleImageUpload(`fb-reading-${pIdx}-${gIdx}`, file);
+                                            if (file) handleImageUpload(`test-${selectedTestIndex}-fb-reading-${pIdx}-${gIdx}`, file);
                                           }}
                                         />
                                       </label>
@@ -2913,7 +2971,7 @@ const AIContentGenerator: React.FC = () => {
                                 </div>
                                 {questionTypeRequiresImage(group.question_type) && (
                                   <div className="flex items-center gap-2">
-                                    {groupImages[`fb-listening-${pIdx}-${gIdx}`] ? (
+                                    {groupImages[`test-${selectedTestIndex}-fb-listening-${pIdx}-${gIdx}`] ? (
                                       <span className="text-xs text-green-600 flex items-center gap-1">
                                         <CheckCircle className="w-3 h-3" />
                                         Image attached
@@ -2928,7 +2986,7 @@ const AIContentGenerator: React.FC = () => {
                                           accept="image/*"
                                           onChange={(e) => {
                                             const file = e.target.files?.[0];
-                                            if (file) handleImageUpload(`fb-listening-${pIdx}-${gIdx}`, file);
+                                            if (file) handleImageUpload(`test-${selectedTestIndex}-fb-listening-${pIdx}-${gIdx}`, file);
                                           }}
                                         />
                                       </label>
@@ -2994,7 +3052,11 @@ const AIContentGenerator: React.FC = () => {
               {/* Writing Tasks */}
               {activeReviewTab === 'writing' && currentTest?.writing?.tasks && (
                 <div className="space-y-4">
-                  {currentTest.writing.tasks.map((task: any, tIdx: number) => (
+                  {currentTest.writing.tasks.map((task: any, tIdx: number) => {
+                    const taskImageKey = `test-${selectedTestIndex}-task-${tIdx}`;
+                    const isTask1 = task.task_type === 'TASK_1' || tIdx === 0;
+                    
+                    return (
                     <div key={tIdx} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                       {/* Task Header */}
                       <button
@@ -3009,6 +3071,7 @@ const AIContentGenerator: React.FC = () => {
                             <h4 className="font-semibold text-slate-900 dark:text-white">{task.task_type || `Task ${tIdx + 1}`}</h4>
                             <p className="text-sm text-slate-500">
                               Min words: {task.min_words || 150} • {task.has_visual ? 'Has visual' : 'No visual'}
+                              {writingTaskImages[taskImageKey] && ' • Image uploaded ✓'}
                             </p>
                           </div>
                         </div>
@@ -3028,10 +3091,61 @@ const AIContentGenerator: React.FC = () => {
                               <p className="text-sm text-amber-700 dark:text-amber-300">{task.visual_description}</p>
                             </div>
                           )}
+                          
+                          {/* Image Upload Section for Task 1 */}
+                          {isTask1 && (
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-3 flex items-center gap-2">
+                                <Image className="w-4 h-4" />
+                                Chart/Graph Image (Required for Task 1)
+                              </p>
+                              
+                              {writingTaskImages[taskImageKey] ? (
+                                <div className="space-y-3">
+                                  {/* Preview */}
+                                  <div className="relative inline-block">
+                                    <img
+                                      src={writingTaskImages[taskImageKey].preview}
+                                      alt="Task 1 visual"
+                                      className="max-w-full h-auto max-h-64 rounded-lg border border-blue-200 dark:border-blue-700"
+                                    />
+                                    <button
+                                      onClick={() => handleWritingTaskImageRemove(taskImageKey)}
+                                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                                    {writingTaskImages[taskImageKey].file.name}
+                                  </p>
+                                </div>
+                              ) : (
+                                <label className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
+                                  <Image className="w-8 h-8 text-blue-400 mb-2" />
+                                  <span className="text-sm font-medium text-blue-600 dark:text-blue-300">
+                                    Upload Chart/Graph Image
+                                  </span>
+                                  <span className="text-xs text-slate-500 mt-1">
+                                    PNG, JPG, or GIF up to 5MB
+                                  </span>
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleWritingTaskImageUpload(taskImageKey, file);
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
 

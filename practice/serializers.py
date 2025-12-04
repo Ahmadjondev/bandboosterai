@@ -30,6 +30,9 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
     # Speaking-specific fields
     speaking_part = serializers.SerializerMethodField()
     speaking_topic_name = serializers.SerializerMethodField()
+    # Writing-specific fields
+    writing_task_type = serializers.SerializerMethodField()
+    writing_prompt_preview = serializers.SerializerMethodField()
 
     class Meta:
         model = SectionPractice
@@ -52,6 +55,9 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
             # Speaking-specific
             "speaking_part",
             "speaking_topic_name",
+            # Writing-specific
+            "writing_task_type",
+            "writing_prompt_preview",
         ]
 
     def get_attempts_count(self, obj):
@@ -94,6 +100,22 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
         """Get the speaking topic name for speaking practices."""
         if obj.section_type == "SPEAKING" and obj.speaking_topic:
             return obj.speaking_topic.topic
+        return None
+
+    def get_writing_task_type(self, obj):
+        """Get the writing task type (TASK_1 or TASK_2) for writing practices."""
+        if obj.section_type == "WRITING" and obj.writing_task:
+            return obj.writing_task.task_type
+        return None
+
+    def get_writing_prompt_preview(self, obj):
+        """Get a preview of the writing prompt for writing practices."""
+        if obj.section_type == "WRITING" and obj.writing_task:
+            prompt = obj.writing_task.prompt or ""
+            # Return first 150 characters as preview
+            if len(prompt) > 150:
+                return prompt[:150] + "..."
+            return prompt
         return None
 
 

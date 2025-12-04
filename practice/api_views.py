@@ -737,11 +737,14 @@ def submit_answers(request, attempt_uuid):
 def submit_writing(request, attempt_uuid):
     """
     Submit writing response for AI evaluation.
+    Integrates with AI writing checker for comprehensive feedback.
     """
+    from ai.writing_checker import check_writing, extract_band_score
+
     try:
-        attempt = SectionPracticeAttempt.objects.select_related("practice").get(
-            uuid=attempt_uuid, student=request.user, status="IN_PROGRESS"
-        )
+        attempt = SectionPracticeAttempt.objects.select_related(
+            "practice", "practice__writing_task"
+        ).get(uuid=attempt_uuid, student=request.user, status="IN_PROGRESS")
     except SectionPracticeAttempt.DoesNotExist:
         return Response(
             {"error": "Active attempt not found"},
@@ -765,20 +768,105 @@ def submit_writing(request, attempt_uuid):
     attempt.answers = {"response": response_text}
     attempt.time_spent_seconds = time_spent
 
-    # AI evaluation would go here
-    # For now, mark as completed without AI score
+    # Get writing task details for proper evaluation
+    writing_task = attempt.practice.writing_task
+    task_type = (
+        "Task 1" if writing_task and writing_task.task_type == "TASK_1" else "Task 2"
+    )
+    task_question = writing_task.prompt if writing_task else None
+
+    # Calculate word count
+    word_count = len(response_text.split()) if response_text else 0
+    min_words = (
+        writing_task.min_words
+        if writing_task
+        else (150 if task_type == "Task 1" else 250)
+    )
+
+    ai_result = None
+    ai_error = None
+
+    try:
+        # Call AI writing checker
+        ai_result = check_writing(
+            essay_text=response_text,
+            task_type=task_type,
+            task_question=task_question,
+            max_retries=2,
+        )
+
+        # Extract band score
+        band_score = extract_band_score(ai_result)
+        if band_score:
+            attempt.score = band_score
+
+        # Store detailed AI feedback
+        attempt.ai_feedback = ai_result.get(
+            "summary", "Your writing has been evaluated."
+        )
+        attempt.answers = {
+            "response": response_text,
+            "word_count": word_count,
+            "ai_evaluation": {
+                "inline": ai_result.get("inline", response_text),
+                "sentences": ai_result.get("sentences", []),
+                "corrected_essay": ai_result.get("corrected_essay", response_text),
+                "band_score": ai_result.get("band_score"),
+                "task_response_or_achievement": ai_result.get(
+                    "task_response_or_achievement"
+                ),
+                "coherence_and_cohesion": ai_result.get("coherence_and_cohesion"),
+                "lexical_resource": ai_result.get("lexical_resource"),
+                "grammatical_range_and_accuracy": ai_result.get(
+                    "grammatical_range_and_accuracy"
+                ),
+            },
+        }
+
+    except Exception as e:
+        ai_error = str(e)
+        attempt.ai_feedback = f"AI evaluation is temporarily unavailable. Your writing has been saved. Error: {ai_error}"
+        attempt.answers = {
+            "response": response_text,
+            "word_count": word_count,
+            "ai_error": ai_error,
+        }
+
+    # Mark as completed
     attempt.status = "COMPLETED"
     attempt.completed_at = timezone.now()
-    attempt.ai_feedback = "Your writing has been submitted for evaluation."
     attempt.save()
 
-    return Response(
-        {
-            "message": "Writing submitted successfully",
-            "attempt_uuid": str(attempt.uuid),
-            "status": "submitted_for_review",
-        }
-    )
+    response_data = {
+        "message": "Writing submitted successfully",
+        "attempt_uuid": str(attempt.uuid),
+        "status": "evaluated" if ai_result else "submitted_for_review",
+        "word_count": word_count,
+        "min_words": min_words,
+        "meets_word_count": word_count >= min_words,
+    }
+
+    if ai_result:
+        response_data.update(
+            {
+                "band_score": attempt.score,
+                "feedback": attempt.ai_feedback,
+                "evaluation": {
+                    "task_response_or_achievement": ai_result.get(
+                        "task_response_or_achievement"
+                    ),
+                    "coherence_and_cohesion": ai_result.get("coherence_and_cohesion"),
+                    "lexical_resource": ai_result.get("lexical_resource"),
+                    "grammatical_range_and_accuracy": ai_result.get(
+                        "grammatical_range_and_accuracy"
+                    ),
+                },
+            }
+        )
+    elif ai_error:
+        response_data["ai_error"] = ai_error
+
+    return Response(response_data)
 
 
 @api_view(["POST"])
@@ -1704,5 +1792,94 @@ def get_practice_result(request, practice_uuid):
 
     # Build detailed result (same format as books)
     result = _build_detailed_practice_result(practice, attempt)
+
+    return Response(result)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_writing_result(request, attempt_uuid):
+    """
+    Get detailed writing practice result with AI feedback.
+    Returns comprehensive evaluation including:
+    - Band scores for each criterion
+    - Inline corrections with error markers
+    - Corrected essay
+    - Sentence-by-sentence feedback
+    """
+    try:
+        attempt = SectionPracticeAttempt.objects.select_related(
+            "practice", "practice__writing_task"
+        ).get(uuid=attempt_uuid, student=request.user, status="COMPLETED")
+    except SectionPracticeAttempt.DoesNotExist:
+        return Response(
+            {"error": "Completed attempt not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if attempt.practice.section_type != "WRITING":
+        return Response(
+            {"error": "This endpoint is only for writing practices"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    writing_task = attempt.practice.writing_task
+    answers = attempt.answers or {}
+    ai_evaluation = answers.get("ai_evaluation", {})
+
+    response_text = answers.get("response", "")
+    word_count = answers.get(
+        "word_count", len(response_text.split()) if response_text else 0
+    )
+    min_words = writing_task.min_words if writing_task else 150
+
+    result = {
+        "uuid": str(attempt.uuid),
+        "practice": {
+            "uuid": str(attempt.practice.uuid),
+            "title": attempt.practice.title,
+            "section_type": attempt.practice.section_type,
+            "difficulty": attempt.practice.difficulty,
+        },
+        "task": {
+            "task_type": writing_task.task_type if writing_task else "TASK_2",
+            "prompt": writing_task.prompt if writing_task else "",
+            "min_words": min_words,
+            "picture": (
+                writing_task.picture.url
+                if writing_task and writing_task.picture
+                else None
+            ),
+        },
+        "submission": {
+            "response": response_text,
+            "word_count": word_count,
+            "meets_word_count": word_count >= min_words,
+            "time_spent_seconds": attempt.time_spent_seconds,
+            "completed_at": (
+                attempt.completed_at.isoformat() if attempt.completed_at else None
+            ),
+        },
+        "evaluation": {
+            "overall_band_score": float(attempt.score) if attempt.score else None,
+            "band_score_text": ai_evaluation.get("band_score"),
+            "criteria": {
+                "task_response_or_achievement": ai_evaluation.get(
+                    "task_response_or_achievement"
+                ),
+                "coherence_and_cohesion": ai_evaluation.get("coherence_and_cohesion"),
+                "lexical_resource": ai_evaluation.get("lexical_resource"),
+                "grammatical_range_and_accuracy": ai_evaluation.get(
+                    "grammatical_range_and_accuracy"
+                ),
+            },
+            "feedback_summary": attempt.ai_feedback,
+            "inline_corrections": ai_evaluation.get("inline", response_text),
+            "corrected_essay": ai_evaluation.get("corrected_essay", response_text),
+            "sentence_feedback": ai_evaluation.get("sentences", []),
+        },
+        "has_ai_evaluation": bool(ai_evaluation),
+        "ai_error": answers.get("ai_error"),
+    }
 
     return Response(result)

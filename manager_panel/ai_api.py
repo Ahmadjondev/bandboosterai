@@ -427,12 +427,19 @@ def _save_listening_parts(data, user, images=None, audios=None):
     )
 
 
-def _save_writing_tasks(data, user):
-    """Helper function to save writing tasks to database."""
+def _save_writing_tasks(data, user, images=None):
+    """Helper function to save writing tasks to database.
+
+    Args:
+        data: Writing task data from AI
+        user: Current user
+        images: Dict of uploaded images with keys like 'writing-task-0', 'writing-task-1'
+    """
     tasks_data = data.get("tasks", [])
     created_tasks = []
+    images = images or {}
 
-    for task_data in tasks_data:
+    for task_idx, task_data in enumerate(tasks_data):
         # Map AI task_type to model's TaskType
         ai_task_type = task_data.get("task_type", "")
         if "TASK1" in ai_task_type.upper() or "TASK_1" in ai_task_type.upper():
@@ -458,6 +465,13 @@ def _save_writing_tasks(data, user):
             data=task_data_dict,  # Store additional metadata
         )
 
+        # Handle image upload for this task (especially Task 1)
+        # Image keys can be: 'writing-task-0', 'writing-task-1', etc.
+        image_key = f"writing-task-{task_idx}"
+        if image_key in images:
+            task.picture = images[image_key]
+            task.save()
+
         created_tasks.append(
             {
                 "task_id": task.id,
@@ -465,6 +479,7 @@ def _save_writing_tasks(data, user):
                 "prompt_preview": prompt[:100] + "..." if len(prompt) > 100 else prompt,
                 "min_words": min_words,
                 "has_visual": task_data.get("has_visual", False),
+                "has_picture": bool(task.picture),
             }
         )
 
@@ -793,10 +808,10 @@ def save_full_test_content(request):
             if reading_result.status_code == 200:
                 results["reading"] = reading_result.data
 
-        # Save Writing Tasks
+        # Save Writing Tasks (with images for Task 1 charts/graphs)
         if test_data.get("writing") and test_data["writing"].get("tasks"):
             writing_data = {"tasks": test_data["writing"]["tasks"]}
-            writing_result = _save_writing_tasks(writing_data, request.user)
+            writing_result = _save_writing_tasks(writing_data, request.user, images)
             if writing_result.status_code == 200:
                 results["writing"] = writing_result.data
 
@@ -948,9 +963,11 @@ def create_section_practice(request):
             content_name = content.title
         elif section_type == "WRITING":
             content = WritingTask.objects.get(id=content_id)
-            content_name = (
-                f"Writing Task {content.task_number}: {content.title or 'Untitled'}"
+            # Extract task number from task_type: TASK_1 -> 1, TASK_2 -> 2
+            task_number = (
+                content.task_type.split("_")[-1] if "_" in content.task_type else "1"
             )
+            content_name = f"Writing Task {task_number}"
         elif section_type == "SPEAKING":
             content = SpeakingTopic.objects.get(id=content_id)
             # Extract part number: PART_1 -> 1, PART_2 -> 2, PART_3 -> 3
@@ -1076,9 +1093,13 @@ def create_practices_batch(request):
                 content_name = content.title
             elif section_type == "WRITING":
                 content = WritingTask.objects.get(id=content_id)
-                content_name = (
-                    f"Writing Task {content.task_number}: {content.title or 'Untitled'}"
+                # Extract task number from task_type: TASK_1 -> 1, TASK_2 -> 2
+                task_number = (
+                    content.task_type.split("_")[-1]
+                    if "_" in content.task_type
+                    else "1"
                 )
+                content_name = f"Writing Task {task_number}"
             elif section_type == "SPEAKING":
                 content = SpeakingTopic.objects.get(id=content_id)
                 # Extract part number: PART_1 -> 1, PART_2 -> 2, PART_3 -> 3

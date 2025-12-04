@@ -15,6 +15,7 @@ import type {
   SubmitAnswersResponse,
   SubmitWritingRequest,
   SubmitWritingResponse,
+  WritingResultResponse,
   UserStatsResponse,
   SectionTypeOverview,
   ActiveAttemptResponse,
@@ -151,6 +152,20 @@ export async function submitWriting(
   );
   if (!response.data) {
     throw new Error('Failed to submit writing');
+  }
+  return response.data;
+}
+
+/**
+ * Get writing practice result with AI evaluation
+ * @param attemptUuid - UUID of the attempt
+ */
+export async function getWritingResult(attemptUuid: string): Promise<WritingResultResponse> {
+  const response = await apiClient.get<WritingResultResponse>(
+    `${API_BASE}/practice/attempt/${attemptUuid}/writing-result/`
+  );
+  if (!response.data) {
+    throw new Error('Failed to fetch writing result');
   }
   return response.data;
 }

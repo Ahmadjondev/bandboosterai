@@ -106,7 +106,13 @@ export default function PracticeDetailPage() {
       return;
     }
 
-    // For writing, redirect to the router page which shows "coming soon"
+    // For writing, navigate to writing practice page
+    if (practice.section_type === 'WRITING') {
+      router.push(`/practice-session/writing/${practice.uuid}`);
+      return;
+    }
+
+    // Fallback
     router.push(`/practice-session/${practice.uuid}`);
   };
 
@@ -120,6 +126,8 @@ export default function PracticeDetailPage() {
       router.push(`/practice-session/listening/${practice.uuid}`);
     } else if (practice.section_type === 'SPEAKING') {
       router.push(`/practice-session/speaking/${practice.uuid}`);
+    } else if (practice.section_type === 'WRITING') {
+      router.push(`/practice-session/writing/${practice.uuid}`);
     } else {
       router.push(`/practice-session/${practice.uuid}`);
     }
@@ -189,6 +197,17 @@ export default function PracticeDetailPage() {
     questions: Array<{ id: number; question_text: string; order: number }>;
   } | null : null;
   const speakingPartNumber = speakingContent ? parseInt(speakingContent.speaking_type.split('_')[1]) : null;
+
+  // Get writing-specific info  
+  const writingContent = practice.section_type === 'WRITING' ? practice.content as {
+    id: number;
+    task_type: 'TASK_1' | 'TASK_2';
+    task_type_display: string;
+    prompt: string;
+    image_url: string | null;
+    min_words: number;
+  } | null : null;
+  const writingTaskNumber = writingContent?.task_type === 'TASK_1' ? 1 : writingContent?.task_type === 'TASK_2' ? 2 : null;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
@@ -292,6 +311,31 @@ export default function PracticeDetailPage() {
               </div>
             )}
 
+            {/* Writing-specific info */}
+            {practice.section_type === 'WRITING' && writingContent && (
+              <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-1 bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-full">
+                    Task {writingTaskNumber}
+                  </span>
+                  <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                    {writingContent.task_type_display}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Prompt:</p>
+                  <p className="text-sm text-gray-900 dark:text-white line-clamp-3">
+                    {writingContent.prompt}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Min. {writingContent.min_words} words</span>
+                  {writingContent.image_url && <span>• Has visual</span>}
+                  <span>• AI evaluation included</span>
+                </div>
+              </div>
+            )}
+
             {/* Continue In-Progress Attempt Button */}
             {inProgressAttempt && (
               <button
@@ -351,6 +395,8 @@ function AttemptCard({ attempt, sectionType, practiceUuid }: AttemptCardProps) {
   const handleViewResults = () => {
     if (sectionType === 'SPEAKING') {
       router.push(`/practice-session/speaking/results/${attempt.uuid}`);
+    } else if (sectionType === 'WRITING') {
+      router.push(`/practice-session/writing/results/${attempt.uuid}`);
     } else {
       router.push(`/practice/results/${attempt.uuid}`);
     }
@@ -363,6 +409,8 @@ function AttemptCard({ attempt, sectionType, practiceUuid }: AttemptCardProps) {
       router.push(`/practice-session/listening/${practiceUuid}`);
     } else if (sectionType === 'SPEAKING') {
       router.push(`/practice-session/speaking/${practiceUuid}`);
+    } else if (sectionType === 'WRITING') {
+      router.push(`/practice-session/writing/${practiceUuid}`);
     } else {
       router.push(`/practice-session/${practiceUuid}`);
     }
