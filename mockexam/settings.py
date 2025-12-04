@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "teacher",  # Teacher Room module
     "books",  # Book-based practice system
     "practice",  # Section-by-section practice
+    "payments",  # Payment system with Payme integration
 ]
 
 MIDDLEWARE = [
@@ -459,6 +460,22 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# ============================================================================
+# PAYME PAYMENT GATEWAY CONFIGURATION
+# ============================================================================
+# Payme Merchant credentials
+PAYME_MERCHANT_ID = config("PAYME_MERCHANT_ID", default="")
+PAYME_MERCHANT_KEY = config("PAYME_MERCHANT_KEY", default="")
+# Use test environment in DEBUG mode
+PAYME_TEST_MODE = config("PAYME_TEST_MODE", default=DEBUG, cast=bool)
+# Payme checkout URL
+PAYME_CHECKOUT_URL = config(
+    "PAYME_CHECKOUT_URL",
+    default="https://checkout.paycom.uz" if not DEBUG else "https://test.paycom.uz",
+)
+# Transaction timeout in milliseconds (12 hours as per Payme docs)
+PAYME_TRANSACTION_TIMEOUT = 43200000  # 12 hours in milliseconds
 
 # ============================================================================
 # OPENAI CONFIGURATION

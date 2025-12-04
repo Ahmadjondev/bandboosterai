@@ -360,11 +360,11 @@ class TeacherExamViewSet(viewsets.ModelViewSet):
         """
         Get exams that the student is enrolled in (for students)
         """
-        if request.user.role != "STUDENT":
-            return Response(
-                {"error": "Only students can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # if request.user.role != "STUDENT":
+        #     return Response(
+        #         {"error": "Only students can access this endpoint"},
+        #         status=status.HTTP_403_FORBIDDEN,
+        #     )
 
         # Get exams where student is assigned or public exams
         exams = TeacherExam.objects.filter(
@@ -498,11 +498,11 @@ class TeacherExamViewSet(viewsets.ModelViewSet):
         """
         Get student's attempt for this exam (for students)
         """
-        if request.user.role != "STUDENT":
-            return Response(
-                {"error": "Only students can access this endpoint"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # if request.user.role != "STUDENT":
+        #     return Response(
+        #         {"error": "Only students can access this endpoint"},
+        #         status=status.HTTP_403_FORBIDDEN,
+        #     )
 
         exam = self.get_object()
         attempt = TeacherExamAttempt.objects.filter(
@@ -807,7 +807,7 @@ class TeacherExamAttemptViewSet(viewsets.ModelViewSet):
                 total_count += len(set(correct_answer)) if correct_answer else 1
             else:
                 total_count += 1
-        
+
         return total_count
 
     @action(

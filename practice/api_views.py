@@ -416,6 +416,7 @@ def get_section_practices_by_type(request, section_type):
         - difficulty: EASY, MEDIUM, HARD, EXPERT
         - status: completed, uncompleted, all (default: all)
         - search: search query for title
+        - is_free: true/false - filter by free/premium content
         - page: page number (default: 1)
         - page_size: items per page (default: 12)
     """
@@ -439,6 +440,11 @@ def get_section_practices_by_type(request, section_type):
     difficulty = request.GET.get("difficulty")
     if difficulty:
         practices = practices.filter(difficulty=difficulty.upper())
+
+    # Add is_free/is_premium filter
+    is_free = request.GET.get("is_free")
+    if is_free is not None:
+        practices = practices.filter(is_free=is_free.lower() == "true")
 
     # Add search filter
     search = request.GET.get("search")

@@ -1,3 +1,5 @@
+import type { UserAttempts, UserSubscription } from './payment';
+
 export interface User {
   id: number;
   username: string;
@@ -13,6 +15,9 @@ export interface User {
   registration_method?: 'EMAIL' | 'TELEGRAM' | 'GOOGLE';
   balance?: number;
   created_at: string;
+  // Payment related fields
+  attempts?: UserAttempts;
+  subscription?: UserSubscription;
 }
 
 export interface AuthResponse {

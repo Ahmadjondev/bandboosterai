@@ -10,6 +10,16 @@ from .api_views_dashboard_v2 import (
     get_achievements,
     clear_all_dashboard_cache,
 )
+from .api_views_analytics import (
+    get_analytics_overview,
+    get_skill_breakdown,
+    get_weakness_analysis,
+    get_progress_trends,
+    get_band_prediction,
+    get_study_plan,
+    refresh_analytics_cache,
+    get_analytics_cache_status,
+)
 
 app_name = "ielts"
 
@@ -131,5 +141,47 @@ urlpatterns = [
         "api/writing/check/<str:writing_attempt_id>/",
         api_views.get_writing_check_result,
         name="api_get_writing_check_result",
+    ),
+    # Analytics API endpoints
+    path(
+        "api/analytics/overview/",
+        get_analytics_overview,
+        name="api_analytics_overview",
+    ),
+    path(
+        "api/analytics/skills/",
+        get_skill_breakdown,
+        name="api_analytics_skills",
+    ),
+    path(
+        "api/analytics/weaknesses/",
+        get_weakness_analysis,
+        name="api_analytics_weaknesses",
+    ),
+    path(
+        "api/analytics/progress/",
+        get_progress_trends,
+        name="api_analytics_progress",
+    ),
+    path(
+        "api/analytics/band-prediction/",
+        get_band_prediction,
+        name="api_analytics_band_prediction",
+    ),
+    path(
+        "api/analytics/study-plan/",
+        get_study_plan,
+        name="api_analytics_study_plan",
+    ),
+    # Cache management endpoints
+    path(
+        "api/analytics/refresh/",
+        refresh_analytics_cache,
+        name="api_analytics_refresh",
+    ),
+    path(
+        "api/analytics/cache-status/",
+        get_analytics_cache_status,
+        name="api_analytics_cache_status",
     ),
 ]

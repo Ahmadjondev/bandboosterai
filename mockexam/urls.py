@@ -29,13 +29,14 @@ urlpatterns = [
     path("logout/", custom_logout, name="logout"),
     # Authentication - API endpoints
     path("accounts/api/", include("accounts.api_urls")),
-
     # Exams
     path("exams/", include("ielts.urls")),
     # Books - IELTS Practice Books
     path("books/", include("books.urls")),
     # Practice - Practice by section type
     path("practice/", include("practice.urls")),
+    # Payments - Subscription and Payme integration
+    path("payments/api/", include("payments.urls")),
     # Panel URLs
     path("manager/", include("manager_panel.urls")),
     path("teacher/api/", include("teacher.urls")),

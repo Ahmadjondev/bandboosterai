@@ -328,6 +328,14 @@ class SectionPracticeAttempt(models.Model):
 
         self.save()
 
+        # Trigger analytics cache refresh (non-blocking)
+        try:
+            from ielts.tasks import refresh_user_analytics_after_completion
+
+            refresh_user_analytics_after_completion.delay(self.student_id, "practice")
+        except Exception:
+            pass  # Don't fail completion if analytics refresh fails
+
 
 class SpeakingPracticeRecording(models.Model):
     """

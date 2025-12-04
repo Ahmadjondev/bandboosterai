@@ -1258,7 +1258,11 @@ def next_section(request, attempt_id):
 @permission_classes([IsAuthenticated])
 def submit_test(request, attempt_id):
     """Submit the entire test and mark as completed."""
-    from ielts.tasks import process_writing_check_task, evaluate_speaking_attempt_task
+    from ielts.tasks import (
+        process_writing_check_task,
+        evaluate_speaking_attempt_task,
+        refresh_user_analytics_after_completion,
+    )
     from teacher.models import TeacherExamAttempt
 
     attempt, error_response = get_user_attempt(attempt_id, request.user)
@@ -1368,6 +1372,14 @@ def submit_test(request, attempt_id):
                     )
             except SpeakingAttempt.DoesNotExist:
                 logger.info(f"No speaking attempt found for exam attempt {attempt.id}")
+
+    # Refresh analytics cache for the user (non-blocking)
+    if not is_teacher_exam:
+        try:
+            refresh_user_analytics_after_completion.delay(request.user.id, "exam")
+            logger.info(f"Scheduled analytics refresh for user {request.user.id}")
+        except Exception as e:
+            logger.warning(f"Failed to schedule analytics refresh: {e}")
 
     response_data = {
         "success": True,

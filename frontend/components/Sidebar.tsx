@@ -136,6 +136,9 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       section: 'Main',
       items: [
         { href: '/dashboard', icon: '🏠', label: 'Dashboard' },
+        { href: '/dashboard/analytics', icon: '📈', label: 'Analytics' },
+        { href: '/dashboard/planner', icon: '📅', label: 'Study Planner', comingSoon: true },
+        { href: '/dashboard/leaderboard', icon: '🏆', label: 'Leaderboard' },
         { href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' },
       ]
     },
@@ -157,18 +160,19 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         { href: '/dashboard/resources', icon: '✨', label: 'Study Resources' }
       ]
     },
-    {
-      section: 'AI Tools',
-      items: [
-        { href: '/dashboard/analytics', icon: '📈', label: 'Analytics', comingSoon: true },
-        { href: '/dashboard/planner', icon: '📅', label: 'Study Planner', comingSoon: true },
-        { href: '/dashboard/leaderboard', icon: '🏆', label: 'Leaderboard' },
+    // {
+    //   section: 'AI Tools',
+    //   items: [
         
-      ]
-    },
+        
+    //   ]
+    // },
     {
       section: 'Account',
-      items: [{ href: '/dashboard/profile', icon: '👤', label: 'Profile' }]
+      items: [
+        { href: '/dashboard/pricing', icon: '💎', label: 'Premium Plans', badge: 'PRO' },
+        { href: '/dashboard/profile', icon: '👤', label: 'Profile' }
+      ]
     }
   ];
 
@@ -245,7 +249,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
             </div>
           ))}
         </nav>
-
         {/* Bottom Controls 
         <div className="px-4 border-t border-slate-200 dark:border-slate-800">
           <button

@@ -59,6 +59,11 @@ class Book(models.Model):
     is_active = models.BooleanField(
         default=True, verbose_name="Active", help_text="Whether this book is available"
     )
+    is_premium = models.BooleanField(
+        default=False,
+        verbose_name="Premium Content",
+        help_text="Requires subscription or attempts to access",
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")

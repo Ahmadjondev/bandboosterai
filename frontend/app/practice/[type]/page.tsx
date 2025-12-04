@@ -20,6 +20,8 @@ import {
   X,
   LayoutGrid,
   List,
+  Crown,
+  Sparkles,
 } from 'lucide-react';
 import {
   getSectionPracticesByType,
@@ -33,6 +35,8 @@ import type {
   StatusFilter,
   PaginationInfo,
 } from '@/types/section-practice';
+
+type PremiumFilter = 'all' | 'free' | 'premium';
 
 const sectionIcons = {
   listening: Headphones,
@@ -85,6 +89,7 @@ export default function SectionTypePage() {
   const [error, setError] = useState<string | null>(null);
   const [filterDifficulty, setFilterDifficulty] = useState<Difficulty | ''>('');
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
+  const [filterPremium, setFilterPremium] = useState<PremiumFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -123,7 +128,7 @@ export default function SectionTypePage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterDifficulty, filterStatus]);
+  }, [filterDifficulty, filterStatus, filterPremium]);
 
   const loadData = useCallback(async () => {
     if (!isValidSection) return;
@@ -137,6 +142,7 @@ export default function SectionTypePage() {
           difficulty: filterDifficulty || undefined,
           status: filterStatus,
           search: debouncedSearch || undefined,
+          is_free: filterPremium === 'all' ? undefined : filterPremium === 'free',
           page: currentPage,
           page_size: 12,
         }
@@ -147,7 +153,7 @@ export default function SectionTypePage() {
     } finally {
       setLoading(false);
     }
-  }, [sectionType, isValidSection, filterDifficulty, filterStatus, debouncedSearch, currentPage]);
+  }, [sectionType, isValidSection, filterDifficulty, filterStatus, filterPremium, debouncedSearch, currentPage]);
 
   useEffect(() => {
     loadData();
@@ -366,11 +372,36 @@ export default function SectionTypePage() {
                   ))}
                 </div>
               </div>
+
+              {/* Premium/Free Filter */}
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-gray-500 shrink-0" />
+                <div className="flex flex-wrap gap-2">
+                  {(['all', 'free', 'premium'] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => setFilterPremium(filter)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                        filterPremium === filter
+                          ? filter === 'premium'
+                            ? 'bg-purple-600 text-white'
+                            : filter === 'free'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-blue-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {filter === 'premium' && <Sparkles className="w-3.5 h-3.5" />}
+                      {filter === 'all' ? 'All' : filter === 'free' ? 'Free' : 'Premium'}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           
           {/* Active Filters Summary */}
-          {(searchQuery || filterDifficulty || filterStatus !== 'all') && (
+          {(searchQuery || filterDifficulty || filterStatus !== 'all' || filterPremium !== 'all') && (
             <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2 flex-wrap">
               <span className="text-sm text-gray-500">Active filters:</span>
               {searchQuery && (
@@ -397,11 +428,25 @@ export default function SectionTypePage() {
                   </button>
                 </span>
               )}
+              {filterPremium !== 'all' && (
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                  filterPremium === 'premium' 
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                    : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                }`}>
+                  {filterPremium === 'premium' && <Sparkles className="w-3 h-3" />}
+                  {filterPremium === 'free' ? 'Free' : 'Premium'}
+                  <button onClick={() => setFilterPremium('all')} className="hover:opacity-75">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
               <button
                 onClick={() => {
                   setSearchQuery('');
                   setFilterDifficulty('');
                   setFilterStatus('all');
+                  setFilterPremium('all');
                 }}
                 className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 underline"
               >

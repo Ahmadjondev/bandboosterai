@@ -55,6 +55,7 @@ export async function getSectionPracticesByType(
     difficulty?: Difficulty;
     status?: StatusFilter;
     search?: string;
+    is_free?: boolean;
     page?: number;
     page_size?: number;
   }
@@ -63,6 +64,7 @@ export async function getSectionPracticesByType(
   if (options?.difficulty) searchParams.append('difficulty', options.difficulty);
   if (options?.status && options.status !== 'all') searchParams.append('status', options.status);
   if (options?.search) searchParams.append('search', options.search);
+  if (options?.is_free !== undefined) searchParams.append('is_free', String(options.is_free));
   if (options?.page) searchParams.append('page', String(options.page));
   if (options?.page_size) searchParams.append('page_size', String(options.page_size));
   

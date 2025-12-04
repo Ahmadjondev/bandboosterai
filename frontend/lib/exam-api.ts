@@ -735,3 +735,216 @@ export async function loadDashboardDataV2() {
     achievements,
   };
 }
+
+// ============================================================================
+// ANALYTICS API (Subscription-based)
+// ============================================================================
+
+export interface AnalyticsOverview {
+  total_attempts: number;
+  total_practice_sessions: number;
+  total_books_completed: number;
+  overall_average: number | null;
+  current_level: string;
+  target_band: number;
+  days_active: number;
+  streak_days: number;
+  section_averages: {
+    reading: number | null;
+    listening: number | null;
+    writing: number | null;
+    speaking: number | null;
+  };
+  subscription_tier: string | null;
+  tier_limits: {
+    has_weakness_analysis: boolean;
+    has_band_prediction: boolean;
+    has_ai_study_plan: boolean;
+    history_days: number | string;
+  };
+}
+
+export interface AnalyticsSkillBreakdown {
+  subscription_tier: string | null;
+  reading: {
+    overall_accuracy: number;
+    question_types: Record<string, { accuracy: number; attempts: number; trend: string }>;
+    strengths: string[];
+    weaknesses: string[];
+  } | null;
+  listening: {
+    overall_accuracy: number;
+    question_types: Record<string, { accuracy: number; attempts: number; trend: string }>;
+    strengths: string[];
+    weaknesses: string[];
+  } | null;
+  writing: {
+    overall_score: number | null;
+    task_scores: {
+      task1: number | null;
+      task2: number | null;
+    };
+    criteria_breakdown: Record<string, number>;
+    improvement_areas: string[];
+  } | null;
+  speaking: {
+    overall_score: number | null;
+    part_scores: {
+      part1: number | null;
+      part2: number | null;
+      part3: number | null;
+    };
+    criteria_breakdown: Record<string, number>;
+    improvement_areas: string[];
+  } | null;
+}
+
+export interface AnalyticsWeakness {
+  section: string;
+  weakness_type: string;
+  current_score: number;
+  target_score: number;
+  priority: "high" | "medium" | "low";
+  improvement_tips: string[];
+}
+
+export interface AnalyticsWeaknessAnalysis {
+  subscription_tier: string | null;
+  overall_weakest_section: string | null;
+  weaknesses: AnalyticsWeakness[];
+  priority_focus: string[];
+  message?: string;
+}
+
+export interface AnalyticsProgressTrend {
+  date: string;
+  reading: number | null;
+  listening: number | null;
+  writing: number | null;
+  speaking: number | null;
+  overall: number | null;
+}
+
+export interface AnalyticsProgressTrends {
+  subscription_tier: string | null;
+  time_period: string;
+  trends: AnalyticsProgressTrend[];
+  improvement_rate: {
+    reading: number;
+    listening: number;
+    writing: number;
+    speaking: number;
+    overall: number;
+  };
+}
+
+export interface AnalyticsBandPrediction {
+  subscription_tier: string | null;
+  current_estimated_band: number | null;
+  predicted_band: number | null;
+  confidence_level: string;
+  section_predictions: {
+    reading: { current: number | null; predicted: number | null };
+    listening: { current: number | null; predicted: number | null };
+    writing: { current: number | null; predicted: number | null };
+    speaking: { current: number | null; predicted: number | null };
+  };
+  time_to_goal: string;
+  recommendation: string;
+  message?: string;
+}
+
+export interface StudyPlanDay {
+  day: string;
+  focus_section: string;
+  activities: string[];
+  duration_minutes: number;
+  goal: string;
+}
+
+export interface AnalyticsStudyPlan {
+  subscription_tier: string | null;
+  plan_type: string;
+  weekly_plan: StudyPlanDay[];
+  priority_sections: string[];
+  total_weekly_hours: number;
+  next_milestone: string;
+  message?: string;
+}
+
+/**
+ * Analytics - Get overview with subscription tier info
+ */
+export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
+  const response = await apiClient.get<AnalyticsOverview>(`${API_BASE}/analytics/overview/`);
+  if (!response.data) throw new Error("Failed to fetch analytics overview");
+  return response.data;
+}
+
+/**
+ * Analytics - Get skill breakdown by section
+ */
+export async function getAnalyticsSkillBreakdown(): Promise<AnalyticsSkillBreakdown> {
+  const response = await apiClient.get<AnalyticsSkillBreakdown>(`${API_BASE}/analytics/skills/`);
+  if (!response.data) throw new Error("Failed to fetch skill breakdown");
+  return response.data;
+}
+
+/**
+ * Analytics - Get weakness analysis (Pro+ only)
+ */
+export async function getAnalyticsWeaknesses(): Promise<AnalyticsWeaknessAnalysis> {
+  const response = await apiClient.get<AnalyticsWeaknessAnalysis>(`${API_BASE}/analytics/weaknesses/`);
+  if (!response.data) throw new Error("Failed to fetch weakness analysis");
+  return response.data;
+}
+
+/**
+ * Analytics - Get progress trends over time
+ */
+export async function getAnalyticsProgressTrends(): Promise<AnalyticsProgressTrends> {
+  const response = await apiClient.get<AnalyticsProgressTrends>(`${API_BASE}/analytics/progress/`);
+  if (!response.data) throw new Error("Failed to fetch progress trends");
+  return response.data;
+}
+
+/**
+ * Analytics - Get band prediction (Ultra only)
+ */
+export async function getAnalyticsBandPrediction(): Promise<AnalyticsBandPrediction> {
+  const response = await apiClient.get<AnalyticsBandPrediction>(`${API_BASE}/analytics/band-prediction/`);
+  if (!response.data) throw new Error("Failed to fetch band prediction");
+  return response.data;
+}
+
+/**
+ * Analytics - Get AI study plan (Ultra only)
+ */
+export async function getAnalyticsStudyPlan(): Promise<AnalyticsStudyPlan> {
+  const response = await apiClient.get<AnalyticsStudyPlan>(`${API_BASE}/analytics/study-plan/`);
+  if (!response.data) throw new Error("Failed to fetch study plan");
+  return response.data;
+}
+
+/**
+ * Analytics - Load all analytics data in parallel
+ */
+export async function loadAnalyticsData() {
+  const [overview, skills, weaknesses, progress, bandPrediction, studyPlan] = await Promise.all([
+    getAnalyticsOverview().catch(() => null),
+    getAnalyticsSkillBreakdown().catch(() => null),
+    getAnalyticsWeaknesses().catch(() => null),
+    getAnalyticsProgressTrends().catch(() => null),
+    getAnalyticsBandPrediction().catch(() => null),
+    getAnalyticsStudyPlan().catch(() => null),
+  ]);
+
+  return {
+    overview,
+    skills,
+    weaknesses,
+    progress,
+    bandPrediction,
+    studyPlan,
+  };
+}

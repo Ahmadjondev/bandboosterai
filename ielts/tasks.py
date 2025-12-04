@@ -583,3 +583,388 @@ def evaluate_speaking_attempt_task(self, speaking_attempt_id: int):
             "message": str(exc),
             "speaking_attempt_id": speaking_attempt_id,
         }
+
+
+# ============================================================================
+# ANALYTICS CACHE PRE-COMPUTATION TASKS
+# ============================================================================
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def precompute_user_analytics_task(self, user_id: int):
+    """
+    Pre-compute and cache all analytics data for a user.
+
+    This task runs after exam completion to ensure fresh analytics
+    are ready when user visits the analytics page.
+
+    Args:
+        user_id: ID of the user to compute analytics for
+    """
+    from django.contrib.auth import get_user_model
+    from django.core.cache import caches
+    from ielts.api_views_analytics import (
+        get_user_subscription_tier,
+        get_history_cutoff,
+        CACHE_ANALYTICS,
+        TIER_PRO,
+        TIER_ULTRA,
+    )
+    from ielts.models import ExamAttempt, UserAnswer, WritingAttempt, SpeakingAttempt
+    from practice.models import SectionPracticeAttempt
+    from books.models import UserBookProgress
+    from django.db.models import Avg, Count, Q, Max, Sum
+
+    User = get_user_model()
+
+    try:
+        user = User.objects.get(id=user_id)
+        tier = get_user_subscription_tier(user)
+
+        # Get cache
+        try:
+            analytics_cache = caches["dashboard"]
+        except KeyError:
+            analytics_cache = caches["default"]
+
+        logger.info(f"Pre-computing analytics for user {user.username} (tier: {tier})")
+
+        # Pre-compute overview data
+        cache_key = f"analytics_overview_{user.id}_{tier}"
+        cutoff_date = get_history_cutoff(tier)
+
+        base_filter = Q(student=user, status="COMPLETED")
+        if cutoff_date:
+            base_filter &= Q(completed_at__gte=cutoff_date)
+
+        # Exam statistics
+        exam_stats = ExamAttempt.objects.filter(base_filter).aggregate(
+            total_exams=Count("id"),
+            avg_overall=Avg("overall_score"),
+            best_overall=Max("overall_score"),
+            avg_listening=Avg("listening_score"),
+            avg_reading=Avg("reading_score"),
+            avg_writing=Avg("writing_score"),
+            avg_speaking=Avg("speaking_score"),
+            best_listening=Max("listening_score"),
+            best_reading=Max("reading_score"),
+            best_writing=Max("writing_score"),
+            best_speaking=Max("speaking_score"),
+        )
+
+        # Practice statistics
+        practice_filter = Q(student=user, status="COMPLETED")
+        if cutoff_date:
+            practice_filter &= Q(completed_at__gte=cutoff_date)
+
+        practice_stats = SectionPracticeAttempt.objects.filter(
+            practice_filter
+        ).aggregate(
+            total_practices=Count("id"),
+            avg_score=Avg("score"),
+            total_time=Sum("time_spent_seconds"),
+        )
+
+        # Book progress
+        book_stats = UserBookProgress.objects.filter(user=user).aggregate(
+            books_started=Count("id", filter=Q(is_started=True)),
+            books_completed=Count("id", filter=Q(is_completed=True)),
+            total_sections=Sum("book__total_sections"),
+            completed_sections=Sum("completed_sections"),
+            avg_score=Avg("average_score"),
+        )
+
+        total_sections = book_stats["total_sections"] or 0
+        completed_sections = book_stats["completed_sections"] or 0
+        book_progress_pct = (
+            (completed_sections / total_sections * 100) if total_sections > 0 else 0
+        )
+
+        # Days active calculation
+        active_dates = set()
+        exam_dates = (
+            ExamAttempt.objects.filter(base_filter)
+            .values_list("completed_at__date", flat=True)
+            .distinct()
+        )
+        active_dates.update(d for d in exam_dates if d)
+        practice_dates = (
+            SectionPracticeAttempt.objects.filter(practice_filter)
+            .values_list("completed_at__date", flat=True)
+            .distinct()
+        )
+        active_dates.update(d for d in practice_dates if d)
+        days_active = len(active_dates)
+
+        # Streak calculation
+        streak_days = 0
+        if active_dates:
+            from datetime import timedelta
+
+            today = timezone.now().date()
+            current_date = today
+            sorted_dates = sorted(active_dates, reverse=True)
+            for date in sorted_dates:
+                if date == current_date:
+                    streak_days += 1
+                    current_date -= timedelta(days=1)
+                elif date < current_date:
+                    break
+
+        # User level
+        overall_avg = float(exam_stats["avg_overall"] or 0)
+        if overall_avg >= 8.0:
+            current_level = "Expert"
+        elif overall_avg >= 7.0:
+            current_level = "Advanced"
+        elif overall_avg >= 6.0:
+            current_level = "Intermediate"
+        elif overall_avg >= 5.0:
+            current_level = "Pre-Intermediate"
+        elif overall_avg > 0:
+            current_level = "Beginner"
+        else:
+            current_level = "Not Started"
+
+        target_band = getattr(user, "target_band", 7.0) or 7.0
+
+        # Tier limits
+        has_weakness_analysis = tier in [TIER_PRO, TIER_ULTRA]
+        has_band_prediction = tier == TIER_ULTRA
+        has_ai_study_plan = tier == TIER_ULTRA
+        from ielts.api_views_analytics import HISTORY_LIMITS
+
+        history_days = HISTORY_LIMITS.get(tier, 7) if tier else 7
+
+        overview_data = {
+            "total_attempts": exam_stats["total_exams"] or 0,
+            "total_practice_sessions": practice_stats["total_practices"] or 0,
+            "total_books_completed": book_stats["books_completed"] or 0,
+            "overall_average": round(overall_avg, 1) if overall_avg > 0 else None,
+            "current_level": current_level,
+            "target_band": target_band,
+            "days_active": days_active,
+            "streak_days": streak_days,
+            "section_averages": {
+                "reading": (
+                    round(float(exam_stats["avg_reading"] or 0), 1)
+                    if exam_stats["avg_reading"]
+                    else None
+                ),
+                "listening": (
+                    round(float(exam_stats["avg_listening"] or 0), 1)
+                    if exam_stats["avg_listening"]
+                    else None
+                ),
+                "writing": (
+                    round(float(exam_stats["avg_writing"] or 0), 1)
+                    if exam_stats["avg_writing"]
+                    else None
+                ),
+                "speaking": (
+                    round(float(exam_stats["avg_speaking"] or 0), 1)
+                    if exam_stats["avg_speaking"]
+                    else None
+                ),
+            },
+            "subscription_tier": tier,
+            "tier_limits": {
+                "has_weakness_analysis": has_weakness_analysis,
+                "has_band_prediction": has_band_prediction,
+                "has_ai_study_plan": has_ai_study_plan,
+                "history_days": history_days if history_days else "unlimited",
+            },
+            "best_scores": {
+                "overall": (
+                    round(float(exam_stats["best_overall"] or 0), 1)
+                    if exam_stats["best_overall"]
+                    else None
+                ),
+                "reading": (
+                    round(float(exam_stats["best_reading"] or 0), 1)
+                    if exam_stats["best_reading"]
+                    else None
+                ),
+                "listening": (
+                    round(float(exam_stats["best_listening"] or 0), 1)
+                    if exam_stats["best_listening"]
+                    else None
+                ),
+                "writing": (
+                    round(float(exam_stats["best_writing"] or 0), 1)
+                    if exam_stats["best_writing"]
+                    else None
+                ),
+                "speaking": (
+                    round(float(exam_stats["best_speaking"] or 0), 1)
+                    if exam_stats["best_speaking"]
+                    else None
+                ),
+            },
+            "books": {
+                "started": book_stats["books_started"] or 0,
+                "completed": book_stats["books_completed"] or 0,
+                "progress_percentage": round(book_progress_pct, 1),
+            },
+            "cached": True,
+            "precomputed_at": timezone.now().isoformat(),
+        }
+
+        # Cache for 2 hours (longer than API default since it's pre-computed)
+        analytics_cache.set(cache_key, overview_data, timeout=7200)
+
+        logger.info(
+            f"Successfully pre-computed analytics overview for user {user.username}"
+        )
+
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "cache_key": cache_key,
+        }
+
+    except User.DoesNotExist:
+        logger.error(f"User {user_id} not found for analytics pre-computation")
+        return {"status": "error", "message": f"User {user_id} not found"}
+    except Exception as exc:
+        logger.error(
+            f"Error pre-computing analytics for user {user_id}: {exc}", exc_info=True
+        )
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc)
+        return {"status": "error", "message": str(exc)}
+
+
+@shared_task
+def invalidate_user_analytics_cache(user_id: int):
+    """
+    Invalidate all analytics cache for a user.
+
+    Call this when user completes an exam, practice session, or book section
+    to ensure stale data is cleared.
+
+    Args:
+        user_id: ID of the user whose cache should be invalidated
+    """
+    from django.core.cache import caches
+    from ielts.api_views_analytics import TIER_PLUS, TIER_PRO, TIER_ULTRA
+
+    try:
+        analytics_cache = caches["dashboard"]
+    except KeyError:
+        analytics_cache = caches["default"]
+
+    # All possible tier combinations for cache keys
+    tiers = [None, TIER_PLUS, TIER_PRO, TIER_ULTRA]
+
+    cache_prefixes = [
+        "analytics_overview",
+        "analytics_skills",
+        "analytics_weakness",
+        "analytics_trends",
+        "analytics_prediction",
+        "analytics_studyplan",
+    ]
+
+    invalidated_keys = []
+    for prefix in cache_prefixes:
+        for tier in tiers:
+            cache_key = f"{prefix}_{user_id}_{tier}"
+            analytics_cache.delete(cache_key)
+            invalidated_keys.append(cache_key)
+
+    # Also invalidate tier-less keys
+    analytics_cache.delete(f"analytics_prediction_{user_id}")
+    analytics_cache.delete(f"analytics_studyplan_{user_id}")
+
+    logger.info(
+        f"Invalidated {len(invalidated_keys)} analytics cache keys for user {user_id}"
+    )
+
+    return {
+        "status": "success",
+        "user_id": user_id,
+        "invalidated_keys": len(invalidated_keys),
+    }
+
+
+@shared_task
+def refresh_user_analytics_after_completion(
+    user_id: int, completion_type: str = "exam"
+):
+    """
+    Refresh analytics cache after user completes an activity.
+
+    This is a convenience task that invalidates cache and then pre-computes fresh data.
+
+    Args:
+        user_id: ID of the user
+        completion_type: Type of completion ("exam", "practice", "book")
+    """
+    logger.info(
+        f"Refreshing analytics for user {user_id} after {completion_type} completion"
+    )
+
+    # First invalidate old cache
+    invalidate_user_analytics_cache.delay(user_id)
+
+    # Then pre-compute fresh data (with slight delay to ensure invalidation completes)
+    precompute_user_analytics_task.apply_async(
+        args=[user_id], countdown=2  # 2 second delay
+    )
+
+    return {
+        "status": "scheduled",
+        "user_id": user_id,
+        "completion_type": completion_type,
+    }
+
+
+@shared_task
+def batch_precompute_active_users_analytics():
+    """
+    Batch job to pre-compute analytics for recently active users.
+
+    Run this periodically (e.g., every 6 hours) to keep cache warm
+    for users who are likely to check their analytics.
+    """
+    from django.contrib.auth import get_user_model
+    from ielts.models import ExamAttempt
+    from practice.models import SectionPracticeAttempt
+    from datetime import timedelta
+
+    User = get_user_model()
+
+    # Find users who were active in the last 24 hours
+    yesterday = timezone.now() - timedelta(hours=24)
+
+    # Users with recent exam attempts
+    exam_users = set(
+        ExamAttempt.objects.filter(
+            completed_at__gte=yesterday, status="COMPLETED"
+        ).values_list("student_id", flat=True)
+    )
+
+    # Users with recent practice attempts
+    practice_users = set(
+        SectionPracticeAttempt.objects.filter(
+            completed_at__gte=yesterday, status="COMPLETED"
+        ).values_list("student_id", flat=True)
+    )
+
+    active_users = exam_users | practice_users
+
+    logger.info(f"Batch pre-computing analytics for {len(active_users)} active users")
+
+    scheduled_count = 0
+    for user_id in active_users:
+        # Stagger the tasks to avoid overwhelming the system
+        precompute_user_analytics_task.apply_async(
+            args=[user_id], countdown=scheduled_count * 2  # 2 seconds apart
+        )
+        scheduled_count += 1
+
+    return {
+        "status": "success",
+        "users_scheduled": scheduled_count,
+    }
