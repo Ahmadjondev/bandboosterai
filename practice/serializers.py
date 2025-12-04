@@ -33,6 +33,9 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
     # Writing-specific fields
     writing_task_type = serializers.SerializerMethodField()
     writing_prompt_preview = serializers.SerializerMethodField()
+    # Access control fields
+    user_has_access = serializers.SerializerMethodField()
+    requires_payment = serializers.SerializerMethodField()
 
     class Meta:
         model = SectionPractice
@@ -58,6 +61,9 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
             # Writing-specific
             "writing_task_type",
             "writing_prompt_preview",
+            # Access control
+            "user_has_access",
+            "requires_payment",
         ]
 
     def get_attempts_count(self, obj):
@@ -85,6 +91,39 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
             if last:
                 return last.started_at.isoformat()
         return None
+
+    def get_user_has_access(self, obj):
+        """Check if the current user has access to this practice."""
+        # Free content is always accessible
+        if obj.is_free:
+            return True
+        
+        user = self.context.get("request")
+        if user and hasattr(user, "user"):
+            user = user.user
+            try:
+                from .payment_helpers import check_practice_access
+                access = check_practice_access(user, obj)
+                return access["has_access"]
+            except Exception:
+                return False
+        return False
+
+    def get_requires_payment(self, obj):
+        """Check if this practice requires payment."""
+        if obj.is_free:
+            return False
+        
+        user = self.context.get("request")
+        if user and hasattr(user, "user"):
+            user = user.user
+            try:
+                from .payment_helpers import check_practice_access
+                access = check_practice_access(user, obj)
+                return not access["has_access"]
+            except Exception:
+                return True  # Assume payment required if check fails
+        return True  # Assume payment required for unauthenticated
 
     def get_speaking_part(self, obj):
         """Get the speaking part number (1, 2, or 3) for speaking practices."""

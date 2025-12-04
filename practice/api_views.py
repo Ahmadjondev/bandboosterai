@@ -567,7 +567,16 @@ def start_practice(request, practice_uuid):
 
     Args:
         practice_uuid: UUID of the section practice
+    
+    Notes:
+        - Free practices don't require attempts
+        - Premium practices require either:
+          - Active subscription with unlimited access, OR
+          - Purchased attempts for the section type
+        - Resuming an existing in-progress attempt doesn't consume additional attempts
     """
+    from .payment_helpers import check_practice_access, use_practice_attempt
+    
     try:
         practice = SectionPractice.objects.get(uuid=practice_uuid, is_active=True)
     except SectionPractice.DoesNotExist:
@@ -576,7 +585,7 @@ def start_practice(request, practice_uuid):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # Check for existing in-progress attempt
+    # Check for existing in-progress attempt (resuming doesn't cost attempts)
     existing = SectionPracticeAttempt.objects.filter(
         practice=practice,
         student=request.user,
@@ -584,7 +593,7 @@ def start_practice(request, practice_uuid):
     ).first()
 
     if existing:
-        # Return existing attempt
+        # Return existing attempt - no payment check needed for resume
         serializer = SectionPracticeAttemptSerializer(existing)
         return Response(
             {
@@ -595,6 +604,38 @@ def start_practice(request, practice_uuid):
                 ).data,
             }
         )
+
+    # Check if user has access to start a new attempt
+    access = check_practice_access(request.user, practice)
+    
+    if not access["has_access"]:
+        return Response(
+            {
+                "error": "Payment required",
+                "message": access["reason"],
+                "requires_payment": True,
+                "section_type": practice.section_type,
+                "is_free": practice.is_free,
+            },
+            status=status.HTTP_402_PAYMENT_REQUIRED,
+        )
+    
+    # Use an attempt (for non-free, non-unlimited access)
+    if not practice.is_free and not access.get("is_unlimited", False):
+        use_result = use_practice_attempt(request.user, practice)
+        if not use_result["success"]:
+            return Response(
+                {
+                    "error": "Failed to use attempt",
+                    "message": use_result.get("error", "Unknown error"),
+                    "requires_payment": True,
+                    "section_type": practice.section_type,
+                },
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
+        attempts_remaining = use_result["attempts_remaining"]
+    else:
+        attempts_remaining = access["attempts_remaining"]
 
     # Create new attempt
     attempt = SectionPracticeAttempt.objects.create(
@@ -611,6 +652,8 @@ def start_practice(request, practice_uuid):
             "practice": SectionPracticeDetailSerializer(
                 practice, context={"request": request}
             ).data,
+            "attempts_remaining": attempts_remaining,
+            "is_free": practice.is_free,
         },
         status=status.HTTP_201_CREATED,
     )
@@ -1889,3 +1932,115 @@ def get_writing_result(request, attempt_uuid):
     }
 
     return Response(result)
+
+
+# ============================================================================
+# PRACTICE ACCESS & PAYMENT ENDPOINTS
+# ============================================================================
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def check_practice_access_endpoint(request, practice_uuid):
+    """
+    Check if user can access a specific practice section.
+    
+    Args:
+        practice_uuid: UUID of the section practice
+    
+    Returns:
+        - has_access: bool
+        - requires_payment: bool
+        - attempts_remaining: int (-1 for unlimited)
+        - is_free: bool
+        - reason: str
+    """
+    from .payment_helpers import check_practice_access
+    
+    try:
+        practice = SectionPractice.objects.get(uuid=practice_uuid, is_active=True)
+    except SectionPractice.DoesNotExist:
+        return Response(
+            {"error": "Section practice not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    
+    access = check_practice_access(request.user, practice)
+    
+    return Response({
+        **access,
+        "practice_uuid": str(practice.uuid),
+        "practice_title": practice.title,
+        "section_type": practice.section_type,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_practice_attempts(request):
+    """
+    Get user's current attempt balances for all section types.
+    
+    Returns:
+        - reading: {balance, is_unlimited}
+        - listening: {balance, is_unlimited}
+        - writing: {balance, is_unlimited}
+        - speaking: {balance, is_unlimited}
+        - has_subscription: bool
+    """
+    from .payment_helpers import get_user_all_attempts
+    from payments.models import UserSubscription
+    
+    attempts = get_user_all_attempts(request.user)
+    
+    # Check subscription status
+    has_subscription = False
+    subscription_plan = None
+    try:
+        subscription = UserSubscription.objects.get(user=request.user)
+        if subscription.is_valid() and subscription.plan:
+            has_subscription = True
+            subscription_plan = subscription.plan.name
+    except UserSubscription.DoesNotExist:
+        pass
+    
+    return Response({
+        **attempts,
+        "has_subscription": has_subscription,
+        "subscription_plan": subscription_plan,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_section_attempt_balance(request, section_type):
+    """
+    Get user's attempt balance for a specific section type.
+    
+    Args:
+        section_type: READING, LISTENING, WRITING, SPEAKING
+    
+    Returns:
+        - has_access: bool
+        - attempts_remaining: int (-1 for unlimited)
+        - is_unlimited: bool
+        - reason: str
+    """
+    from .payment_helpers import get_user_attempt_access
+    
+    section_type = section_type.upper()
+    valid_types = ["LISTENING", "READING", "WRITING", "SPEAKING"]
+    
+    if section_type not in valid_types:
+        return Response(
+            {"error": f"Invalid section type. Must be one of: {', '.join(valid_types)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    access = get_user_attempt_access(request.user, section_type)
+    
+    return Response({
+        **access,
+        "section_type": section_type,
+    })
+

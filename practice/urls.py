@@ -103,4 +103,20 @@ urlpatterns = [
         api_views.get_practice_result,
         name="unified_section_result",
     ),
+    # Access & Payment endpoints
+    path(
+        "<uuid:practice_uuid>/check-access/",
+        api_views.check_practice_access_endpoint,
+        name="check_practice_access",
+    ),
+    path(
+        "user/attempt-balance/",
+        api_views.get_user_practice_attempts,
+        name="user_attempt_balance",
+    ),
+    path(
+        "user/attempt-balance/<str:section_type>/",
+        api_views.get_section_attempt_balance,
+        name="section_attempt_balance",
+    ),
 ]
