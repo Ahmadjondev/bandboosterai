@@ -97,12 +97,13 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
         # Free content is always accessible
         if obj.is_free:
             return True
-        
+
         user = self.context.get("request")
         if user and hasattr(user, "user"):
             user = user.user
             try:
                 from .payment_helpers import check_practice_access
+
                 access = check_practice_access(user, obj)
                 return access["has_access"]
             except Exception:
@@ -113,12 +114,13 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
         """Check if this practice requires payment."""
         if obj.is_free:
             return False
-        
+
         user = self.context.get("request")
         if user and hasattr(user, "user"):
             user = user.user
             try:
                 from .payment_helpers import check_practice_access
+
                 access = check_practice_access(user, obj)
                 return not access["has_access"]
             except Exception:

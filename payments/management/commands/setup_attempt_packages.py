@@ -3,7 +3,7 @@ Management command to set up default attempt packages with proper pricing.
 
 Pricing Strategy (300-700 UZS per attempt based on volume):
 - Small packages: ~700 UZS/attempt (low volume discount)
-- Medium packages: ~500 UZS/attempt  
+- Medium packages: ~500 UZS/attempt
 - Large packages: ~350 UZS/attempt (bulk discount)
 - XL packages: ~300 UZS/attempt (best value)
 """
