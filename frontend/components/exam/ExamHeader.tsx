@@ -176,18 +176,22 @@ export default function ExamHeader() {
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    if (!showFontSizeDropdown) return;
+
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowFontSizeDropdown(false);
       }
     };
 
-    if (showFontSizeDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    // Use setTimeout to avoid the click that opened the dropdown from immediately closing it
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      clearTimeout(timeoutId);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [showFontSizeDropdown]);
 

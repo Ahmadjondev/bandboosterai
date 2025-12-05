@@ -38,25 +38,31 @@ export function ManagerHeader({ sidebarOpen, onToggleSidebar }: HeaderProps) {
     }
   }, []);
 
+  // Close dropdowns when clicking outside
   useEffect(() => {
+    if (!showUserMenu && !showNotifications) return;
+
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target as Node;
+      
+      if (showUserMenu && userMenuRef.current && !userMenuRef.current.contains(target)) {
         setShowUserMenu(false);
       }
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(event.target as Node)
-      ) {
+      if (showNotifications && notificationsRef.current && !notificationsRef.current.contains(target)) {
         setShowNotifications(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    // Use setTimeout to avoid the click that opened the dropdown from immediately closing it
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showUserMenu, showNotifications]);
 
   const handleLogout = async () => {
     await authClient.logout();

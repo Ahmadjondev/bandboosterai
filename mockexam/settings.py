@@ -466,7 +466,10 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 # ============================================================================
 # Payme Merchant credentials
 PAYME_MERCHANT_ID = config("PAYME_MERCHANT_ID", default="")
-PAYME_MERCHANT_KEY = config("PAYME_MERCHANT_KEY", default="")
+PAYME_MERCHANT_KEY = config("PAYME_MERCHANT_KEY", default="")  # Production key
+PAYME_MERCHANT_TEST_KEY = config(
+    "PAYME_MERCHANT_TEST_KEY", default=""
+)  # Sandbox TEST_KEY
 # Use test environment in DEBUG mode
 PAYME_TEST_MODE = config("PAYME_TEST_MODE", default=DEBUG, cast=bool)
 # Payme checkout URL

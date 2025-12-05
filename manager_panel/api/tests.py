@@ -291,6 +291,7 @@ def get_writing_tasks(request):
 
     Query Parameters:
     - task_type: Filter by task type (TASK_1 or TASK_2)
+    - chart_type: Filter by chart type (LINE_GRAPH, BAR_CHART, PIE_CHART, TABLE, MAP, PROCESS, FLOW_CHART, MIXED, OTHER)
     - search: Search in prompt
     """
     if not check_manager_permission(request.user):
@@ -303,6 +304,11 @@ def get_writing_tasks(request):
     if task_type:
         tasks = tasks.filter(task_type=task_type)
 
+    # Filter by chart_type if provided
+    chart_type = request.GET.get("chart_type")
+    if chart_type:
+        tasks = tasks.filter(chart_type=chart_type)
+
     # Search functionality
     search = request.GET.get("search")
     if search:
@@ -311,7 +317,25 @@ def get_writing_tasks(request):
     paginated = paginate_queryset(tasks, request)
     serializer = WritingTaskSerializer(paginated["results"], many=True)
 
-    return Response({"tasks": serializer.data, "pagination": paginated["pagination"]})
+    # Include available chart types for frontend filters
+    available_filters = {
+        "chart_types": [
+            {"value": choice[0], "label": choice[1]}
+            for choice in WritingTask.ChartType.choices
+        ],
+        "task_types": [
+            {"value": choice[0], "label": choice[1]}
+            for choice in WritingTask.TaskType.choices
+        ],
+    }
+
+    return Response(
+        {
+            "tasks": serializer.data,
+            "pagination": paginated["pagination"],
+            "available_filters": available_filters,
+        }
+    )
 
 
 @api_view(["POST"])

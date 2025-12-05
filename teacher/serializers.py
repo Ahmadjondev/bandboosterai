@@ -128,6 +128,96 @@ class TeacherExamDetailSerializer(TeacherExamSerializer):
         fields = TeacherExamSerializer.Meta.fields + ["assigned_students"]
 
 
+class StudentAttemptInfoSerializer(serializers.Serializer):
+    """Lightweight serializer for student's own attempt info"""
+
+    id = serializers.IntegerField(read_only=True)
+    uuid = serializers.UUIDField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    started_at = serializers.DateTimeField(read_only=True)
+    submitted_at = serializers.DateTimeField(read_only=True)
+    graded_at = serializers.DateTimeField(read_only=True)
+    listening_score = serializers.DecimalField(
+        max_digits=3, decimal_places=1, read_only=True
+    )
+    reading_score = serializers.DecimalField(
+        max_digits=3, decimal_places=1, read_only=True
+    )
+    writing_score = serializers.DecimalField(
+        max_digits=3, decimal_places=1, read_only=True
+    )
+    speaking_score = serializers.DecimalField(
+        max_digits=3, decimal_places=1, read_only=True
+    )
+    overall_band = serializers.DecimalField(
+        max_digits=3, decimal_places=1, read_only=True
+    )
+
+
+class StudentTeacherExamSerializer(TeacherExamSerializer):
+    """
+    Serializer for student's view of teacher exams.
+    Includes the current user's attempt information.
+    """
+
+    my_attempt = serializers.SerializerMethodField()
+
+    class Meta(TeacherExamSerializer.Meta):
+        fields = TeacherExamSerializer.Meta.fields + ["my_attempt"]
+
+    def get_my_attempt(self, obj):
+        """Get the current user's attempt for this exam"""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+
+        # Use prefetched data if available
+        if hasattr(obj, "prefetched_attempt"):
+            attempt = obj.prefetched_attempt
+        else:
+            attempt = obj.attempts.filter(student=request.user).first()
+
+        if not attempt:
+            return None
+
+        # Check if results should be visible
+        can_view_scores = attempt.status == "GRADED" and obj.results_visible
+
+        return {
+            "id": attempt.id,
+            "uuid": str(attempt.uuid),
+            "status": attempt.status,
+            "started_at": attempt.started_at,
+            "submitted_at": attempt.submitted_at,
+            "graded_at": attempt.graded_at,
+            "listening_score": (
+                float(attempt.listening_score)
+                if can_view_scores and attempt.listening_score
+                else None
+            ),
+            "reading_score": (
+                float(attempt.reading_score)
+                if can_view_scores and attempt.reading_score
+                else None
+            ),
+            "writing_score": (
+                float(attempt.writing_score)
+                if can_view_scores and attempt.writing_score
+                else None
+            ),
+            "speaking_score": (
+                float(attempt.speaking_score)
+                if can_view_scores and attempt.speaking_score
+                else None
+            ),
+            "overall_band": (
+                float(attempt.overall_band)
+                if can_view_scores and attempt.overall_band
+                else None
+            ),
+        }
+
+
 class TeacherFeedbackSerializer(serializers.ModelSerializer):
     """Serializer for TeacherFeedback model"""
 

@@ -18,6 +18,8 @@ import {
   ChevronRight,
   X,
   Sparkles,
+  Tag,
+  Library,
 } from 'lucide-react';
 import { cn } from '@/lib/manager/utils';
 
@@ -69,6 +71,17 @@ const navigation: NavItem[] = [
     ],
   },
   {
+    label: 'Section Practices',
+    href: '#',
+    icon: Library,
+    children: [
+      { label: 'Listening', href: '/manager/practices/listening', icon: Headphones },
+      { label: 'Reading', href: '/manager/practices/reading', icon: BookOpen },
+      { label: 'Writing', href: '/manager/practices/writing', icon: Edit3 },
+      { label: 'Speaking', href: '/manager/practices/speaking', icon: Mic },
+    ],
+  },
+  {
     label: 'Mock Tests',
     href: '/manager/mock-tests',
     icon: GraduationCap,
@@ -77,6 +90,11 @@ const navigation: NavItem[] = [
     label: 'Scheduled Exams',
     href: '/manager/exams',
     icon: Calendar,
+  },
+  {
+    label: 'Promo Codes',
+    href: '/manager/promo-codes',
+    icon: Tag,
   },
   {
     label: 'Settings',

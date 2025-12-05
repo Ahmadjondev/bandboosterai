@@ -21,14 +21,15 @@ class SubscriptionPlan(models.Model):
 
     BILLING_PERIOD = (
         ("MONTHLY", "Monthly"),
+        ("QUARTERLY", "3 Months"),
+        ("BIANNUAL", "6 Months"),
         ("YEARLY", "Yearly"),
     )
 
-    name = models.CharField(max_length=50, verbose_name="Plan Name")
+    name = models.CharField(max_length=100, verbose_name="Plan Name")
     plan_type = models.CharField(
         max_length=20,
         choices=PLAN_TYPES,
-        unique=True,
         verbose_name="Plan Type",
     )
     description = models.TextField(null=True, blank=True, verbose_name="Description")
@@ -68,6 +69,11 @@ class SubscriptionPlan(models.Model):
         verbose_name="Premium Listening Attempts",
         help_text="Number of premium listening section attempts per month (-1 for unlimited)",
     )
+    cd_exam_attempts = models.IntegerField(
+        default=0,
+        verbose_name="CD Exam Attempts",
+        help_text="Number of free CD exam attempts included in the plan",
+    )
     book_access = models.BooleanField(
         default=False,
         verbose_name="Premium Books Access",
@@ -100,6 +106,7 @@ class SubscriptionPlan(models.Model):
         verbose_name = "Subscription Plan"
         verbose_name_plural = "Subscription Plans"
         ordering = ["display_order", "price"]
+        unique_together = [["plan_type", "billing_period"]]
 
     def __str__(self):
         return (
@@ -207,6 +214,10 @@ class UserAttempts(models.Model):
     listening_attempts = models.PositiveIntegerField(
         default=0,
         verbose_name="Premium Listening Attempts",
+    )
+    cd_exam_attempts = models.PositiveIntegerField(
+        default=0,
+        verbose_name="CD Exam Attempts",
     )
 
     # Last reset date (for monthly refresh)
@@ -382,7 +393,33 @@ class PaymentOrder(models.Model):
         verbose_name="Attempt Package",
     )
 
-    # Amount in UZS
+    # Promo code applied
+    promo_code = models.ForeignKey(
+        "PromoCode",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+        verbose_name="Promo Code Applied",
+    )
+    original_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        verbose_name="Original Amount (UZS)",
+        help_text="Amount before discount",
+    )
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)],
+        verbose_name="Discount Amount (UZS)",
+    )
+
+    # Amount in UZS (final amount after discount)
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -512,6 +549,247 @@ class PaymeTransaction(models.Model):
 
     def __str__(self):
         return f"Payme {self.payme_id} - State: {self.get_state_display()}"
+
+
+class PromoCode(models.Model):
+    """
+    Promo codes for subscription discounts
+    """
+
+    DISCOUNT_TYPE_CHOICES = (
+        ("PERCENTAGE", "Percentage"),
+        ("FIXED", "Fixed Amount"),
+    )
+
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Promo Code",
+        help_text="Unique promotional code (case-insensitive)",
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Description",
+        help_text="Internal description for this promo code",
+    )
+
+    # Discount configuration
+    discount_type = models.CharField(
+        max_length=20,
+        choices=DISCOUNT_TYPE_CHOICES,
+        default="PERCENTAGE",
+        verbose_name="Discount Type",
+    )
+    discount_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        verbose_name="Discount Value",
+        help_text="Percentage (0-100) or fixed amount in UZS",
+    )
+
+    # Restrictions
+    applicable_plans = models.ManyToManyField(
+        SubscriptionPlan,
+        blank=True,
+        related_name="promo_codes",
+        verbose_name="Applicable Plans",
+        help_text="Leave empty to apply to all plans",
+    )
+    min_purchase_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)],
+        verbose_name="Minimum Purchase Amount",
+        help_text="Minimum order amount to use this code (UZS)",
+    )
+    max_discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        verbose_name="Maximum Discount Amount",
+        help_text="Cap on discount amount for percentage discounts (UZS)",
+    )
+
+    # Usage limits
+    usage_limit = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Total Usage Limit",
+        help_text="Maximum total uses (leave blank for unlimited)",
+    )
+    usage_limit_per_user = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Per-User Limit",
+        help_text="Maximum uses per user",
+    )
+    times_used = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Times Used",
+        help_text="Total times this code has been used",
+    )
+
+    # Validity period
+    valid_from = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Valid From",
+        help_text="Start date (leave blank for immediate)",
+    )
+    valid_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Valid Until",
+        help_text="End date (leave blank for no expiry)",
+    )
+
+    # Status
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Active",
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        db_table = "promo_codes"
+        verbose_name = "Promo Code"
+        verbose_name_plural = "Promo Codes"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["is_active"]),
+        ]
+
+    def __str__(self):
+        if self.discount_type == "PERCENTAGE":
+            return f"{self.code} - {self.discount_value}% off"
+        return f"{self.code} - {self.discount_value:,.0f} UZS off"
+
+    def save(self, *args, **kwargs):
+        # Normalize code to uppercase
+        self.code = self.code.upper().strip()
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if promo code is currently valid"""
+        if not self.is_active:
+            return False
+
+        now = timezone.now()
+
+        # Check validity period
+        if self.valid_from and now < self.valid_from:
+            return False
+        if self.valid_until and now > self.valid_until:
+            return False
+
+        # Check usage limit
+        if self.usage_limit and self.times_used >= self.usage_limit:
+            return False
+
+        return True
+
+    def can_be_used_by(self, user):
+        """Check if a specific user can use this code"""
+        if not self.is_valid():
+            return False, "Promo code is not valid or has expired"
+
+        # Check per-user usage limit
+        user_usage = PromoCodeUsage.objects.filter(
+            promo_code=self,
+            user=user,
+        ).count()
+
+        if user_usage >= self.usage_limit_per_user:
+            return False, "You have already used this promo code"
+
+        return True, None
+
+    def can_apply_to_plan(self, plan):
+        """Check if code can be applied to a specific plan"""
+        if not self.applicable_plans.exists():
+            return True  # No restrictions, applies to all
+        return self.applicable_plans.filter(id=plan.id).exists()
+
+    def calculate_discount(self, original_amount):
+        """Calculate discount amount for a given price"""
+        if self.discount_type == "PERCENTAGE":
+            discount = original_amount * (self.discount_value / 100)
+            if self.max_discount_amount:
+                discount = min(discount, self.max_discount_amount)
+        else:
+            discount = min(self.discount_value, original_amount)
+
+        return round(discount, 2)
+
+    def get_final_amount(self, original_amount):
+        """Get final amount after discount"""
+        discount = self.calculate_discount(original_amount)
+        return max(0, original_amount - discount)
+
+
+class PromoCodeUsage(models.Model):
+    """
+    Track promo code usage per user
+    """
+
+    promo_code = models.ForeignKey(
+        PromoCode,
+        on_delete=models.CASCADE,
+        related_name="usages",
+        verbose_name="Promo Code",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="promo_code_usages",
+        verbose_name="User",
+    )
+    order = models.ForeignKey(
+        "PaymentOrder",
+        on_delete=models.CASCADE,
+        related_name="promo_usage",
+        verbose_name="Order",
+    )
+
+    # Discount applied
+    original_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Original Amount",
+    )
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Discount Amount",
+    )
+    final_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Final Amount",
+    )
+
+    # Timestamp
+    used_at = models.DateTimeField(auto_now_add=True, verbose_name="Used At")
+
+    class Meta:
+        db_table = "promo_code_usages"
+        verbose_name = "Promo Code Usage"
+        verbose_name_plural = "Promo Code Usages"
+        ordering = ["-used_at"]
+        indexes = [
+            models.Index(fields=["promo_code", "user"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} used {self.promo_code.code} - {self.discount_amount:,.0f} UZS off"
 
 
 class AttemptUsageLog(models.Model):

@@ -5,8 +5,36 @@
 // Re-export AI content types
 export * from './ai-content';
 
-// Re-export mock tests types
-export * from './mock-tests';
+// Re-export mock tests types (with renames to avoid conflicts)
+export {
+  type ExamType,
+  type DifficultyLevel,
+  type MockTest,
+  type ReadingPassageSummary,
+  type ListeningPartSummary,
+  type WritingTaskSummary,
+  type SpeakingTopicSummary,
+  type MockTestsFilters,
+  type RecentAttempt as MockTestRecentAttempt,
+} from './mock-tests';
+
+// Re-export promo code types
+export * from './promo-codes';
+
+// Re-export section practices types (legacy - for old components)
+export type {
+  SectionPracticeItem,
+  SectionPracticesListResponse,
+  SectionPracticeFilters,
+  SectionPracticeDetail,
+  ReadingContent as LegacyReadingContent,
+  WritingContent as LegacyWritingContent,
+  ListeningContent as LegacyListeningContent,
+  SpeakingContent as LegacySpeakingContent,
+} from './section-practices';
+
+// Re-export new practices types (section-specific)
+export * from './practices';
 
 // Dashboard Stats
 export interface DashboardStats {
@@ -215,8 +243,8 @@ export interface QuestionForm {
   explanation?: string;
 }
 
-// Mock Test Types
-export interface MockTest {
+// Mock Test Types - Legacy (simple version used in forms)
+export interface MockTestLegacy {
   id: number;
   title: string;
   description: string;
@@ -231,7 +259,7 @@ export interface MockTest {
   assigned_students_count: number;
 }
 
-export interface MockTestForm {
+export interface MockTestFormLegacy {
   title: string;
   description: string;
   test_type: 'LISTENING_READING' | 'LISTENING_READING_WRITING' | 'FULL_TEST';
@@ -246,7 +274,7 @@ export interface MockTestForm {
 // Exam (Scheduled) Types
 export interface Exam {
   id: number;
-  mock_test: MockTest;
+  mock_test: MockTestLegacy;
   title: string;
   scheduled_date: string;
   start_time: string;
@@ -275,7 +303,7 @@ export interface StudentResult {
   id: number;
   student: Student;
   exam: Exam | null;
-  mock_test: MockTest;
+  mock_test: MockTestLegacy;
   overall_band_score: number;
   listening_score: number | null;
   reading_score: number | null;

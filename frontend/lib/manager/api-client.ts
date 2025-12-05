@@ -17,7 +17,7 @@ import type {
   Question,
   QuestionForm,
   MockTest,
-  MockTestForm,
+  MockTestFormLegacy as MockTestForm,
   Exam,
   ExamForm,
   StudentResult,
@@ -1114,15 +1114,15 @@ class ManagerAPIClient {
   }
 
   // ============================================================================
-  // Practice Creation APIs
+  // Practice Creation APIs (from tests endpoint)
   // ============================================================================
 
   /**
-   * Create a single section practice from saved content
+   * Create a single section practice from saved content via tests endpoint
    * @param data Practice creation data
    * @returns Created practice details
    */
-  async createSectionPractice(data: {
+  async createPracticeFromTest(data: {
     section_type: 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING';
     content_id: number;
     name?: string;
@@ -1185,6 +1185,705 @@ class ManagerAPIClient {
       practices,
       default_difficulty: defaultDifficulty,
     });
+  }
+
+  // ============================================================================
+  // Promo Code Management APIs
+  // ============================================================================
+
+  /**
+   * Get all promo codes with optional filtering
+   * @param status Filter by status: all, active, inactive, expired
+   * @param search Search by code or description
+   */
+  async getPromoCodes(
+    status: 'all' | 'active' | 'inactive' | 'expired' = 'all',
+    search?: string
+  ): Promise<{
+    promo_codes: any[];
+    stats: {
+      total_codes: number;
+      active_codes: number;
+      total_usages: number;
+      total_discount_given: number;
+    };
+  }> {
+    const params = new URLSearchParams();
+    params.append('status', status);
+    if (search) params.append('search', search);
+    return this.get(`/promo-codes/?${params.toString()}`);
+  }
+
+  /**
+   * Get a single promo code with usage details
+   * @param promoId Promo code ID
+   */
+  async getPromoCode(promoId: number): Promise<any> {
+    return this.get(`/promo-codes/${promoId}/`);
+  }
+
+  /**
+   * Create a new promo code
+   * @param data Promo code form data
+   */
+  async createPromoCode(data: {
+    code: string;
+    description?: string;
+    discount_type: 'PERCENTAGE' | 'FIXED';
+    discount_value: number;
+    applicable_plans?: number[];
+    min_purchase_amount?: number;
+    max_discount_amount?: number | null;
+    usage_limit?: number | null;
+    usage_limit_per_user?: number;
+    valid_from?: string | null;
+    valid_until?: string | null;
+    is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/promo-codes/create/', data);
+  }
+
+  /**
+   * Update an existing promo code
+   * @param promoId Promo code ID
+   * @param data Updated promo code data
+   */
+  async updatePromoCode(promoId: number, data: any): Promise<any> {
+    return this.put(`/promo-codes/${promoId}/update/`, data);
+  }
+
+  /**
+   * Delete a promo code
+   * @param promoId Promo code ID
+   */
+  async deletePromoCode(promoId: number): Promise<void> {
+    return this.delete(`/promo-codes/${promoId}/delete/`);
+  }
+
+  /**
+   * Toggle promo code active status
+   * @param promoId Promo code ID
+   */
+  async togglePromoCodeStatus(promoId: number): Promise<{
+    id: number;
+    code: string;
+    is_active: boolean;
+    message: string;
+  }> {
+    return this.post(`/promo-codes/${promoId}/toggle-status/`, {});
+  }
+
+  /**
+   * Get usage history for a promo code
+   * @param promoId Promo code ID
+   */
+  async getPromoCodeUsages(promoId: number): Promise<{
+    code: string;
+    total_usages: number;
+    usages: any[];
+  }> {
+    return this.get(`/promo-codes/${promoId}/usages/`);
+  }
+
+  /**
+   * Get promo code analytics
+   */
+  async getPromoAnalytics(): Promise<{
+    overview: {
+      total_codes: number;
+      active_codes: number;
+      inactive_codes: number;
+    };
+    usage_stats: {
+      total_usages: number;
+      usages_last_7_days: number;
+      usages_last_30_days: number;
+    };
+    revenue_stats: {
+      total_discount_given: number;
+      total_revenue_from_promos: number;
+      original_value: number;
+    };
+    top_performing_codes: any[];
+    recent_usages: any[];
+  }> {
+    return this.get('/promo-codes/analytics/');
+  }
+
+  /**
+   * Get available subscription plans for promo code restriction
+   */
+  async getAvailablePlans(): Promise<Array<{
+    id: number;
+    name: string;
+    plan_type: string;
+    price: number;
+    billing_period: string;
+  }>> {
+    return this.get('/promo-codes/plans/');
+  }
+
+  // ==========================================
+  // Section Practices Management
+  // ==========================================
+
+  /**
+   * Get all section practices with filters
+   */
+  async getSectionPractices(filters: {
+    section_type?: 'reading' | 'listening' | 'writing' | 'speaking';
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+    is_free?: boolean;
+    is_active?: boolean;
+    task_type?: 'TASK_1' | 'TASK_2';
+    chart_type?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<{
+    practices: any[];
+    pagination: {
+      total: number;
+      page: number;
+      page_size: number;
+      total_pages: number;
+      has_next: boolean;
+      has_previous: boolean;
+    };
+    available_filters?: any;
+  }> {
+    const params = new URLSearchParams();
+    if (filters.section_type) params.append('section_type', filters.section_type);
+    if (filters.difficulty) params.append('difficulty', filters.difficulty);
+    if (filters.is_free !== undefined) params.append('is_free', String(filters.is_free));
+    if (filters.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    if (filters.task_type) params.append('task_type', filters.task_type);
+    if (filters.chart_type) params.append('chart_type', filters.chart_type);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.page_size) params.append('page_size', String(filters.page_size));
+    
+    const queryString = params.toString();
+    return this.get(`/section-practices/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Get a single section practice detail
+   * @param practiceId Section practice ID
+   */
+  async getSectionPractice(practiceId: number): Promise<any> {
+    return this.get(`/section-practices/${practiceId}/`);
+  }
+
+  /**
+   * Create a new section practice
+   * @param data Section practice form data
+   */
+  async createSectionPractice(data: {
+    section_type: 'reading' | 'listening' | 'writing' | 'speaking';
+    title: string;
+    description?: string;
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+    reading_passage_id?: number;
+    listening_part_id?: number;
+    writing_task_id?: number;
+    speaking_topic_id?: number;
+  }): Promise<any> {
+    return this.post('/section-practices/create/', data);
+  }
+
+  /**
+   * Update an existing section practice
+   * @param practiceId Section practice ID
+   * @param data Updated section practice data
+   */
+  async updateSectionPractice(practiceId: number, data: {
+    title?: string;
+    description?: string;
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+    order?: number;
+  }): Promise<any> {
+    return this.put(`/section-practices/${practiceId}/update/`, data);
+  }
+
+  /**
+   * Delete a section practice
+   * @param practiceId Section practice ID
+   */
+  async deleteSectionPractice(practiceId: number): Promise<void> {
+    return this.delete(`/section-practices/${practiceId}/delete/`);
+  }
+
+  /**
+   * Toggle section practice active status
+   * @param practiceId Section practice ID
+   */
+  async toggleSectionPracticeStatus(practiceId: number): Promise<{
+    id: number;
+    title: string;
+    is_active: boolean;
+    message: string;
+  }> {
+    return this.post(`/section-practices/${practiceId}/toggle-status/`, {});
+  }
+
+  /**
+   * Get available content for creating section practices
+   * @param sectionType Optional section type filter
+   */
+  async getPracticeAvailableContent(sectionType?: 'reading' | 'listening' | 'writing' | 'speaking'): Promise<{
+    reading?: any[];
+    listening?: any[];
+    writing?: any[];
+    speaking?: any[];
+  }> {
+    const params = sectionType ? `?section_type=${sectionType}` : '';
+    return this.get(`/section-practices/available-content/${params}`);
+  }
+
+  /**
+   * Get section practice statistics
+   */
+  async getSectionPracticeStats(): Promise<{
+    total_practices: number;
+    active_practices: number;
+    free_practices: number;
+    by_section: {
+      reading: number;
+      listening: number;
+      writing: number;
+      speaking: number;
+    };
+    by_difficulty: {
+      EASY: number;
+      MEDIUM: number;
+      HARD: number;
+      EXPERT: number;
+    };
+    total_attempts: number;
+    recent_practices: any[];
+  }> {
+    return this.get('/section-practices/stats/');
+  }
+
+  // ============================================================================
+  // Listening Practices API
+  // ============================================================================
+
+  /**
+   * Get list of listening practices
+   */
+  async getListeningPractices(filters: {
+    difficulty?: string;
+    is_active?: boolean;
+    is_free?: boolean;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.difficulty) params.append('difficulty', filters.difficulty);
+    if (filters.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    if (filters.is_free !== undefined) params.append('is_free', String(filters.is_free));
+    if (filters.search) params.append('search', filters.search);
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.page_size) params.append('page_size', String(filters.page_size));
+    const queryString = params.toString();
+    return this.get(`/practices/listening/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Get a single listening practice
+   */
+  async getListeningPractice(practiceId: number): Promise<any> {
+    return this.get(`/practices/listening/${practiceId}/`);
+  }
+
+  /**
+   * Get available listening content for creating practices
+   */
+  async getAvailableListeningContent(): Promise<any> {
+    return this.get('/practices/listening/available/');
+  }
+
+  /**
+   * Create a listening practice
+   */
+  async createListeningPractice(data: {
+    content_id: number;
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/listening/create/', data);
+  }
+
+  /**
+   * Update a listening practice
+   */
+  async updateListeningPractice(practiceId: number, data: {
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+    order?: number;
+  }): Promise<any> {
+    return this.put(`/practices/listening/${practiceId}/update/`, data);
+  }
+
+  /**
+   * Delete a listening practice
+   */
+  async deleteListeningPractice(practiceId: number, force: boolean = false): Promise<any> {
+    return this.delete(`/practices/listening/${practiceId}/delete/${force ? '?force=true' : ''}`);
+  }
+
+  /**
+   * Toggle listening practice status
+   */
+  async toggleListeningPracticeStatus(practiceId: number): Promise<any> {
+    return this.post(`/practices/listening/${practiceId}/toggle-status/`, {});
+  }
+
+  /**
+   * Bulk create listening practices
+   */
+  async bulkCreateListeningPractices(data: {
+    content_ids: number[];
+    default_difficulty?: string;
+    default_is_free?: boolean;
+    default_is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/listening/bulk-create/', data);
+  }
+
+  // ============================================================================
+  // Reading Practices API
+  // ============================================================================
+
+  /**
+   * Get list of reading practices
+   */
+  async getReadingPractices(filters: {
+    difficulty?: string;
+    is_active?: boolean;
+    is_free?: boolean;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.difficulty) params.append('difficulty', filters.difficulty);
+    if (filters.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    if (filters.is_free !== undefined) params.append('is_free', String(filters.is_free));
+    if (filters.search) params.append('search', filters.search);
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.page_size) params.append('page_size', String(filters.page_size));
+    const queryString = params.toString();
+    return this.get(`/practices/reading/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Get a single reading practice
+   */
+  async getReadingPractice(practiceId: number): Promise<any> {
+    return this.get(`/practices/reading/${practiceId}/`);
+  }
+
+  /**
+   * Get available reading content for creating practices
+   */
+  async getAvailableReadingContent(): Promise<any> {
+    return this.get('/practices/reading/available/');
+  }
+
+  /**
+   * Create a reading practice
+   */
+  async createReadingPractice(data: {
+    content_id: number;
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/reading/create/', data);
+  }
+
+  /**
+   * Update a reading practice
+   */
+  async updateReadingPractice(practiceId: number, data: {
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+    order?: number;
+  }): Promise<any> {
+    return this.put(`/practices/reading/${practiceId}/update/`, data);
+  }
+
+  /**
+   * Delete a reading practice
+   */
+  async deleteReadingPractice(practiceId: number, force: boolean = false): Promise<any> {
+    return this.delete(`/practices/reading/${practiceId}/delete/${force ? '?force=true' : ''}`);
+  }
+
+  /**
+   * Toggle reading practice status
+   */
+  async toggleReadingPracticeStatus(practiceId: number): Promise<any> {
+    return this.post(`/practices/reading/${practiceId}/toggle-status/`, {});
+  }
+
+  /**
+   * Bulk create reading practices
+   */
+  async bulkCreateReadingPractices(data: {
+    content_ids: number[];
+    default_difficulty?: string;
+    default_is_free?: boolean;
+    default_is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/reading/bulk-create/', data);
+  }
+
+  // ============================================================================
+  // Writing Practices API
+  // ============================================================================
+
+  /**
+   * Get list of writing practices
+   */
+  async getWritingPractices(filters: {
+    difficulty?: string;
+    is_active?: boolean;
+    is_free?: boolean;
+    task_type?: string;
+    chart_type?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.difficulty) params.append('difficulty', filters.difficulty);
+    if (filters.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    if (filters.is_free !== undefined) params.append('is_free', String(filters.is_free));
+    if (filters.task_type) params.append('task_type', filters.task_type);
+    if (filters.chart_type) params.append('chart_type', filters.chart_type);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.page_size) params.append('page_size', String(filters.page_size));
+    const queryString = params.toString();
+    return this.get(`/practices/writing/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Get a single writing practice
+   */
+  async getWritingPractice(practiceId: number): Promise<any> {
+    return this.get(`/practices/writing/${practiceId}/`);
+  }
+
+  /**
+   * Get available writing content for creating practices
+   */
+  async getAvailableWritingContent(filters: {
+    task_type?: string;
+    chart_type?: string;
+  } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.task_type) params.append('task_type', filters.task_type);
+    if (filters.chart_type) params.append('chart_type', filters.chart_type);
+    const queryString = params.toString();
+    return this.get(`/practices/writing/available/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Create a writing practice
+   */
+  async createWritingPractice(data: {
+    content_id: number;
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/writing/create/', data);
+  }
+
+  /**
+   * Update a writing practice
+   */
+  async updateWritingPractice(practiceId: number, data: {
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+    order?: number;
+  }): Promise<any> {
+    return this.put(`/practices/writing/${practiceId}/update/`, data);
+  }
+
+  /**
+   * Delete a writing practice
+   */
+  async deleteWritingPractice(practiceId: number, force: boolean = false): Promise<any> {
+    return this.delete(`/practices/writing/${practiceId}/delete/${force ? '?force=true' : ''}`);
+  }
+
+  /**
+   * Toggle writing practice status
+   */
+  async toggleWritingPracticeStatus(practiceId: number): Promise<any> {
+    return this.post(`/practices/writing/${practiceId}/toggle-status/`, {});
+  }
+
+  /**
+   * Bulk create writing practices
+   */
+  async bulkCreateWritingPractices(data: {
+    content_ids: number[];
+    default_difficulty?: string;
+    default_is_free?: boolean;
+    default_is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/writing/bulk-create/', data);
+  }
+
+  // ============================================================================
+  // Speaking Practices API
+  // ============================================================================
+
+  /**
+   * Get list of speaking practices
+   */
+  async getSpeakingPractices(filters: {
+    difficulty?: string;
+    is_active?: boolean;
+    is_free?: boolean;
+    speaking_type?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.difficulty) params.append('difficulty', filters.difficulty);
+    if (filters.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    if (filters.is_free !== undefined) params.append('is_free', String(filters.is_free));
+    if (filters.speaking_type) params.append('speaking_type', filters.speaking_type);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.page_size) params.append('page_size', String(filters.page_size));
+    const queryString = params.toString();
+    return this.get(`/practices/speaking/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Get a single speaking practice
+   */
+  async getSpeakingPractice(practiceId: number): Promise<any> {
+    return this.get(`/practices/speaking/${practiceId}/`);
+  }
+
+  /**
+   * Get available speaking content for creating practices
+   */
+  async getAvailableSpeakingContent(filters: {
+    speaking_type?: string;
+  } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.speaking_type) params.append('speaking_type', filters.speaking_type);
+    const queryString = params.toString();
+    return this.get(`/practices/speaking/available/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Create a speaking practice
+   */
+  async createSpeakingPractice(data: {
+    content_id: number;
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/speaking/create/', data);
+  }
+
+  /**
+   * Update a speaking practice
+   */
+  async updateSpeakingPractice(practiceId: number, data: {
+    title?: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+    is_free?: boolean;
+    is_active?: boolean;
+    order?: number;
+  }): Promise<any> {
+    return this.put(`/practices/speaking/${practiceId}/update/`, data);
+  }
+
+  /**
+   * Delete a speaking practice
+   */
+  async deleteSpeakingPractice(practiceId: number, force: boolean = false): Promise<any> {
+    return this.delete(`/practices/speaking/${practiceId}/delete/${force ? '?force=true' : ''}`);
+  }
+
+  /**
+   * Toggle speaking practice status
+   */
+  async toggleSpeakingPracticeStatus(practiceId: number): Promise<any> {
+    return this.post(`/practices/speaking/${practiceId}/toggle-status/`, {});
+  }
+
+  /**
+   * Bulk create speaking practices
+   */
+  async bulkCreateSpeakingPractices(data: {
+    content_ids: number[];
+    default_difficulty?: string;
+    default_is_free?: boolean;
+    default_is_active?: boolean;
+  }): Promise<any> {
+    return this.post('/practices/speaking/bulk-create/', data);
+  }
+
+  // ============================================================================
+  // Practices Stats API
+  // ============================================================================
+
+  /**
+   * Get aggregate practices statistics
+   */
+  async getPracticesStats(sectionType?: string): Promise<any> {
+    const params = sectionType ? `?section_type=${sectionType}` : '';
+    return this.get(`/practices/stats/${params}`);
   }
 }
 

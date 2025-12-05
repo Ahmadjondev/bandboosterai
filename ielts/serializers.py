@@ -462,6 +462,9 @@ class WritingTaskSerializer(serializers.ModelSerializer):
     task_type_display = serializers.CharField(
         source="get_task_type_display", read_only=True
     )
+    chart_type_display = serializers.CharField(
+        source="get_chart_type_display", read_only=True, allow_null=True
+    )
     user_attempt = serializers.SerializerMethodField()
     picture_url = serializers.SerializerMethodField()
 
@@ -471,6 +474,8 @@ class WritingTaskSerializer(serializers.ModelSerializer):
             "id",
             "task_type",
             "task_type_display",
+            "chart_type",
+            "chart_type_display",
             "prompt",
             "picture",
             "picture_url",
@@ -975,9 +980,13 @@ class ListeningPartListSerializer(serializers.ModelSerializer):
 class WritingTaskListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for writing task selection."""
 
+    chart_type_display = serializers.CharField(
+        source="get_chart_type_display", read_only=True, allow_null=True
+    )
+
     class Meta:
         model = WritingTask
-        fields = ["id", "task_type", "prompt"]
+        fields = ["id", "task_type", "chart_type", "chart_type_display", "prompt"]
 
 
 class SpeakingTopicListSerializer(serializers.ModelSerializer):

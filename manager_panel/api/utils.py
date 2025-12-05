@@ -12,7 +12,7 @@ def check_manager_permission(user):
     print(user.is_authenticated)
     if not user.is_authenticated:
         return False
-    return user.role in ["MANAGER"]
+    return user.role in ["MANAGER", "TEACHER"] or user.is_staff or user.is_superuser
 
 
 def paginate_queryset(queryset, request, per_page=25):

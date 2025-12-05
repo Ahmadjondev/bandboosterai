@@ -51,7 +51,6 @@ oauthlib==3.3.1
 openai==1.97.0
 openpyxl==3.1.2
 packaging==25.0
-payme-pkg==3.0.24
 pillow==11.3.0
 prompt_toolkit==3.0.51
 psycopg==3.2.3

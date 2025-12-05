@@ -20,6 +20,9 @@ export {
 export { PassageForm } from './reading';
 export { ListeningTests } from './listening/ListeningTests';
 
+// Promo Codes Components
+export { PromoCodeForm, PromoCodeDetail } from './promo-codes';
+
 // Shared Components
 export {
   LoadingSpinner,

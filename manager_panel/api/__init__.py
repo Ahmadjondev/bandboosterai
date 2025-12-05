@@ -66,6 +66,26 @@ from .mock_tests import (
     get_available_writing,
     get_available_speaking,
 )
+from .promo_codes import (
+    get_promo_codes,
+    get_promo_code,
+    create_promo_code,
+    update_promo_code,
+    delete_promo_code,
+    toggle_promo_code_status,
+    get_promo_code_usages,
+    get_promo_analytics,
+    get_available_plans,
+)
+from .section_practices import (
+    get_section_practices,
+    get_section_practice,
+    create_section_practice,
+    update_section_practice,
+    toggle_section_practice_status,
+    delete_section_practice,
+    get_available_content,
+)
 
 __all__ = [
     # Dashboard
@@ -127,4 +147,22 @@ __all__ = [
     "get_available_listening",
     "get_available_writing",
     "get_available_speaking",
+    # Promo Codes
+    "get_promo_codes",
+    "get_promo_code",
+    "create_promo_code",
+    "update_promo_code",
+    "delete_promo_code",
+    "toggle_promo_code_status",
+    "get_promo_code_usages",
+    "get_promo_analytics",
+    "get_available_plans",
+    # Section Practices
+    "get_section_practices",
+    "get_section_practice",
+    "create_section_practice",
+    "update_section_practice",
+    "toggle_section_practice_status",
+    "delete_section_practice",
+    "get_available_content",
 ]

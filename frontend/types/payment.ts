@@ -9,11 +9,12 @@ export interface SubscriptionPlan {
   description: string | null;
   price: number;
   price_formatted: string;
-  billing_period: 'MONTHLY' | 'YEARLY';
+  billing_period: 'MONTHLY' | 'QUARTERLY' | 'BIANNUAL' | 'YEARLY';
   writing_attempts: number;
   speaking_attempts: number;
   reading_attempts: number;
   listening_attempts: number;
+  cd_exam_attempts: number;
   // Whether each section has unlimited access (-1 in backend)
   reading_unlimited: boolean;
   listening_unlimited: boolean;
@@ -113,3 +114,35 @@ export interface UseAttemptResponse {
 }
 
 export type AttemptType = 'WRITING' | 'SPEAKING' | 'READING' | 'LISTENING';
+
+/**
+ * Promo Code Types
+ */
+
+export interface PromoCodeValidationResponse {
+  valid: boolean;
+  message: string;
+  code?: string;
+  discount_type?: 'PERCENTAGE' | 'FIXED';
+  discount_value?: number;
+  discount_amount?: number;
+  original_amount?: number;
+  final_amount?: number;
+}
+
+export interface PromoCodeApplied {
+  code: string;
+  discount_type: 'PERCENTAGE' | 'FIXED';
+  discount_value: number;
+  discount_amount: number;
+  original_amount: number;
+  final_amount: number;
+}
+
+export interface PaymentOrderWithPromo extends PaymentOrder {
+  original_amount: number | null;
+  original_amount_formatted: string | null;
+  discount_amount: number;
+  discount_amount_formatted: string | null;
+  promo_code_display: string | null;
+}

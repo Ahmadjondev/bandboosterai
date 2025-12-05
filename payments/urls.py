@@ -16,6 +16,10 @@ from .api_views import (
     check_speaking_access,
     check_reading_access,
     check_listening_access,
+    validate_promo_code,
+    get_order_by_id,
+    payment_result,
+    get_active_orders,
 )
 from .payme_api import payme_endpoint
 
@@ -25,6 +29,8 @@ urlpatterns = [
     # Public endpoints
     path("plans/", get_subscription_plans, name="subscription_plans"),
     path("packages/", get_attempt_packages, name="attempt_packages"),
+    # Promo code validation
+    path("promo/validate/", validate_promo_code, name="validate_promo_code"),
     # User status endpoints
     path("status/", get_user_payment_status, name="payment_status"),
     path("attempts/", get_user_attempts, name="user_attempts"),
@@ -37,6 +43,10 @@ urlpatterns = [
     path("orders/attempts/", create_attempt_order, name="create_attempt_order"),
     path("orders/<uuid:order_id>/", get_order_status, name="order_status"),
     path("orders/<uuid:order_id>/checkout/", get_checkout_url, name="checkout_url"),
+    path("orders/id/<int:order_pk>/", get_order_by_id, name="order_by_id"),
+    path("orders/active/", get_active_orders, name="active_orders"),
+    # Payment result (Payme redirect callback)
+    path("result/", payment_result, name="payment_result"),
     # History
     path("history/", get_payment_history, name="payment_history"),
     path("usage-history/", get_attempt_usage_history, name="usage_history"),

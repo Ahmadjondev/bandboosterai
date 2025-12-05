@@ -1301,6 +1301,16 @@ You are an expert IELTS test content analyzer. Analyze this PDF document and ext
    - Task 2: Essay writing on a topic with argument/discussion
 4. Extract any additional instructions or requirements
 5. Identify if there's an accompanying image/diagram (for Task 1)
+6. **CRITICAL**: For Task 1, identify the chart_type from these exact values:
+   - "LINE_GRAPH" - Line graph showing trends over time
+   - "BAR_CHART" - Bar chart comparing quantities
+   - "PIE_CHART" - Pie chart showing proportions/percentages
+   - "TABLE" - Table with numerical data
+   - "MAP" - Map showing changes/locations
+   - "PROCESS" - Process diagram showing steps/stages
+   - "FLOW_CHART" - Flow chart showing sequence
+   - "MIXED" - Multiple charts or mixed chart types
+   - "OTHER" - Any other type not listed above
 
 **OUTPUT FORMAT - Return a valid JSON object with this EXACT structure:**
 {
@@ -1309,6 +1319,7 @@ You are an expert IELTS test content analyzer. Analyze this PDF document and ext
     "tasks": [
         {
             "task_type": "TASK_1",
+            "chart_type": "LINE_GRAPH",
             "prompt": "The graph below shows the consumption of three different types of fast food in the UK between 1970 and 1990. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.",
             "data": {
                 "chart_type": "line graph",
@@ -1321,6 +1332,7 @@ You are an expert IELTS test content analyzer. Analyze this PDF document and ext
         },
         {
             "task_type": "TASK_2",
+            "chart_type": null,
             "prompt": "Some people believe that unpaid community service should be a compulsory part of high school programs. To what extent do you agree or disagree? Give reasons for your answer and include any relevant examples from your own knowledge or experience. Write at least 250 words.",
             "data": {
                 "question_type": "opinion",
@@ -1337,8 +1349,20 @@ You are an expert IELTS test content analyzer. Analyze this PDF document and ext
     }
 }
 
+**CHART TYPE IDENTIFICATION RULES:**
+- LINE_GRAPH: Shows trends over time with connected data points
+- BAR_CHART: Uses rectangular bars to compare quantities (horizontal or vertical)
+- PIE_CHART: Circular chart divided into slices showing proportions
+- TABLE: Data organized in rows and columns
+- MAP: Geographic representation showing locations or changes
+- PROCESS: Step-by-step diagram showing how something works or is made
+- FLOW_CHART: Diagram showing sequential flow of operations
+- MIXED: Two or more different chart types combined
+- For Task 2, chart_type should always be null
+
 **VALIDATION RULES:**
 - task_type must be "TASK_1" or "TASK_2"
+- chart_type must be one of the exact values above for Task 1, or null for Task 2
 - prompt must be complete and clear (minimum 20 words)
 - min_words: 150 for Task 1, 250 for Task 2
 - has_visual: true if diagram/graph/chart is present
@@ -2585,11 +2609,25 @@ DIFFICULTY LEVELS:
 - Task 2: Essay on a topic (250+ words)
   - Opinion, discussion, problem-solution, advantages-disadvantages
 
+**CHART TYPE IDENTIFICATION FOR TASK 1:**
+You MUST identify and assign one of these exact values for `chart_type` field:
+- "LINE_GRAPH" - Line graph showing trends over time
+- "BAR_CHART" - Bar chart comparing quantities (horizontal or vertical)
+- "PIE_CHART" - Pie chart showing proportions/percentages
+- "TABLE" - Table with numerical data
+- "MAP" - Map showing changes/locations
+- "PROCESS" - Process diagram showing steps/stages
+- "FLOW_CHART" - Flow chart showing sequence
+- "MIXED" - Multiple charts or mixed chart types
+- "OTHER" - Any other type not listed above
+- For Task 2, chart_type should be null
+
 **WRITING STRUCTURE:**
 {
     "tasks": [
         {
             "task_type": "TASK_1",
+            "chart_type": "LINE_GRAPH",
             "prompt": "The graph below shows the consumption of three different types of fast food...",
             "difficulty": "MEDIUM",
             "min_words": 150,
@@ -2603,6 +2641,7 @@ DIFFICULTY LEVELS:
         },
         {
             "task_type": "TASK_2",
+            "chart_type": null,
             "prompt": "Some people believe that unpaid community service should be a compulsory part of high school programs. To what extent do you agree or disagree?",
             "difficulty": "HARD",
             "min_words": 250,

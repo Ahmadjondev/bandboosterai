@@ -7,6 +7,29 @@ export type SectionType = 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
 export type AttemptStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
 
+// Writing Task Types
+export type WritingTaskType = 'TASK_1' | 'TASK_2';
+export type ChartType = 
+  | 'LINE_GRAPH' 
+  | 'BAR_CHART' 
+  | 'PIE_CHART' 
+  | 'TABLE' 
+  | 'MAP' 
+  | 'PROCESS' 
+  | 'FLOW_CHART' 
+  | 'MIXED' 
+  | 'OTHER';
+
+export interface FilterOption {
+  value: string;
+  label: string;
+}
+
+export interface AvailableFilters {
+  chart_types: FilterOption[];
+  task_types: FilterOption[];
+}
+
 /**
  * Section Practice item
  */
@@ -29,8 +52,13 @@ export interface SectionPractice {
   speaking_part: number | null;
   speaking_topic_name: string | null;
   // Writing-specific fields
-  writing_task_type: 'TASK_1' | 'TASK_2' | null;
+  writing_task_type: WritingTaskType | null;
+  writing_chart_type: ChartType | null;
+  writing_chart_type_display: string | null;
   writing_prompt_preview: string | null;
+  // Access control
+  user_has_access?: boolean;
+  requires_payment?: boolean;
 }
 
 /**
@@ -178,6 +206,8 @@ export interface SectionPracticesByTypeResponse {
     total_time_minutes: number;
   };
   pagination: PaginationInfo;
+  // Available filters (for WRITING section)
+  available_filters?: AvailableFilters;
 }
 
 /**

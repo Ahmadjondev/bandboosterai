@@ -124,6 +124,70 @@ from .api.books import (
     get_available_content,
     get_book_stats,
 )
+from .api.promo_codes import (
+    get_promo_codes,
+    get_promo_code,
+    create_promo_code,
+    update_promo_code,
+    delete_promo_code,
+    toggle_promo_code_status,
+    get_promo_code_usages,
+    get_promo_analytics,
+    get_available_plans,
+)
+from manager_panel.api.section_practices import (
+    get_section_practices,
+    get_section_practice,
+    create_section_practice,
+    update_section_practice,
+    delete_section_practice,
+    toggle_section_practice_status,
+    get_available_content as get_practice_available_content,
+    get_section_practice_stats,
+)
+
+# Section-specific practices imports
+from manager_panel.api.practices.listening import (
+    get_listening_practices,
+    get_listening_practice,
+    create_listening_practice,
+    update_listening_practice,
+    delete_listening_practice,
+    toggle_listening_practice_status,
+    bulk_create_listening_practices,
+    get_available_listening_content,
+)
+from manager_panel.api.practices.reading import (
+    get_reading_practices,
+    get_reading_practice,
+    create_reading_practice,
+    update_reading_practice,
+    delete_reading_practice,
+    toggle_reading_practice_status,
+    bulk_create_reading_practices,
+    get_available_reading_content,
+)
+from manager_panel.api.practices.writing import (
+    get_writing_practices,
+    get_writing_practice,
+    create_writing_practice,
+    update_writing_practice,
+    delete_writing_practice,
+    toggle_writing_practice_status,
+    bulk_create_writing_practices,
+    get_available_writing_content,
+)
+from manager_panel.api.practices.speaking import (
+    get_speaking_practices,
+    get_speaking_practice,
+    create_speaking_practice,
+    update_speaking_practice,
+    delete_speaking_practice,
+    toggle_speaking_practice_status,
+    bulk_create_speaking_practices,
+    get_available_speaking_content,
+)
+from manager_panel.api.practices.stats import get_practices_stats
 
 app_name = "manager_api"
 
@@ -474,4 +538,229 @@ urlpatterns = [
     path(
         "sections/available-content/", get_available_content, name="available_content"
     ),
+    # Promo Codes Management
+    path("promo-codes/", get_promo_codes, name="promo_codes_list"),
+    path("promo-codes/create/", create_promo_code, name="create_promo_code"),
+    path("promo-codes/analytics/", get_promo_analytics, name="promo_analytics"),
+    path("promo-codes/plans/", get_available_plans, name="promo_available_plans"),
+    path("promo-codes/<int:promo_id>/", get_promo_code, name="get_promo_code"),
+    path(
+        "promo-codes/<int:promo_id>/update/",
+        update_promo_code,
+        name="update_promo_code",
+    ),
+    path(
+        "promo-codes/<int:promo_id>/delete/",
+        delete_promo_code,
+        name="delete_promo_code",
+    ),
+    path(
+        "promo-codes/<int:promo_id>/toggle-status/",
+        toggle_promo_code_status,
+        name="toggle_promo_code_status",
+    ),
+    path(
+        "promo-codes/<int:promo_id>/usages/",
+        get_promo_code_usages,
+        name="promo_code_usages",
+    ),
+    # Section Practices Management
+    path("section-practices/", get_section_practices, name="section_practices_list"),
+    path(
+        "section-practices/stats/",
+        get_section_practice_stats,
+        name="section_practice_stats",
+    ),
+    path(
+        "section-practices/available-content/",
+        get_practice_available_content,
+        name="practice_available_content",
+    ),
+    path(
+        "section-practices/create/",
+        create_section_practice,
+        name="create_section_practice",
+    ),
+    path(
+        "section-practices/<int:practice_id>/",
+        get_section_practice,
+        name="get_section_practice",
+    ),
+    path(
+        "section-practices/<int:practice_id>/update/",
+        update_section_practice,
+        name="update_section_practice",
+    ),
+    path(
+        "section-practices/<int:practice_id>/delete/",
+        delete_section_practice,
+        name="delete_section_practice",
+    ),
+    path(
+        "section-practices/<int:practice_id>/toggle-status/",
+        toggle_section_practice_status,
+        name="toggle_section_practice_status",
+    ),
+    # ============================================================================
+    # Listening Practices
+    # ============================================================================
+    path(
+        "practices/listening/", get_listening_practices, name="listening_practices_list"
+    ),
+    path(
+        "practices/listening/available/",
+        get_available_listening_content,
+        name="available_listening_content",
+    ),
+    path(
+        "practices/listening/create/",
+        create_listening_practice,
+        name="create_listening_practice",
+    ),
+    path(
+        "practices/listening/bulk-create/",
+        bulk_create_listening_practices,
+        name="bulk_create_listening_practices",
+    ),
+    path(
+        "practices/listening/<int:practice_id>/",
+        get_listening_practice,
+        name="get_listening_practice",
+    ),
+    path(
+        "practices/listening/<int:practice_id>/update/",
+        update_listening_practice,
+        name="update_listening_practice",
+    ),
+    path(
+        "practices/listening/<int:practice_id>/delete/",
+        delete_listening_practice,
+        name="delete_listening_practice",
+    ),
+    path(
+        "practices/listening/<int:practice_id>/toggle-status/",
+        toggle_listening_practice_status,
+        name="toggle_listening_practice_status",
+    ),
+    # ============================================================================
+    # Reading Practices
+    # ============================================================================
+    path("practices/reading/", get_reading_practices, name="reading_practices_list"),
+    path(
+        "practices/reading/available/",
+        get_available_reading_content,
+        name="available_reading_content",
+    ),
+    path(
+        "practices/reading/create/",
+        create_reading_practice,
+        name="create_reading_practice",
+    ),
+    path(
+        "practices/reading/bulk-create/",
+        bulk_create_reading_practices,
+        name="bulk_create_reading_practices",
+    ),
+    path(
+        "practices/reading/<int:practice_id>/",
+        get_reading_practice,
+        name="get_reading_practice",
+    ),
+    path(
+        "practices/reading/<int:practice_id>/update/",
+        update_reading_practice,
+        name="update_reading_practice",
+    ),
+    path(
+        "practices/reading/<int:practice_id>/delete/",
+        delete_reading_practice,
+        name="delete_reading_practice",
+    ),
+    path(
+        "practices/reading/<int:practice_id>/toggle-status/",
+        toggle_reading_practice_status,
+        name="toggle_reading_practice_status",
+    ),
+    # ============================================================================
+    # Writing Practices
+    # ============================================================================
+    path("practices/writing/", get_writing_practices, name="writing_practices_list"),
+    path(
+        "practices/writing/available/",
+        get_available_writing_content,
+        name="available_writing_content",
+    ),
+    path(
+        "practices/writing/create/",
+        create_writing_practice,
+        name="create_writing_practice",
+    ),
+    path(
+        "practices/writing/bulk-create/",
+        bulk_create_writing_practices,
+        name="bulk_create_writing_practices",
+    ),
+    path(
+        "practices/writing/<int:practice_id>/",
+        get_writing_practice,
+        name="get_writing_practice",
+    ),
+    path(
+        "practices/writing/<int:practice_id>/update/",
+        update_writing_practice,
+        name="update_writing_practice",
+    ),
+    path(
+        "practices/writing/<int:practice_id>/delete/",
+        delete_writing_practice,
+        name="delete_writing_practice",
+    ),
+    path(
+        "practices/writing/<int:practice_id>/toggle-status/",
+        toggle_writing_practice_status,
+        name="toggle_writing_practice_status",
+    ),
+    # ============================================================================
+    # Speaking Practices
+    # ============================================================================
+    path("practices/speaking/", get_speaking_practices, name="speaking_practices_list"),
+    path(
+        "practices/speaking/available/",
+        get_available_speaking_content,
+        name="available_speaking_content",
+    ),
+    path(
+        "practices/speaking/create/",
+        create_speaking_practice,
+        name="create_speaking_practice",
+    ),
+    path(
+        "practices/speaking/bulk-create/",
+        bulk_create_speaking_practices,
+        name="bulk_create_speaking_practices",
+    ),
+    path(
+        "practices/speaking/<int:practice_id>/",
+        get_speaking_practice,
+        name="get_speaking_practice",
+    ),
+    path(
+        "practices/speaking/<int:practice_id>/update/",
+        update_speaking_practice,
+        name="update_speaking_practice",
+    ),
+    path(
+        "practices/speaking/<int:practice_id>/delete/",
+        delete_speaking_practice,
+        name="delete_speaking_practice",
+    ),
+    path(
+        "practices/speaking/<int:practice_id>/toggle-status/",
+        toggle_speaking_practice_status,
+        name="toggle_speaking_practice_status",
+    ),
+    # ============================================================================
+    # Practices Stats
+    # ============================================================================
+    path("practices/stats/", get_practices_stats, name="practices_stats"),
 ]

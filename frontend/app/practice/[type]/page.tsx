@@ -34,6 +34,9 @@ import type {
   Difficulty,
   StatusFilter,
   PaginationInfo,
+  WritingTaskType,
+  ChartType,
+  AvailableFilters,
 } from '@/types/section-practice';
 
 type PremiumFilter = 'all' | 'free' | 'premium';
@@ -94,9 +97,14 @@ export default function SectionTypePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  
+  // Writing-specific filters
+  const [filterTaskType, setFilterTaskType] = useState<WritingTaskType | ''>('');
+  const [filterChartType, setFilterChartType] = useState<ChartType | ''>('');
 
   const validSections = ['listening', 'reading', 'writing', 'speaking'];
   const isValidSection = validSections.includes(sectionType);
+  const isWritingSection = sectionType === 'writing';
 
   // Load view mode from localStorage on mount
   useEffect(() => {
@@ -128,7 +136,15 @@ export default function SectionTypePage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterDifficulty, filterStatus, filterPremium]);
+  }, [filterDifficulty, filterStatus, filterPremium, filterTaskType, filterChartType]);
+
+  // Reset writing filters when section changes
+  useEffect(() => {
+    if (!isWritingSection) {
+      setFilterTaskType('');
+      setFilterChartType('');
+    }
+  }, [sectionType, isWritingSection]);
 
   const loadData = useCallback(async () => {
     if (!isValidSection) return;
@@ -145,6 +161,9 @@ export default function SectionTypePage() {
           is_free: filterPremium === 'all' ? undefined : filterPremium === 'free',
           page: currentPage,
           page_size: 12,
+          // Writing-specific filters
+          task_type: filterTaskType || undefined,
+          chart_type: filterChartType || undefined,
         }
       );
       setData(response);
@@ -153,7 +172,7 @@ export default function SectionTypePage() {
     } finally {
       setLoading(false);
     }
-  }, [sectionType, isValidSection, filterDifficulty, filterStatus, filterPremium, debouncedSearch, currentPage]);
+  }, [sectionType, isValidSection, filterDifficulty, filterStatus, filterPremium, filterTaskType, filterChartType, debouncedSearch, currentPage]);
 
   useEffect(() => {
     loadData();
@@ -398,10 +417,66 @@ export default function SectionTypePage() {
                 </div>
               </div>
             </div>
+
+            {/* Writing-specific filters */}
+            {isWritingSection && (
+              <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-slate-200 dark:border-slate-600">
+                {/* Task Type Filter */}
+                <div className="flex items-center gap-2">
+                  <PenTool className="w-4 h-4 text-gray-500 shrink-0" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 shrink-0">Task:</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setFilterTaskType('')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        filterTaskType === ''
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {data?.available_filters?.task_types?.map((taskType) => (
+                      <button
+                        key={taskType.value}
+                        onClick={() => setFilterTaskType(taskType.value as WritingTaskType)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          filterTaskType === taskType.value
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        {taskType.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chart Type Filter (only show when Task 1 is selected or all tasks) */}
+                {(filterTaskType === '' || filterTaskType === 'TASK_1') && (
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-gray-500 shrink-0" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400 shrink-0">Chart:</span>
+                    <select
+                      value={filterChartType}
+                      onChange={(e) => setFilterChartType(e.target.value as ChartType | '')}
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 border-0 focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">All Charts</option>
+                      {data?.available_filters?.chart_types?.map((chartType) => (
+                        <option key={chartType.value} value={chartType.value}>
+                          {chartType.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           {/* Active Filters Summary */}
-          {(searchQuery || filterDifficulty || filterStatus !== 'all' || filterPremium !== 'all') && (
+          {(searchQuery || filterDifficulty || filterStatus !== 'all' || filterPremium !== 'all' || filterTaskType || filterChartType) && (
             <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2 flex-wrap">
               <span className="text-sm text-gray-500">Active filters:</span>
               {searchQuery && (
@@ -441,12 +516,30 @@ export default function SectionTypePage() {
                   </button>
                 </span>
               )}
+              {filterTaskType && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-full text-xs">
+                  {data?.available_filters?.task_types?.find(t => t.value === filterTaskType)?.label || filterTaskType}
+                  <button onClick={() => setFilterTaskType('')} className="hover:text-pink-900">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filterChartType && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs">
+                  {data?.available_filters?.chart_types?.find(t => t.value === filterChartType)?.label || filterChartType}
+                  <button onClick={() => setFilterChartType('')} className="hover:text-indigo-900">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
               <button
                 onClick={() => {
                   setSearchQuery('');
                   setFilterDifficulty('');
                   setFilterStatus('all');
                   setFilterPremium('all');
+                  setFilterTaskType('');
+                  setFilterChartType('');
                 }}
                 className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 underline"
               >

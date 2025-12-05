@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q, Avg, Count, F
+from django.db.models import Q, Avg, Count, F, Prefetch
 from django.utils import timezone
 from decimal import Decimal
 
@@ -23,6 +23,7 @@ from .serializers import (
     StudentResultSerializer,
     DashboardStatsSerializer,
     ExamPerformanceSummarySerializer,
+    StudentTeacherExamSerializer,
 )
 from .permissions import IsTeacher
 
@@ -359,6 +360,7 @@ class TeacherExamViewSet(viewsets.ModelViewSet):
     def my_exams(self, request):
         """
         Get exams that the student is enrolled in (for students)
+        Includes the student's attempt info for each exam.
         """
         # if request.user.role != "STUDENT":
         #     return Response(
@@ -367,12 +369,29 @@ class TeacherExamViewSet(viewsets.ModelViewSet):
         #     )
 
         # Get exams where student is assigned or public exams
-        exams = TeacherExam.objects.filter(
-            Q(assigned_students=request.user) | Q(is_public=True),
-            status="PUBLISHED",
-        ).distinct()
+        # Prefetch the user's attempts for efficiency
+        exams = (
+            TeacherExam.objects.filter(
+                Q(assigned_students=request.user) | Q(is_public=True),
+                status="PUBLISHED",
+            )
+            .distinct()
+            .prefetch_related(
+                Prefetch(
+                    "attempts",
+                    queryset=TeacherExamAttempt.objects.filter(student=request.user),
+                    to_attr="student_attempts",
+                )
+            )
+        )
 
-        serializer = TeacherExamSerializer(
+        # Attach the user's attempt to each exam for the serializer
+        for exam in exams:
+            exam.prefetched_attempt = (
+                exam.student_attempts[0] if exam.student_attempts else None
+            )
+
+        serializer = StudentTeacherExamSerializer(
             exams, many=True, context={"request": request}
         )
         return Response(serializer.data)

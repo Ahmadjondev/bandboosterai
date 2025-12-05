@@ -33,6 +33,20 @@ export interface MockExamBasic {
   updated_at?: string;
 }
 
+export interface MyAttemptInfo {
+  id: number;
+  uuid: string;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'GRADED';
+  started_at?: string;
+  submitted_at?: string;
+  graded_at?: string;
+  listening_score?: number | null;
+  reading_score?: number | null;
+  writing_score?: number | null;
+  speaking_score?: number | null;
+  overall_band?: number | null;
+}
+
 export interface TeacherExam {
   id: number;
   uuid: string;
@@ -55,6 +69,7 @@ export interface TeacherExam {
   completed_attempts: number;
   created_at: string;
   updated_at: string;
+  my_attempt?: MyAttemptInfo | null;
 }
 
 export interface TeacherExamDetail extends TeacherExam {

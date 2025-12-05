@@ -32,6 +32,8 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
     speaking_topic_name = serializers.SerializerMethodField()
     # Writing-specific fields
     writing_task_type = serializers.SerializerMethodField()
+    writing_chart_type = serializers.SerializerMethodField()
+    writing_chart_type_display = serializers.SerializerMethodField()
     writing_prompt_preview = serializers.SerializerMethodField()
     # Access control fields
     user_has_access = serializers.SerializerMethodField()
@@ -60,6 +62,8 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
             "speaking_topic_name",
             # Writing-specific
             "writing_task_type",
+            "writing_chart_type",
+            "writing_chart_type_display",
             "writing_prompt_preview",
             # Access control
             "user_has_access",
@@ -147,6 +151,22 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
         """Get the writing task type (TASK_1 or TASK_2) for writing practices."""
         if obj.section_type == "WRITING" and obj.writing_task:
             return obj.writing_task.task_type
+        return None
+
+    def get_writing_chart_type(self, obj):
+        """Get the chart type for writing Task 1 practices."""
+        if obj.section_type == "WRITING" and obj.writing_task:
+            return obj.writing_task.chart_type
+        return None
+
+    def get_writing_chart_type_display(self, obj):
+        """Get the human-readable chart type for writing Task 1 practices."""
+        if (
+            obj.section_type == "WRITING"
+            and obj.writing_task
+            and obj.writing_task.chart_type
+        ):
+            return obj.writing_task.get_chart_type_display()
         return None
 
     def get_writing_prompt_preview(self, obj):
@@ -297,6 +317,9 @@ class WritingTaskDetailSerializer(serializers.ModelSerializer):
     task_type_display = serializers.CharField(
         source="get_task_type_display", read_only=True
     )
+    chart_type_display = serializers.CharField(
+        source="get_chart_type_display", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = WritingTask
@@ -304,6 +327,8 @@ class WritingTaskDetailSerializer(serializers.ModelSerializer):
             "id",
             "task_type",
             "task_type_display",
+            "chart_type",
+            "chart_type_display",
             "prompt",
             "image_url",
             "min_words",

@@ -446,9 +446,34 @@ class WritingTask(models.Model):
         TASK_1 = "TASK_1", "Task 1"
         TASK_2 = "TASK_2", "Task 2"
 
+    class ChartType(models.TextChoices):
+        """Chart types for IELTS Writing Task 1 Academic"""
+
+        LINE_GRAPH = "LINE_GRAPH", "Line Graph"
+        BAR_CHART = "BAR_CHART", "Bar Chart"
+        PIE_CHART = "PIE_CHART", "Pie Chart"
+        TABLE = "TABLE", "Table"
+        MAP = "MAP", "Map"
+        PROCESS = "PROCESS", "Process Diagram"
+        FLOW_CHART = "FLOW_CHART", "Flow Chart"
+        MIXED = "MIXED", "Mixed/Multiple Charts"
+        OTHER = "OTHER", "Other"
+
     is_authentic = models.BooleanField(default=False)
     is_practice = models.BooleanField(default=False)
     task_type = models.CharField(max_length=10, choices=TaskType.choices)
+
+    # Chart type for Task 1 (Academic) - helps with filtering and categorization
+    chart_type = models.CharField(
+        max_length=20,
+        choices=ChartType.choices,
+        null=True,
+        blank=True,
+        verbose_name="Chart Type",
+        help_text="Type of visual for Task 1 (Academic). Leave empty for Task 2.",
+        db_index=True,
+    )
+
     prompt = models.TextField(help_text="The full text of the task prompt.")
     picture = models.ImageField(
         upload_to="writing_tasks/pictures/",

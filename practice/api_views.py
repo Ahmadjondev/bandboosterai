@@ -417,6 +417,8 @@ def get_section_practices_by_type(request, section_type):
         - status: completed, uncompleted, all (default: all)
         - search: search query for title
         - is_free: true/false - filter by free/premium content
+        - chart_type: (WRITING only) LINE_GRAPH, BAR_CHART, PIE_CHART, TABLE, MAP, PROCESS, FLOW_CHART, MIXED, OTHER
+        - task_type: (WRITING only) TASK_1, TASK_2
         - page: page number (default: 1)
         - page_size: items per page (default: 12)
     """
@@ -452,6 +454,18 @@ def get_section_practices_by_type(request, section_type):
         practices = practices.filter(
             Q(title__icontains=search) | Q(description__icontains=search)
         )
+
+    # Writing-specific filters
+    if section_type == "WRITING":
+        # Filter by chart_type (for Task 1)
+        chart_type = request.GET.get("chart_type")
+        if chart_type:
+            practices = practices.filter(writing_task__chart_type=chart_type.upper())
+
+        # Filter by task_type (TASK_1 or TASK_2)
+        task_type = request.GET.get("task_type")
+        if task_type:
+            practices = practices.filter(writing_task__task_type=task_type.upper())
 
     # Add status filter (completed/uncompleted)
     status_filter = request.GET.get("status", "all").lower()
@@ -507,30 +521,43 @@ def get_section_practices_by_type(request, section_type):
     # Calculate pagination info
     total_pages = (total_count + page_size - 1) // page_size if page_size > 0 else 1
 
-    return Response(
-        {
-            "section_type": section_type,
-            "practices": serializer.data,
-            "stats": {
-                "total_attempts": stats["total_attempts"] or 0,
-                "average_score": (
-                    round(stats["average_score"], 1) if stats["average_score"] else None
-                ),
-                "best_score": (
-                    float(stats["best_score"]) if stats["best_score"] else None
-                ),
-                "total_time_minutes": (stats["total_time"] or 0) // 60,
-            },
-            "pagination": {
-                "page": page,
-                "page_size": page_size,
-                "total_count": total_count,
-                "total_pages": total_pages,
-                "has_next": page < total_pages,
-                "has_previous": page > 1,
-            },
+    response_data = {
+        "section_type": section_type,
+        "practices": serializer.data,
+        "stats": {
+            "total_attempts": stats["total_attempts"] or 0,
+            "average_score": (
+                round(stats["average_score"], 1) if stats["average_score"] else None
+            ),
+            "best_score": (float(stats["best_score"]) if stats["best_score"] else None),
+            "total_time_minutes": (stats["total_time"] or 0) // 60,
+        },
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_previous": page > 1,
+        },
+    }
+
+    # Add available filters for WRITING section
+    if section_type == "WRITING":
+        from ielts.models import WritingTask
+
+        response_data["available_filters"] = {
+            "chart_types": [
+                {"value": choice[0], "label": choice[1]}
+                for choice in WritingTask.ChartType.choices
+            ],
+            "task_types": [
+                {"value": choice[0], "label": choice[1]}
+                for choice in WritingTask.TaskType.choices
+            ],
         }
-    )
+
+    return Response(response_data)
 
 
 @api_view(["GET"])

@@ -16,6 +16,8 @@ import type {
   AccessCheckResponse,
   UseAttemptResponse,
   AttemptType,
+  PromoCodeValidationResponse,
+  PaymentOrderWithPromo,
 } from '@/types/payment';
 
 const PAYMENTS_BASE = '/payments/api';
@@ -59,13 +61,48 @@ export async function getUserAttempts(): Promise<UserAttempts> {
 }
 
 /**
+ * Validate a promo code
+ * @param code - The promo code to validate
+ * @param planId - Optional plan ID for price calculation
+ * @returns Validation result with discount info if valid
+ */
+export async function validatePromoCode(
+  code: string,
+  planId?: number
+): Promise<PromoCodeValidationResponse> {
+  const payload: { code: string; plan_id?: number } = { code };
+  if (planId) {
+    payload.plan_id = planId;
+  }
+  
+  const response = await apiClient.post<PromoCodeValidationResponse>(
+    `${PAYMENTS_BASE}/promo/validate/`,
+    payload
+  );
+  if (!response.data) {
+    throw new Error('Failed to validate promo code');
+  }
+  return response.data;
+}
+
+/**
  * Create a subscription order
+ * @param planId - The subscription plan ID
+ * @param promoCode - Optional promo code to apply
  * @returns Order with checkout URL
  */
-export async function createSubscriptionOrder(planId: number): Promise<PaymentOrder> {
-  const response = await apiClient.post<PaymentOrder>(
+export async function createSubscriptionOrder(
+  planId: number,
+  promoCode?: string
+): Promise<PaymentOrderWithPromo> {
+  const payload: { plan_id: number; promo_code?: string } = { plan_id: planId };
+  if (promoCode) {
+    payload.promo_code = promoCode;
+  }
+  
+  const response = await apiClient.post<PaymentOrderWithPromo>(
     `${PAYMENTS_BASE}/orders/subscription/`,
-    { plan_id: planId }
+    payload
   );
   if (!response.data) {
     throw new Error('Failed to create subscription order');

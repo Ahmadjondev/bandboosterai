@@ -7,6 +7,8 @@ from .models import (
     PaymentOrder,
     PaymeTransaction,
     AttemptUsageLog,
+    PromoCode,
+    PromoCodeUsage,
 )
 
 
@@ -33,6 +35,7 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
             "speaking_attempts",
             "reading_attempts",
             "listening_attempts",
+            "cd_exam_attempts",
             "reading_unlimited",
             "listening_unlimited",
             "writing_unlimited",
@@ -136,6 +139,9 @@ class PaymentOrderSerializer(serializers.ModelSerializer):
     subscription_plan = SubscriptionPlanSerializer(read_only=True)
     attempt_package = AttemptPackageSerializer(read_only=True)
     amount_formatted = serializers.SerializerMethodField()
+    original_amount_formatted = serializers.SerializerMethodField()
+    discount_amount_formatted = serializers.SerializerMethodField()
+    promo_code_display = serializers.SerializerMethodField()
     is_expired = serializers.SerializerMethodField()
 
     class Meta:
@@ -146,6 +152,11 @@ class PaymentOrderSerializer(serializers.ModelSerializer):
             "status",
             "subscription_plan",
             "attempt_package",
+            "original_amount",
+            "original_amount_formatted",
+            "discount_amount",
+            "discount_amount_formatted",
+            "promo_code_display",
             "amount",
             "amount_formatted",
             "expires_at",
@@ -156,6 +167,21 @@ class PaymentOrderSerializer(serializers.ModelSerializer):
 
     def get_amount_formatted(self, obj):
         return f"{obj.amount:,.0f} UZS"
+
+    def get_original_amount_formatted(self, obj):
+        if obj.original_amount:
+            return f"{obj.original_amount:,.0f} UZS"
+        return None
+
+    def get_discount_amount_formatted(self, obj):
+        if obj.discount_amount:
+            return f"{obj.discount_amount:,.0f} UZS"
+        return None
+
+    def get_promo_code_display(self, obj):
+        if obj.promo_code:
+            return obj.promo_code.code
+        return None
 
     def get_is_expired(self, obj):
         return obj.is_expired()
@@ -245,3 +271,190 @@ class UserPaymentStatusSerializer(serializers.Serializer):
     attempts = UserAttemptsSerializer()
     has_active_subscription = serializers.BooleanField()
     can_access_premium_books = serializers.BooleanField()
+
+
+# ============== Promo Code Serializers ==============
+
+
+class PromoCodeSerializer(serializers.ModelSerializer):
+    """Full promo code serializer for manager panel"""
+
+    applicable_plans_info = serializers.SerializerMethodField()
+    discount_display = serializers.SerializerMethodField()
+    is_currently_valid = serializers.SerializerMethodField()
+    usage_stats = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PromoCode
+        fields = [
+            "id",
+            "code",
+            "description",
+            "discount_type",
+            "discount_value",
+            "discount_display",
+            "applicable_plans",
+            "applicable_plans_info",
+            "min_purchase_amount",
+            "max_discount_amount",
+            "usage_limit",
+            "usage_limit_per_user",
+            "times_used",
+            "usage_stats",
+            "valid_from",
+            "valid_until",
+            "is_active",
+            "is_currently_valid",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_applicable_plans_info(self, obj):
+        plans = obj.applicable_plans.all()
+        if not plans:
+            return {"all_plans": True, "plans": []}
+        return {
+            "all_plans": False,
+            "plans": [
+                {"id": p.id, "name": p.name, "plan_type": p.plan_type} for p in plans
+            ],
+        }
+
+    def get_discount_display(self, obj):
+        if obj.discount_type == "PERCENTAGE":
+            return f"{obj.discount_value}% off"
+        return f"{obj.discount_value:,.0f} UZS off"
+
+    def get_is_currently_valid(self, obj):
+        return obj.is_valid()
+
+    def get_usage_stats(self, obj):
+        return {
+            "times_used": obj.times_used,
+            "limit": obj.usage_limit,
+            "remaining": (
+                (obj.usage_limit - obj.times_used) if obj.usage_limit else None
+            ),
+        }
+
+
+class PromoCodeCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating promo codes"""
+
+    class Meta:
+        model = PromoCode
+        fields = [
+            "code",
+            "description",
+            "discount_type",
+            "discount_value",
+            "applicable_plans",
+            "min_purchase_amount",
+            "max_discount_amount",
+            "usage_limit",
+            "usage_limit_per_user",
+            "valid_from",
+            "valid_until",
+            "is_active",
+        ]
+
+    def validate_code(self, value):
+        code = value.upper().strip()
+        if len(code) < 3:
+            raise serializers.ValidationError(
+                "Promo code must be at least 3 characters"
+            )
+        if len(code) > 50:
+            raise serializers.ValidationError("Promo code cannot exceed 50 characters")
+        return code
+
+    def validate_discount_value(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Discount value must be greater than 0")
+        return value
+
+    def validate(self, data):
+        discount_type = data.get("discount_type", "PERCENTAGE")
+        discount_value = data.get("discount_value", 0)
+
+        if discount_type == "PERCENTAGE" and discount_value > 100:
+            raise serializers.ValidationError(
+                {"discount_value": "Percentage discount cannot exceed 100%"}
+            )
+
+        valid_from = data.get("valid_from")
+        valid_until = data.get("valid_until")
+        if valid_from and valid_until and valid_from >= valid_until:
+            raise serializers.ValidationError(
+                {"valid_until": "End date must be after start date"}
+            )
+
+        return data
+
+
+class PromoCodeValidateSerializer(serializers.Serializer):
+    """Serializer for validating a promo code"""
+
+    code = serializers.CharField(max_length=50)
+    plan_id = serializers.IntegerField(required=False)
+
+    def validate_code(self, value):
+        return value.upper().strip()
+
+
+class PromoCodeApplyResponseSerializer(serializers.Serializer):
+    """Response serializer for promo code application"""
+
+    valid = serializers.BooleanField()
+    code = serializers.CharField()
+    discount_type = serializers.CharField()
+    discount_value = serializers.DecimalField(max_digits=12, decimal_places=2)
+    discount_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    original_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    final_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    message = serializers.CharField(required=False)
+
+
+class PromoCodeUsageSerializer(serializers.ModelSerializer):
+    """Serializer for promo code usage history"""
+
+    promo_code_display = serializers.CharField(source="promo_code.code")
+    user_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PromoCodeUsage
+        fields = [
+            "id",
+            "promo_code_display",
+            "user_info",
+            "original_amount",
+            "discount_amount",
+            "final_amount",
+            "used_at",
+        ]
+
+    def get_user_info(self, obj):
+        return {
+            "id": obj.user.id,
+            "username": obj.user.username,
+            "full_name": obj.user.get_full_name() or obj.user.username,
+        }
+
+
+class CreateSubscriptionOrderWithPromoSerializer(serializers.Serializer):
+    """Serializer for creating a subscription order with optional promo code"""
+
+    plan_id = serializers.IntegerField()
+    promo_code = serializers.CharField(max_length=50, required=False, allow_blank=True)
+
+    def validate_plan_id(self, value):
+        try:
+            SubscriptionPlan.objects.get(id=value, is_active=True)
+        except SubscriptionPlan.DoesNotExist:
+            raise serializers.ValidationError("Invalid or inactive subscription plan")
+        return value
+
+    def validate_promo_code(self, value):
+        if value:
+            return value.upper().strip()
+        return value

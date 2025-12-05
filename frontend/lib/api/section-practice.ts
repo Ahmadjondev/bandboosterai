@@ -22,6 +22,8 @@ import type {
   SectionType,
   Difficulty,
   StatusFilter,
+  WritingTaskType,
+  ChartType,
 } from '@/types/section-practice';
 
 const API_BASE = '';
@@ -58,6 +60,9 @@ export async function getSectionPracticesByType(
     is_free?: boolean;
     page?: number;
     page_size?: number;
+    // Writing-specific filters
+    chart_type?: ChartType;
+    task_type?: WritingTaskType;
   }
 ): Promise<SectionPracticesByTypeResponse> {
   const searchParams = new URLSearchParams();
@@ -67,6 +72,9 @@ export async function getSectionPracticesByType(
   if (options?.is_free !== undefined) searchParams.append('is_free', String(options.is_free));
   if (options?.page) searchParams.append('page', String(options.page));
   if (options?.page_size) searchParams.append('page_size', String(options.page_size));
+  // Writing-specific filters
+  if (options?.chart_type) searchParams.append('chart_type', options.chart_type);
+  if (options?.task_type) searchParams.append('task_type', options.task_type);
   
   const query = searchParams.toString();
   const url = `${API_BASE}/practice/sections/${sectionType.toLowerCase()}/${query ? `?${query}` : ''}`;
