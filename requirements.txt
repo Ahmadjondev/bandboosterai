@@ -3,7 +3,6 @@ annotated-types==0.7.0
 anyio==4.9.0
 asgiref==3.8.1
 async-timeout==5.0.1
-audioop-lts==0.2.2
 azure-cognitiveservices-speech==1.45.0
 azure-core==1.35.0
 billiard==4.2.1
