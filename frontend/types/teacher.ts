@@ -294,3 +294,105 @@ export interface CreateFeedbackData {
   fluency_coherence?: number;
   is_visible_to_student?: boolean;
 }
+
+// ============================================
+// Enhanced Analytics Types
+// ============================================
+
+export interface StudentAnalytics {
+  id: number;
+  full_name: string;
+  email: string;
+  profile_image?: string | null;
+  total_attempts: number;
+  completed_attempts: number;
+  graded_attempts: number;
+  average_score: number | null;
+  best_score: number | null;
+  latest_score: number | null;
+  scores: Array<{
+    score: number;
+    date: string;
+  }>;
+  section_averages: {
+    listening: number | null;
+    reading: number | null;
+    writing: number | null;
+    speaking: number | null;
+  };
+  exams_taken: Array<{
+    id: number;
+    title: string;
+    attempt_id: number;
+    status: string;
+    score: number | null;
+    date: string;
+  }>;
+  last_activity: string | null;
+  progress_trend: 'improving' | 'declining' | 'stable';
+}
+
+export interface PerformanceOverview {
+  score_distribution: {
+    '0-4.5': number;
+    '5.0-5.5': number;
+    '6.0-6.5': number;
+    '7.0-7.5': number;
+    '8.0-9.0': number;
+  };
+  section_averages: {
+    listening: number;
+    reading: number;
+    writing: number;
+    speaking: number;
+    overall: number;
+  };
+  strongest_section: string | null;
+  weakest_section: string | null;
+  performance_trends: Array<{
+    period: string;
+    average_score: number;
+    attempts_count: number;
+  }>;
+  top_performers: Array<{
+    student: {
+      id: number;
+      full_name: string;
+      profile_image?: string | null;
+    };
+    average_score: number;
+    attempts_count: number;
+  }>;
+  students_needing_attention: Array<{
+    student: {
+      id: number;
+      full_name: string;
+      profile_image?: string | null;
+    };
+    average_score: number;
+    attempts_count: number;
+  }>;
+  total_graded: number;
+}
+
+export interface ExamAnalytics {
+  id: number;
+  title: string;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  created_at: string;
+  total_students: number | null;
+  total_attempts: number;
+  completed_attempts: number;
+  graded_attempts: number;
+  in_progress: number;
+  average_score: number | null;
+  highest_score: number | null;
+  lowest_score: number | null;
+  pass_rate: number | null;
+}
+
+export interface EnhancedDashboardStats extends DashboardStats {
+  performance_overview?: PerformanceOverview;
+  students_analytics?: StudentAnalytics[];
+  exam_analytics?: ExamAnalytics[];
+}

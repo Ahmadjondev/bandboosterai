@@ -2,7 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q, Avg, Count, F, Prefetch
+from django.db import models
+from django.db.models import Q, Avg, Count, F, Prefetch, Max, Min
 from django.utils import timezone
 from decimal import Decimal
 
@@ -118,9 +119,340 @@ class TeacherDashboardViewSet(viewsets.ViewSet):
         Get attempts that need grading
         """
         teacher = request.user
-        attempts = TeacherExamAttempt.objects.filter(
-            exam__teacher=teacher, status="COMPLETED"
+        attempts = (
+            TeacherExamAttempt.objects.filter(exam__teacher=teacher, status="COMPLETED")
+            .select_related("student", "exam")
+            .order_by("-submitted_at")
+        )
+        serializer = TeacherExamAttemptSerializer(attempts, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="students-analytics")
+    def students_analytics(self, request):
+        """
+        Get detailed analytics for all students who have taken teacher's exams
+        """
+        from django.db.models.functions import TruncDate
+        from datetime import timedelta
+
+        teacher = request.user
+
+        # Get all students who have attempted teacher's exams
+        student_attempts = TeacherExamAttempt.objects.filter(
+            exam__teacher=teacher
         ).select_related("student", "exam")
+
+        # Build student analytics
+        students_data = {}
+        for attempt in student_attempts:
+            student_id = attempt.student.id
+            if student_id not in students_data:
+                students_data[student_id] = {
+                    "id": student_id,
+                    "full_name": attempt.student.get_full_name(),
+                    "email": attempt.student.email,
+                    "profile_image": (
+                        attempt.student.profile_image.url
+                        if attempt.student.profile_image
+                        else None
+                    ),
+                    "total_attempts": 0,
+                    "completed_attempts": 0,
+                    "graded_attempts": 0,
+                    "average_score": None,
+                    "best_score": None,
+                    "latest_score": None,
+                    "scores": [],
+                    "section_averages": {
+                        "listening": [],
+                        "reading": [],
+                        "writing": [],
+                        "speaking": [],
+                    },
+                    "exams_taken": [],
+                    "last_activity": None,
+                    "progress_trend": "stable",
+                }
+
+            student = students_data[student_id]
+            student["total_attempts"] += 1
+
+            if attempt.status in ["COMPLETED", "GRADED"]:
+                student["completed_attempts"] += 1
+
+            if attempt.status == "GRADED" and attempt.overall_band:
+                student["graded_attempts"] += 1
+                score = float(attempt.overall_band)
+                student["scores"].append(
+                    {
+                        "score": score,
+                        "date": attempt.graded_at or attempt.submitted_at,
+                    }
+                )
+
+                if attempt.listening_score:
+                    student["section_averages"]["listening"].append(
+                        float(attempt.listening_score)
+                    )
+                if attempt.reading_score:
+                    student["section_averages"]["reading"].append(
+                        float(attempt.reading_score)
+                    )
+                if attempt.writing_score:
+                    student["section_averages"]["writing"].append(
+                        float(attempt.writing_score)
+                    )
+                if attempt.speaking_score:
+                    student["section_averages"]["speaking"].append(
+                        float(attempt.speaking_score)
+                    )
+
+            student["exams_taken"].append(
+                {
+                    "id": attempt.exam.id,
+                    "title": attempt.exam.title,
+                    "attempt_id": attempt.id,
+                    "status": attempt.status,
+                    "score": (
+                        float(attempt.overall_band) if attempt.overall_band else None
+                    ),
+                    "date": attempt.started_at,
+                }
+            )
+
+            if (
+                not student["last_activity"]
+                or attempt.updated_at > student["last_activity"]
+            ):
+                student["last_activity"] = attempt.updated_at
+
+        # Calculate averages and trends
+        for student_id, student in students_data.items():
+            if student["scores"]:
+                scores = [s["score"] for s in student["scores"]]
+                student["average_score"] = round(sum(scores) / len(scores), 1)
+                student["best_score"] = max(scores)
+                student["latest_score"] = (
+                    student["scores"][-1]["score"] if student["scores"] else None
+                )
+
+                # Calculate progress trend
+                if len(scores) >= 2:
+                    recent_avg = sum(scores[-3:]) / len(scores[-3:])
+                    older_avg = (
+                        sum(scores[:-3]) / len(scores[:-3])
+                        if len(scores) > 3
+                        else scores[0]
+                    )
+                    if recent_avg > older_avg + 0.5:
+                        student["progress_trend"] = "improving"
+                    elif recent_avg < older_avg - 0.5:
+                        student["progress_trend"] = "declining"
+                    else:
+                        student["progress_trend"] = "stable"
+
+            # Calculate section averages
+            for section in ["listening", "reading", "writing", "speaking"]:
+                section_scores = student["section_averages"][section]
+                if section_scores:
+                    student["section_averages"][section] = round(
+                        sum(section_scores) / len(section_scores), 1
+                    )
+                else:
+                    student["section_averages"][section] = None
+
+        return Response(list(students_data.values()))
+
+    @action(detail=False, methods=["get"], url_path="performance-overview")
+    def performance_overview(self, request):
+        """
+        Get overall performance overview including trends and distributions
+        """
+        from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
+        from datetime import timedelta
+
+        teacher = request.user
+
+        # Get all graded attempts
+        graded_attempts = TeacherExamAttempt.objects.filter(
+            exam__teacher=teacher, status="GRADED", overall_band__isnull=False
+        ).select_related("student", "exam")
+
+        # Score distribution
+        score_distribution = {
+            "0-4.5": graded_attempts.filter(overall_band__lt=5.0).count(),
+            "5.0-5.5": graded_attempts.filter(
+                overall_band__gte=5.0, overall_band__lt=6.0
+            ).count(),
+            "6.0-6.5": graded_attempts.filter(
+                overall_band__gte=6.0, overall_band__lt=7.0
+            ).count(),
+            "7.0-7.5": graded_attempts.filter(
+                overall_band__gte=7.0, overall_band__lt=8.0
+            ).count(),
+            "8.0-9.0": graded_attempts.filter(overall_band__gte=8.0).count(),
+        }
+
+        # Section averages
+        section_stats = graded_attempts.aggregate(
+            listening_avg=Avg("listening_score"),
+            reading_avg=Avg("reading_score"),
+            writing_avg=Avg("writing_score"),
+            speaking_avg=Avg("speaking_score"),
+            overall_avg=Avg("overall_band"),
+        )
+
+        section_averages = {
+            "listening": round(float(section_stats["listening_avg"] or 0), 1),
+            "reading": round(float(section_stats["reading_avg"] or 0), 1),
+            "writing": round(float(section_stats["writing_avg"] or 0), 1),
+            "speaking": round(float(section_stats["speaking_avg"] or 0), 1),
+            "overall": round(float(section_stats["overall_avg"] or 0), 1),
+        }
+
+        # Identify strongest and weakest sections
+        section_scores = {
+            k: v for k, v in section_averages.items() if k != "overall" and v > 0
+        }
+        strongest_section = (
+            max(section_scores, key=section_scores.get) if section_scores else None
+        )
+        weakest_section = (
+            min(section_scores, key=section_scores.get) if section_scores else None
+        )
+
+        # Monthly performance trend (last 6 months)
+        from django.utils import timezone
+
+        six_months_ago = timezone.now() - timedelta(days=180)
+
+        monthly_trends = (
+            graded_attempts.filter(graded_at__gte=six_months_ago)
+            .annotate(month=TruncMonth("graded_at"))
+            .values("month")
+            .annotate(
+                avg_score=Avg("overall_band"),
+                count=Count("id"),
+            )
+            .order_by("month")
+        )
+
+        performance_trends = [
+            {
+                "period": (
+                    trend["month"].strftime("%b %Y") if trend["month"] else "Unknown"
+                ),
+                "average_score": round(float(trend["avg_score"]), 1),
+                "attempts_count": trend["count"],
+            }
+            for trend in monthly_trends
+        ]
+
+        # Top performers
+        top_performers = []
+        student_scores = {}
+        for attempt in graded_attempts:
+            student_id = attempt.student.id
+            if student_id not in student_scores:
+                student_scores[student_id] = {
+                    "student": {
+                        "id": attempt.student.id,
+                        "full_name": attempt.student.get_full_name(),
+                        "profile_image": (
+                            attempt.student.profile_image.url
+                            if attempt.student.profile_image
+                            else None
+                        ),
+                    },
+                    "scores": [],
+                }
+            student_scores[student_id]["scores"].append(float(attempt.overall_band))
+
+        for student_id, data in student_scores.items():
+            avg = sum(data["scores"]) / len(data["scores"])
+            data["average_score"] = round(avg, 1)
+            data["attempts_count"] = len(data["scores"])
+
+        top_performers = sorted(
+            student_scores.values(), key=lambda x: x["average_score"], reverse=True
+        )[:5]
+
+        # Students needing attention (low scores or declining)
+        students_needing_attention = sorted(
+            [s for s in student_scores.values() if s["average_score"] < 5.5],
+            key=lambda x: x["average_score"],
+        )[:5]
+
+        return Response(
+            {
+                "score_distribution": score_distribution,
+                "section_averages": section_averages,
+                "strongest_section": strongest_section,
+                "weakest_section": weakest_section,
+                "performance_trends": performance_trends,
+                "top_performers": top_performers,
+                "students_needing_attention": students_needing_attention,
+                "total_graded": graded_attempts.count(),
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="exam-analytics")
+    def exam_analytics(self, request):
+        """
+        Get analytics for each exam
+        """
+        teacher = request.user
+
+        exams = TeacherExam.objects.filter(teacher=teacher).prefetch_related("attempts")
+
+        exam_stats = []
+        for exam in exams:
+            attempts = exam.attempts.all()
+            graded = attempts.filter(status="GRADED", overall_band__isnull=False)
+
+            stats = {
+                "id": exam.id,
+                "title": exam.title,
+                "status": exam.status,
+                "created_at": exam.created_at,
+                "total_students": (
+                    exam.assigned_students.count() if not exam.is_public else None
+                ),
+                "total_attempts": attempts.count(),
+                "completed_attempts": attempts.filter(
+                    status__in=["COMPLETED", "GRADED"]
+                ).count(),
+                "graded_attempts": graded.count(),
+                "in_progress": attempts.filter(status="IN_PROGRESS").count(),
+                "average_score": None,
+                "highest_score": None,
+                "lowest_score": None,
+                "pass_rate": None,
+            }
+
+            if graded.exists():
+                agg = graded.aggregate(
+                    avg=Avg("overall_band"),
+                    max=Max("overall_band"),
+                    min=Min("overall_band"),
+                )
+                stats["average_score"] = (
+                    round(float(agg["avg"]), 1) if agg["avg"] else None
+                )
+                stats["highest_score"] = float(agg["max"]) if agg["max"] else None
+                stats["lowest_score"] = float(agg["min"]) if agg["min"] else None
+
+                # Pass rate (score >= 6.0)
+                passing = graded.filter(overall_band__gte=6.0).count()
+                stats["pass_rate"] = (
+                    round((passing / graded.count()) * 100, 1)
+                    if graded.count() > 0
+                    else 0
+                )
+
+            exam_stats.append(stats)
+
+        return Response(exam_stats)
         serializer = TeacherExamAttemptSerializer(attempts, many=True)
         return Response(serializer.data)
 
@@ -290,11 +622,52 @@ class TeacherExamViewSet(viewsets.ModelViewSet):
             exam.status = "PUBLISHED"
             exam.save()
             return Response(
-                {"message": "Exam published successfully"}, status=status.HTTP_200_OK
+                {"message": "Exam published successfully", "status": exam.status},
+                status=status.HTTP_200_OK,
             )
         return Response(
             {"error": "Exam is not in draft status"},
             status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(detail=True, methods=["post"])
+    def unpublish(self, request, pk=None):
+        """
+        Unpublish a published exam (set back to draft)
+        """
+        exam = self.get_object()
+        if exam.status == "PUBLISHED":
+            exam.status = "DRAFT"
+            exam.save()
+            return Response(
+                {"message": "Exam unpublished successfully", "status": exam.status},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {"error": "Exam is not in published status"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(detail=True, methods=["post"], url_path="toggle-status")
+    def toggle_status(self, request, pk=None):
+        """
+        Toggle exam status between DRAFT and PUBLISHED
+        """
+        exam = self.get_object()
+        if exam.status == "DRAFT":
+            exam.status = "PUBLISHED"
+            message = "Exam published successfully"
+        elif exam.status == "PUBLISHED":
+            exam.status = "DRAFT"
+            message = "Exam unpublished successfully"
+        else:
+            return Response(
+                {"error": "Cannot toggle status of archived exam"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        exam.save()
+        return Response(
+            {"message": message, "status": exam.status}, status=status.HTTP_200_OK
         )
 
     @action(detail=True, methods=["post"])

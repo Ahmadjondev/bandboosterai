@@ -380,22 +380,22 @@ Evaluate the response based on these four criteria:
 Provide your evaluation in the following JSON format:
 {{
     "fluency_and_coherence": {{
-        "score": 7.0,
+        "score":0.0,
         "feedback": "Detailed feedback on fluency and coherence..."
     }},
     "lexical_resource": {{
-        "score": 6.5,
+        "score": 0.0,
         "feedback": "Detailed feedback on vocabulary usage..."
     }},
     "grammatical_range_and_accuracy": {{
-        "score": 7.0,
+        "score": 0.0,
         "feedback": "Detailed feedback on grammar..."
     }},
     "pronunciation": {{
-        "score": 7.5,
+        "score": 0.0,
         "feedback": "Detailed feedback on pronunciation..."
     }},
-    "overall_band_score": 7.0,
+    "overall_band_score": 0.0,
     "overall_feedback": "Comprehensive overall feedback...",
     "strengths": ["Strength 1", "Strength 2", "Strength 3"],
     "areas_for_improvement": ["Area 1", "Area 2", "Area 3"],

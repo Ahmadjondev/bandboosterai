@@ -1192,13 +1192,15 @@ def get_band_prediction(request):
     for i, exam in enumerate(recent_exams):
         weight = weights[i] if i < len(weights) else 0.05
         if exam.listening_score:
-            section_predictions["listening"].append((exam.listening_score, weight))
+            section_predictions["listening"].append(
+                (float(exam.listening_score), weight)
+            )
         if exam.reading_score:
-            section_predictions["reading"].append((exam.reading_score, weight))
+            section_predictions["reading"].append((float(exam.reading_score), weight))
         if exam.writing_score:
-            section_predictions["writing"].append((exam.writing_score, weight))
+            section_predictions["writing"].append((float(exam.writing_score), weight))
         if exam.speaking_score:
-            section_predictions["speaking"].append((exam.speaking_score, weight))
+            section_predictions["speaking"].append((float(exam.speaking_score), weight))
 
     # Calculate weighted predictions
     predictions = {}
@@ -1221,8 +1223,8 @@ def get_band_prediction(request):
 
     # Calculate trend (improving/declining/stable)
     if len(recent_exams) >= 2:
-        recent_avg = recent_exams[0].overall_score or 0
-        older_avg = recent_exams[-1].overall_score or 0
+        recent_avg = float(recent_exams[0].overall_score or 0)
+        older_avg = float(recent_exams[-1].overall_score or 0)
         if recent_avg > older_avg + 0.25:
             trend = "improving"
         elif recent_avg < older_avg - 0.25:

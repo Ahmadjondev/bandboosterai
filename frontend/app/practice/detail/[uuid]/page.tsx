@@ -230,7 +230,7 @@ export default function PracticeDetailPage() {
                 <Icon className="w-7 h-7" />
               </div>
               <div className="flex-1">
-                <h1 className="text-2xl font-bold mb-1">{practice.title}</h1>
+                <h1 className="text-2xl font-bold mb-1">{(practice?.content as any)?.topic ?? practice.title}</h1>
                 <div className="flex items-center gap-3 text-white/80">
                   <span className="capitalize">{practice.section_type_display}</span>
                   <span>•</span>

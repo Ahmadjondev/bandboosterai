@@ -173,6 +173,7 @@ export interface SectionPracticeAttempt {
  */
 export interface SectionPracticeDetail extends Omit<SectionPractice, 'attempts_count' | 'best_score' | 'last_attempt_date'> {
   content: PracticeContent | null;
+  topic: string | null;
   user_attempts: SectionPracticeAttempt[];
 }
 

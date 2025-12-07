@@ -13,6 +13,9 @@ import type {
   GradeAttemptData,
   CreateFeedbackData,
   MockExamBasic,
+  StudentAnalytics,
+  PerformanceOverview,
+  ExamAnalytics,
 } from '@/types/teacher';
 
 /**
@@ -43,6 +46,33 @@ export const teacherDashboardApi = {
   async getPendingGrades(): Promise<TeacherExamAttempt[]> {
     const response = await apiClient.get<TeacherExamAttempt[]>('/teacher/api/dashboard/pending_grades/');
     if (!response.data) throw new Error('Failed to fetch pending grades');
+    return response.data;
+  },
+
+  /**
+   * Get detailed student analytics
+   */
+  async getStudentsAnalytics(): Promise<StudentAnalytics[]> {
+    const response = await apiClient.get<StudentAnalytics[]>('/teacher/api/dashboard/students-analytics/');
+    if (!response.data) throw new Error('Failed to fetch student analytics');
+    return response.data;
+  },
+
+  /**
+   * Get performance overview with trends and distributions
+   */
+  async getPerformanceOverview(): Promise<PerformanceOverview> {
+    const response = await apiClient.get<PerformanceOverview>('/teacher/api/dashboard/performance-overview/');
+    if (!response.data) throw new Error('Failed to fetch performance overview');
+    return response.data;
+  },
+
+  /**
+   * Get exam analytics
+   */
+  async getExamAnalytics(): Promise<ExamAnalytics[]> {
+    const response = await apiClient.get<ExamAnalytics[]>('/teacher/api/dashboard/exam-analytics/');
+    if (!response.data) throw new Error('Failed to fetch exam analytics');
     return response.data;
   },
 };
@@ -97,9 +127,27 @@ export const teacherExamApi = {
   /**
    * Publish exam
    */
-  async publishExam(id: number): Promise<{ message: string }> {
-    const response = await apiClient.post<{ message: string }>(`/teacher/api/exams/${id}/publish/`);
+  async publishExam(id: number): Promise<{ message: string; status: string }> {
+    const response = await apiClient.post<{ message: string; status: string }>(`/teacher/api/exams/${id}/publish/`);
     if (!response.data) throw new Error('Failed to publish exam');
+    return response.data;
+  },
+
+  /**
+   * Unpublish exam (set back to draft)
+   */
+  async unpublishExam(id: number): Promise<{ message: string; status: string }> {
+    const response = await apiClient.post<{ message: string; status: string }>(`/teacher/api/exams/${id}/unpublish/`);
+    if (!response.data) throw new Error('Failed to unpublish exam');
+    return response.data;
+  },
+
+  /**
+   * Toggle exam status between DRAFT and PUBLISHED
+   */
+  async toggleExamStatus(id: number): Promise<{ message: string; status: string }> {
+    const response = await apiClient.post<{ message: string; status: string }>(`/teacher/api/exams/${id}/toggle-status/`);
+    if (!response.data) throw new Error('Failed to toggle exam status');
     return response.data;
   },
 
