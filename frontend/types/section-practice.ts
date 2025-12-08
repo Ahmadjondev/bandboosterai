@@ -56,6 +56,10 @@ export interface SectionPractice {
   writing_chart_type: ChartType | null;
   writing_chart_type_display: string | null;
   writing_prompt_preview: string | null;
+  // Reading-specific fields
+  reading_passage_number?: number | null;
+  // Listening-specific fields
+  listening_part_number?: number | null;
   // Access control
   user_has_access?: boolean;
   requires_payment?: boolean;

@@ -448,6 +448,24 @@ def get_section_practices_by_type(request, section_type):
     if is_free is not None:
         practices = practices.filter(is_free=is_free.lower() == "true")
 
+    # Add passage_number filter for READING
+    passage_number = request.GET.get("passage_number")
+    if section_type == "READING" and passage_number:
+        try:
+            passage_num = int(passage_number)
+            practices = practices.filter(reading_passage__passage_number=passage_num)
+        except ValueError:
+            pass
+
+    # Add part_number filter for LISTENING
+    part_number = request.GET.get("part_number")
+    if section_type == "LISTENING" and part_number:
+        try:
+            part_num = int(part_number)
+            practices = practices.filter(listening_part__part_number=part_num)
+        except ValueError:
+            pass
+
     # Add search filter
     search = request.GET.get("search")
     if search:
@@ -1568,7 +1586,13 @@ def get_section_practice_as_section(request, practice_uuid):
     book sections and section practices.
 
     Returns data compatible with SectionDetailResponse format.
+
+    Note: This endpoint does NOT check access - it returns data for display.
+    The frontend should use check-access endpoint before showing start button,
+    and the submit endpoint will properly check and deduct attempts.
     """
+    from .payment_helpers import check_practice_access
+
     try:
         practice = SectionPractice.objects.get(uuid=practice_uuid, is_active=True)
     except SectionPractice.DoesNotExist:
@@ -1576,6 +1600,9 @@ def get_section_practice_as_section(request, practice_uuid):
             {"error": "Section practice not found"},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+    # Get access info to include in response
+    access_info = check_practice_access(request.user, practice)
 
     # Build response in the same format as BookSectionDetailSerializer
     response_data = {
@@ -1595,6 +1622,14 @@ def get_section_practice_as_section(request, practice_uuid):
         "difficulty": practice.difficulty,
         "difficulty_display": practice.get_difficulty_display(),
         "user_status": _get_practice_user_status(practice, request.user),
+        "is_free": practice.is_free,
+        "access_info": {
+            "has_access": access_info["has_access"],
+            "requires_payment": access_info.get("requires_payment", False),
+            "attempts_remaining": access_info.get("attempts_remaining", 0),
+            "is_unlimited": access_info.get("is_unlimited", False),
+            "reason": access_info.get("reason", ""),
+        },
     }
 
     # Add content based on section type
@@ -1731,6 +1766,8 @@ def submit_practice_as_section(request, practice_uuid):
     This allows the unified practice-session pages to work with both
     book sections and section practices.
     """
+    from .payment_helpers import check_practice_access, use_practice_attempt
+
     try:
         practice = SectionPractice.objects.get(uuid=practice_uuid, is_active=True)
     except SectionPractice.DoesNotExist:
@@ -1749,13 +1786,52 @@ def submit_practice_as_section(request, practice_uuid):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Create or get in-progress attempt
-    attempt, created = SectionPracticeAttempt.objects.get_or_create(
+    # Check for existing in-progress attempt first
+    existing_attempt = SectionPracticeAttempt.objects.filter(
         practice=practice,
         student=request.user,
         status="IN_PROGRESS",
-        defaults={"total_questions": practice.total_questions},
-    )
+    ).first()
+
+    if existing_attempt:
+        # Use existing attempt - no payment check needed
+        attempt = existing_attempt
+    else:
+        # Check access for new attempt
+        access = check_practice_access(request.user, practice)
+
+        if not access["has_access"]:
+            return Response(
+                {
+                    "error": "Payment required",
+                    "message": access["reason"],
+                    "requires_payment": True,
+                    "section_type": practice.section_type,
+                    "is_free": practice.is_free,
+                },
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
+
+        # Use an attempt (for non-free, non-unlimited access)
+        if not practice.is_free and not access.get("is_unlimited", False):
+            use_result = use_practice_attempt(request.user, practice)
+            if not use_result["success"]:
+                return Response(
+                    {
+                        "error": "Failed to use attempt",
+                        "message": use_result.get("error", "Unknown error"),
+                        "requires_payment": True,
+                        "section_type": practice.section_type,
+                    },
+                    status=status.HTTP_402_PAYMENT_REQUIRED,
+                )
+
+        # Create new attempt
+        attempt = SectionPracticeAttempt.objects.create(
+            practice=practice,
+            student=request.user,
+            total_questions=practice.total_questions,
+        )
 
     # Calculate score using the same algorithm as books
     score_data = _calculate_practice_score(practice, answers)

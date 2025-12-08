@@ -189,6 +189,22 @@ from manager_panel.api.practices.speaking import (
 )
 from manager_panel.api.practices.stats import get_practices_stats
 
+# AI Configuration imports
+from manager_panel.api.ai_config import (
+    get_ai_configurations,
+    get_ai_configuration,
+    create_ai_configuration,
+    update_ai_configuration,
+    delete_ai_configuration,
+    set_primary_configuration,
+    toggle_configuration_status,
+    test_ai_configuration,
+    get_available_providers,
+    get_available_models,
+    get_ai_usage_stats,
+    get_ai_usage_logs,
+)
+
 app_name = "manager_api"
 
 urlpatterns = [
@@ -763,4 +779,46 @@ urlpatterns = [
     # Practices Stats
     # ============================================================================
     path("practices/stats/", get_practices_stats, name="practices_stats"),
+    # ============================================================================
+    # AI Configuration Management
+    # ============================================================================
+    path("ai-config/", get_ai_configurations, name="ai_configurations_list"),
+    path("ai-config/create/", create_ai_configuration, name="create_ai_configuration"),
+    path("ai-config/providers/", get_available_providers, name="ai_providers"),
+    path("ai-config/models/", get_available_models, name="ai_models_all"),
+    path(
+        "ai-config/models/<str:provider>/",
+        get_available_models,
+        name="ai_models_by_provider",
+    ),
+    path("ai-config/stats/", get_ai_usage_stats, name="ai_usage_stats"),
+    path("ai-config/logs/", get_ai_usage_logs, name="ai_usage_logs"),
+    path(
+        "ai-config/<int:config_id>/", get_ai_configuration, name="get_ai_configuration"
+    ),
+    path(
+        "ai-config/<int:config_id>/update/",
+        update_ai_configuration,
+        name="update_ai_configuration",
+    ),
+    path(
+        "ai-config/<int:config_id>/delete/",
+        delete_ai_configuration,
+        name="delete_ai_configuration",
+    ),
+    path(
+        "ai-config/<int:config_id>/set-primary/",
+        set_primary_configuration,
+        name="set_primary_ai_configuration",
+    ),
+    path(
+        "ai-config/<int:config_id>/toggle-status/",
+        toggle_configuration_status,
+        name="toggle_ai_configuration_status",
+    ),
+    path(
+        "ai-config/<int:config_id>/test/",
+        test_ai_configuration,
+        name="test_ai_configuration",
+    ),
 ]

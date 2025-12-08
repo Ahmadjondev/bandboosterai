@@ -22,6 +22,69 @@ import json
 
 
 # ============================================================================
+# PREMIUM ACCESS HELPERS
+# ============================================================================
+
+
+def check_book_premium_access(user, book) -> dict:
+    """
+    Check if a user can access a premium book.
+
+    Args:
+        user: User instance
+        book: Book instance
+
+    Returns:
+        dict with:
+            - has_access: bool
+            - is_premium: bool
+            - reason: str
+    """
+    # Free books are always accessible
+    if not book.is_premium:
+        return {
+            "has_access": True,
+            "is_premium": False,
+            "reason": "Free content",
+        }
+
+    # Check subscription
+    try:
+        from payments.models import UserSubscription
+
+        subscription = UserSubscription.objects.get(user=user)
+        if subscription.is_valid():
+            return {
+                "has_access": True,
+                "is_premium": True,
+                "reason": "Access via active subscription",
+            }
+    except Exception:
+        pass
+
+    # Check if user has any attempts remaining (premium users have attempts)
+    try:
+        from payments.models import UserAttempts
+
+        attempts = UserAttempts.objects.get(user=user)
+        # Consider user premium if they have any reading or listening attempts
+        if attempts.reading_attempts > 0 or attempts.listening_attempts > 0:
+            return {
+                "has_access": True,
+                "is_premium": True,
+                "reason": "Access via purchased attempts",
+            }
+    except Exception:
+        pass
+
+    return {
+        "has_access": False,
+        "is_premium": True,
+        "reason": "Premium content requires subscription or purchased attempts",
+    }
+
+
+# ============================================================================
 # HELPER FUNCTIONS FOR ANSWER SCORING
 # ============================================================================
 
@@ -162,7 +225,9 @@ def _calculate_section_score(section, user_answers_dict):
 
     # Calculate band score using the standard IELTS conversion
     band_type = "academic_reading" if section.section_type == "READING" else "listening"
-    band_score = calculate_band_score(total_score, max_possible_score, band_type, is_book=True)
+    band_score = calculate_band_score(
+        total_score, max_possible_score, band_type, is_book=True
+    )
 
     return {
         "correct_answers": int(total_score),
@@ -381,7 +446,8 @@ def get_books(request):
 @permission_classes([IsAuthenticated])
 def get_book_detail(request, book_id):
     """
-    Get detailed information about a book with all sections and user progress
+    Get detailed information about a book with all sections and user progress.
+    Premium books require subscription or purchased attempts to access.
     """
     book = get_object_or_404(Book.objects.prefetch_related("sections"), id=book_id)
     print("Fetching book detail for book_id:", book_id)
@@ -389,6 +455,18 @@ def get_book_detail(request, book_id):
         return Response(
             {"error": "This book is not available"},
             status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Check premium access
+    access = check_book_premium_access(request.user, book)
+    if not access["has_access"]:
+        return Response(
+            {
+                "error": access["reason"],
+                "is_premium": True,
+                "requires_subscription": True,
+            },
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     # Include full sections data for detail view
@@ -402,7 +480,8 @@ def get_book_detail(request, book_id):
 @permission_classes([IsAuthenticated])
 def get_book_sections(request, book_id):
     """
-    Get all sections for a specific book with user status
+    Get all sections for a specific book with user status.
+    Premium books require subscription or purchased attempts to access.
     """
     book = get_object_or_404(Book, id=book_id)
     print("Fetching sections for book_id:", book_id)
@@ -410,6 +489,18 @@ def get_book_sections(request, book_id):
         return Response(
             {"error": "This book is not available"},
             status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Check premium access
+    access = check_book_premium_access(request.user, book)
+    if not access["has_access"]:
+        return Response(
+            {
+                "error": access["reason"],
+                "is_premium": True,
+                "requires_subscription": True,
+            },
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     sections = (

@@ -864,6 +864,7 @@ class ManagerAPIClient {
       if (data.publisher) formData.append('publisher', data.publisher);
       if (data.publication_year) formData.append('publication_year', data.publication_year.toString());
       if (data.is_active !== undefined) formData.append('is_active', data.is_active.toString());
+      if (data.is_premium !== undefined) formData.append('is_premium', data.is_premium.toString());
       formData.append('cover_image', data.cover_image);
       
       return this.uploadFile<Book>('/books/create/', formData);

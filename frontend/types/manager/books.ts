@@ -21,6 +21,7 @@ export interface BookForm {
   publisher?: string;
   publication_year?: number;
   is_active?: boolean;
+  is_premium?: boolean;
 }
 
 /**
@@ -128,6 +129,7 @@ export interface PaginatedSectionsResponse {
 export interface BooksFilters {
   level?: IELTSLevel;
   is_active?: boolean;
+  is_premium?: boolean;
   search?: string;
   sort?: string;
   page?: number;

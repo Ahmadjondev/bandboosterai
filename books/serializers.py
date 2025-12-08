@@ -29,6 +29,7 @@ class BookSerializer(serializers.ModelSerializer):
             "publisher",
             "publication_year",
             "is_active",
+            "is_premium",
             "enrolled_count",
             "average_progress",
             "created_at",
@@ -370,6 +371,7 @@ class BookWithProgressSerializer(serializers.ModelSerializer):
     level_display = serializers.CharField(source="get_level_display", read_only=True)
     user_progress = serializers.SerializerMethodField()
     cover_image_url = serializers.SerializerMethodField()
+    has_access = serializers.SerializerMethodField()
     # sections = serializers.SerializerMethodField()
 
     class Meta:
@@ -387,12 +389,48 @@ class BookWithProgressSerializer(serializers.ModelSerializer):
             "publisher",
             "publication_year",
             "is_active",
+            "is_premium",
+            "has_access",
             "user_progress",
             # "sections",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "cover_image_url"]
+
+    def get_has_access(self, obj):
+        """Check if the current user has access to this book"""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return (
+                not obj.is_premium
+            )  # Only free books accessible to unauthenticated users
+
+        # Free books are always accessible
+        if not obj.is_premium:
+            return True
+
+        # Check subscription
+        try:
+            from payments.models import UserSubscription
+
+            subscription = UserSubscription.objects.get(user=request.user)
+            if subscription.is_valid():
+                return True
+        except Exception:
+            pass
+
+        # Check if user has any attempts remaining
+        try:
+            from payments.models import UserAttempts
+
+            attempts = UserAttempts.objects.get(user=request.user)
+            if attempts.reading_attempts > 0 or attempts.listening_attempts > 0:
+                return True
+        except Exception:
+            pass
+
+        return False
 
     # def get_sections(self, obj):
     #     """Get minimal section info - only for detail view"""

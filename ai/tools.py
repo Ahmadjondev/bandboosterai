@@ -11,38 +11,88 @@ import httpx
 
 load_dotenv()
 
-# Create custom HTTP client with SSL verification disabled for problematic networks
-# This is a workaround for SSL certificate issues in some environments
-try:
-    # Try with SSL verification enabled (secure)
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-except Exception as e:
-    print(f"Failed to create secure client: {e}")
-    print("Attempting to create client with relaxed SSL settings...")
+# Global client instance - will be lazy-loaded from database or environment
+_client = None
+_client_config = None
 
-    # Fallback: Create client with custom HTTP settings
+
+def get_gemini_client():
+    """
+    Get or create Gemini client. Tries database config first, falls back to env vars.
+    """
+    global _client, _client_config
+
+    # Try to get configuration from database
     try:
-        # Create custom SSL context
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+        from manager_panel.models import AIConfiguration
 
-        # Create httpx client with custom SSL context
-        http_client = httpx.Client(
-            verify=False,  # Disable SSL verification
-            timeout=300.0,  # 5 minutes timeout
-            follow_redirects=True,
+        db_config = AIConfiguration.get_primary_config()
+
+        if db_config and db_config.provider == "gemini":
+            # Check if we need to recreate client (config changed)
+            if _client is None or _client_config != db_config.id:
+                _client = genai.Client(api_key=db_config.api_key)
+                _client_config = db_config.id
+                print(
+                    f"Using AI config from database: {db_config.name} ({db_config.model_name})"
+                )
+            return _client, db_config.model_name
+    except Exception as e:
+        print(f"Could not load AI config from database: {e}")
+
+    # Fallback to environment variables
+    api_key = os.getenv("GEMINI_API_KEY")
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+
+    if not api_key:
+        raise ValueError(
+            "No AI configuration found. Set up in manager panel or add GEMINI_API_KEY to .env"
         )
 
-        # Create genai client with custom http client
-        client = genai.Client(
-            api_key=os.getenv("GEMINI_API_KEY"), http_options={"client": http_client}
-        )
-        print("Successfully created client with relaxed SSL settings")
-    except Exception as e2:
-        print(f"Failed to create client with relaxed SSL: {e2}")
-        # Create basic client as last resort
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    if _client is None:
+        try:
+            _client = genai.Client(api_key=api_key)
+        except Exception as e:
+            print(f"Failed to create secure client: {e}")
+            # Fallback with relaxed SSL
+            try:
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                http_client = httpx.Client(
+                    verify=False, timeout=300.0, follow_redirects=True
+                )
+                _client = genai.Client(
+                    api_key=api_key, http_options={"client": http_client}
+                )
+            except Exception as e2:
+                print(f"Failed to create client with relaxed SSL: {e2}")
+                _client = genai.Client(api_key=api_key)
+
+    return _client, model
+
+
+# Legacy client for backward compatibility - lazy load
+def _get_legacy_client():
+    """Get legacy client for code that imports 'client' directly"""
+    client, _ = get_gemini_client()
+    return client
+
+
+# For backward compatibility - make 'client' available but lazy-loaded
+class LazyClient:
+    """Lazy-loaded client wrapper for backward compatibility"""
+
+    _instance = None
+
+    @property
+    def models(self):
+        if self._instance is None:
+            self._instance, _ = get_gemini_client()
+        return self._instance.models
+
+
+client = LazyClient()
 
 
 def change_to_json(text):
@@ -150,22 +200,48 @@ def change_to_json(text):
 
 
 def generate_ai(
-    prompt, model="gemini-2.5-pro", mime_type=None, document=None, max_retries=3
+    prompt,
+    model=None,
+    mime_type=None,
+    document=None,
+    max_retries=3,
+    request_type="general",
 ) -> dict:
     """
     Generate AI response using Gemini API with retry logic.
+    Uses database configuration if available, falls back to environment variables.
+    Tracks usage statistics on the AI configuration.
 
     Args:
         prompt: The text prompt for the AI
-        model: Gemini model to use (default: gemini-2.5-pro for faster/cheaper responses)
+        model: Gemini model to use (default: from config or gemini-2.5-pro)
         mime_type: MIME type of the document (if provided)
         document: Binary document data (if provided)
         max_retries: Maximum number of retry attempts for network errors
+        request_type: Type of request for tracking (e.g., 'content_generation', 'writing_check')
 
     Returns:
         dict: Parsed JSON response from AI
     """
     import time
+
+    start_time = time.time()
+
+    # Get client and model from configuration
+    ai_client, config_model = get_gemini_client()
+
+    # Get the database config for usage tracking
+    db_config = None
+    try:
+        from manager_panel.models import AIConfiguration
+
+        db_config = AIConfiguration.get_primary_config()
+    except Exception:
+        pass
+
+    # Use provided model or fallback to config model
+    if model is None:
+        model = config_model
 
     print("DOCUMENT MIME TYPE:", mime_type)
     print("DOCUMENT SIZE:", len(document) if document else 0)
@@ -196,7 +272,7 @@ def generate_ai(
             print(
                 f"Sending request to Gemini AI (attempt {attempt + 1}/{max_retries})..."
             )
-            response = client.models.generate_content(
+            response = ai_client.models.generate_content(
                 model=model,
                 contents=contents,
                 config=types.GenerateContentConfig(
@@ -217,6 +293,37 @@ def generate_ai(
 
             text = change_to_json(response.text)
             print("PARSED JSON SUCCESS")
+
+            # Track usage on successful response
+            if db_config:
+                try:
+                    response_time_ms = int((time.time() - start_time) * 1000)
+                    # Estimate tokens (Gemini doesn't always provide token count in response)
+                    # Rough estimate: ~4 chars per token
+                    estimated_tokens = (len(prompt) + len(response.text)) // 4
+
+                    # Update config usage stats
+                    db_config.increment_usage(estimated_tokens)
+
+                    # Create usage log if model exists
+                    try:
+                        from manager_panel.models import AIUsageLog
+
+                        AIUsageLog.objects.create(
+                            configuration=db_config,
+                            endpoint="generate_ai",
+                            request_type=request_type,
+                            input_tokens=len(prompt) // 4,
+                            output_tokens=len(response.text) // 4,
+                            total_tokens=estimated_tokens,
+                            success=True,
+                            response_time_ms=response_time_ms,
+                        )
+                    except Exception as log_error:
+                        print(f"Failed to create usage log: {log_error}")
+                except Exception as track_error:
+                    print(f"Failed to track usage: {track_error}")
+
             return text
 
         except json.JSONDecodeError as e:
@@ -224,6 +331,14 @@ def generate_ai(
             if "response" in locals():
                 print(f"Response text (first 1000 chars): {response.text[:1000]}")
                 print(f"Response text (last 500 chars): {response.text[-500:]}")
+
+            # Track error
+            if db_config:
+                try:
+                    db_config.record_error(f"JSON parsing error: {str(e)}")
+                except Exception:
+                    pass
+
             return {
                 "error": f"Invalid JSON in AI response: {str(e)}. The AI generated malformed JSON. Please try again.",
                 "success": False,
@@ -231,6 +346,14 @@ def generate_ai(
             }
         except ValueError as e:
             print(f"Value error: {e}")
+
+            # Track error
+            if db_config:
+                try:
+                    db_config.record_error(f"Value error: {str(e)}")
+                except Exception:
+                    pass
+
             return {
                 "error": f"Failed to extract JSON from response: {str(e)}",
                 "success": False,

@@ -30,6 +30,7 @@ export interface Book {
   publisher?: string | null;
   publication_year?: number | null;
   is_active: boolean;
+  is_premium: boolean;
   created_at: string;
   updated_at: string;
   user_progress?: UserBookProgress | null;

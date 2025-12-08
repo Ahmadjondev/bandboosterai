@@ -25,6 +25,7 @@ export default function BookFormComponent({ bookId, initialData }: BookFormCompo
     publisher: initialData?.publisher || '',
     publication_year: initialData?.publication_year || undefined,
     is_active: initialData?.is_active !== undefined ? initialData.is_active : true,
+    is_premium: initialData?.is_premium !== undefined ? initialData.is_premium : false,
     cover_image: null,
   });
   const [coverPreview, setCoverPreview] = useState<string | null>(
@@ -172,7 +173,7 @@ export default function BookFormComponent({ bookId, initialData }: BookFormCompo
             </select>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center gap-6">
             <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
@@ -183,6 +184,20 @@ export default function BookFormComponent({ bookId, initialData }: BookFormCompo
               />
               <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Active (visible to students)
+              </span>
+            </label>
+            
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                name="is_premium"
+                checked={formData.is_premium}
+                onChange={handleChange}
+                className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+              />
+              <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Premium Content 
+                <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">(requires subscription)</span>
               </span>
             </label>
           </div>

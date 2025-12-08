@@ -41,6 +41,7 @@ def get_books_manager(request):
     # Filters
     level = request.GET.get("level")
     is_active = request.GET.get("is_active")
+    is_premium = request.GET.get("is_premium")
     search = request.GET.get("search")
 
     if level:
@@ -48,6 +49,9 @@ def get_books_manager(request):
 
     if is_active is not None:
         books = books.filter(is_active=is_active.lower() == "true")
+
+    if is_premium is not None:
+        books = books.filter(is_premium=is_premium.lower() == "true")
 
     if search:
         books = books.filter(

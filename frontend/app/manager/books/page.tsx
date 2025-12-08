@@ -109,7 +109,7 @@ export default function BooksPage() {
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Search
@@ -155,6 +155,23 @@ export default function BooksPage() {
               <option value="">All</option>
               <option value="true">Active</option>
               <option value="false">Inactive</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Premium
+            </label>
+            <select
+              value={filters.is_premium === undefined ? '' : filters.is_premium.toString()}
+              onChange={(e) =>
+                handleFilterChange('is_premium', e.target.value === '' ? undefined : e.target.value === 'true')
+              }
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">All</option>
+              <option value="true">Premium Only</option>
+              <option value="false">Free Only</option>
             </select>
           </div>
 
@@ -223,12 +240,15 @@ export default function BooksPage() {
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                         {book.title}
                       </h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge text={book.level} color="blue" />
                         <Badge
                           text={book.is_active ? 'Active' : 'Inactive'}
                           color={book.is_active ? 'green' : 'gray'}
                         />
+                        {book.is_premium && (
+                          <Badge text="Premium" color="yellow" />
+                        )}
                       </div>
                     </div>
                   </div>

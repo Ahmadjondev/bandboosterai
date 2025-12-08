@@ -35,6 +35,10 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
     writing_chart_type = serializers.SerializerMethodField()
     writing_chart_type_display = serializers.SerializerMethodField()
     writing_prompt_preview = serializers.SerializerMethodField()
+    # Reading-specific fields
+    reading_passage_number = serializers.SerializerMethodField()
+    # Listening-specific fields
+    listening_part_number = serializers.SerializerMethodField()
     # Access control fields
     user_has_access = serializers.SerializerMethodField()
     requires_payment = serializers.SerializerMethodField()
@@ -65,10 +69,24 @@ class SectionPracticeListSerializer(serializers.ModelSerializer):
             "writing_chart_type",
             "writing_chart_type_display",
             "writing_prompt_preview",
+            # Reading-specific
+            "reading_passage_number",
+            # Listening-specific
+            "listening_part_number",
             # Access control
             "user_has_access",
             "requires_payment",
         ]
+
+    def get_reading_passage_number(self, obj):
+        if obj.section_type == "READING" and obj.reading_passage:
+            return obj.reading_passage.passage_number
+        return None
+
+    def get_listening_part_number(self, obj):
+        if obj.section_type == "LISTENING" and obj.listening_part:
+            return obj.listening_part.part_number
+        return None
 
     def get_attempts_count(self, obj):
         user = self.context.get("request")

@@ -234,6 +234,32 @@ export async function checkSpeakingAccess(): Promise<{ has_access: boolean; atte
 }
 
 /**
+ * Quick check for reading access
+ */
+export async function checkReadingAccess(): Promise<{ has_access: boolean; attempts_remaining: number }> {
+  const response = await apiClient.get<{ has_access: boolean; attempts_remaining: number }>(
+    `${PAYMENTS_BASE}/check/reading/`
+  );
+  if (!response.data) {
+    throw new Error('Failed to check reading access');
+  }
+  return response.data;
+}
+
+/**
+ * Quick check for listening access
+ */
+export async function checkListeningAccess(): Promise<{ has_access: boolean; attempts_remaining: number }> {
+  const response = await apiClient.get<{ has_access: boolean; attempts_remaining: number }>(
+    `${PAYMENTS_BASE}/check/listening/`
+  );
+  if (!response.data) {
+    throw new Error('Failed to check listening access');
+  }
+  return response.data;
+}
+
+/**
  * Redirect to Payme checkout
  */
 export function redirectToPayme(checkoutUrl: string): void {

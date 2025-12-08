@@ -12,11 +12,12 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
   compress: true,
-
+  compiler: {},
   // Experimental features for better performance
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
     scrollRestoration: true,
+    forceSwcTransforms: false
   },
 
   // Allow images from Django backend (development + production host)

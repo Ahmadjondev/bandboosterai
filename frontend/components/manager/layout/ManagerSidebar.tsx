@@ -20,6 +20,7 @@ import {
   Sparkles,
   Tag,
   Library,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/manager/utils';
 
@@ -95,6 +96,12 @@ const navigation: NavItem[] = [
     label: 'Promo Codes',
     href: '/manager/promo-codes',
     icon: Tag,
+  },
+  {
+    label: 'AI Config',
+    href: '/manager/ai-config',
+    icon: Brain,
+    badge: 'AI',
   },
   {
     label: 'Settings',

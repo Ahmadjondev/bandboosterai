@@ -63,6 +63,10 @@ export async function getSectionPracticesByType(
     // Writing-specific filters
     chart_type?: ChartType;
     task_type?: WritingTaskType;
+    // Reading-specific filters
+    passage_number?: string;
+    // Listening-specific filters
+    part_number?: string;
   }
 ): Promise<SectionPracticesByTypeResponse> {
   const searchParams = new URLSearchParams();
@@ -75,6 +79,10 @@ export async function getSectionPracticesByType(
   // Writing-specific filters
   if (options?.chart_type) searchParams.append('chart_type', options.chart_type);
   if (options?.task_type) searchParams.append('task_type', options.task_type);
+  // Reading-specific filters
+  if (options?.passage_number) searchParams.append('passage_number', options.passage_number);
+  // Listening-specific filters
+  if (options?.part_number) searchParams.append('part_number', options.part_number);
   
   const query = searchParams.toString();
   const url = `${API_BASE}/practice/sections/${sectionType.toLowerCase()}/${query ? `?${query}` : ''}`;
@@ -366,6 +374,92 @@ export function getSectionIcon(sectionType: SectionType): string {
     SPEAKING: '🎤',
   };
   return icons[sectionType] || '📝';
+}
+
+/**
+ * Check if user can access a specific practice section (premium check)
+ * @param practiceUuid - UUID of the section practice
+ */
+export interface PracticeAccessResponse {
+  has_access: boolean;
+  requires_payment: boolean;
+  attempts_remaining: number; // -1 for unlimited
+  is_free: boolean;
+  is_unlimited?: boolean;
+  reason: string;
+  practice_uuid: string;
+  practice_title: string;
+  section_type: SectionType;
+}
+
+export async function checkPracticeAccess(practiceUuid: string): Promise<PracticeAccessResponse> {
+  const response = await apiClient.get<PracticeAccessResponse>(
+    `${API_BASE}/practice/${practiceUuid}/check-access/`
+  );
+  if (!response.data) {
+    throw new Error('Failed to check practice access');
+  }
+  return response.data;
+}
+
+/**
+ * Get user's current attempt balances for all section types
+ */
+export interface UserAttemptBalances {
+  reading: { balance: number; is_unlimited: boolean };
+  listening: { balance: number; is_unlimited: boolean };
+  writing: { balance: number; is_unlimited: boolean };
+  speaking: { balance: number; is_unlimited: boolean };
+  has_subscription: boolean;
+  subscription_plan: string | null;
+}
+
+export async function getUserAttemptBalances(): Promise<UserAttemptBalances> {
+  const response = await apiClient.get<UserAttemptBalances>(
+    `${API_BASE}/practice/user/attempt-balance/`
+  );
+  if (!response.data) {
+    throw new Error('Failed to fetch user attempt balances');
+  }
+  return response.data;
+}
+
+/**
+ * Get user's attempt balance for a specific section type
+ */
+export interface SectionAttemptBalance {
+  section_type: SectionType;
+  balance: number; // Maps from attempts_remaining
+  is_unlimited: boolean;
+  has_subscription: boolean; // Maps from is_subscription
+  has_access: boolean;
+  reason: string;
+}
+
+export async function getSectionAttemptBalance(sectionType: SectionType): Promise<SectionAttemptBalance> {
+  const response = await apiClient.get<{
+    section_type: string;
+    attempts_remaining: number;
+    is_unlimited: boolean;
+    is_subscription: boolean;
+    has_access: boolean;
+    reason: string;
+  }>(
+    `${API_BASE}/practice/user/attempt-balance/${sectionType.toLowerCase()}/`
+  );
+  if (!response.data) {
+    throw new Error('Failed to fetch section attempt balance');
+  }
+  
+  // Map the backend response to frontend expected format
+  return {
+    section_type: response.data.section_type as SectionType,
+    balance: response.data.attempts_remaining,
+    is_unlimited: response.data.is_unlimited,
+    has_subscription: response.data.is_subscription,
+    has_access: response.data.has_access,
+    reason: response.data.reason,
+  };
 }
 
 /**

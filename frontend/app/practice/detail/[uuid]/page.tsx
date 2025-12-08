@@ -17,13 +17,30 @@ import {
   AlertCircle,
   ArrowRight,
   RefreshCw,
+  Lock,
+  Zap,
+  Crown,
 } from 'lucide-react';
 import {
   getSectionPracticeDetail,
   getDifficultyColor,
   formatTime,
+  checkPracticeAccess,
+  type PracticeAccessResponse,
 } from '@/lib/api/section-practice';
 import type { SectionPracticeDetail, SectionPracticeAttempt } from '@/types/section-practice';
+
+// Helper types for content
+interface ReadingPassageInfo {
+  passage_number: number;
+  title?: string;
+  word_count?: number;
+}
+
+interface ListeningPartInfo {
+  part_number: number;
+  title?: string;
+}
 
 const sectionIcons = {
   LISTENING: Headphones,
@@ -67,6 +84,10 @@ export default function PracticeDetailPage() {
   const [practice, setPractice] = useState<SectionPracticeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Access state
+  const [accessInfo, setAccessInfo] = useState<PracticeAccessResponse | null>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
 
   useEffect(() => {
     loadPractice();
@@ -78,6 +99,30 @@ export default function PracticeDetailPage() {
       setError(null);
       const data = await getSectionPracticeDetail(practiceUuid);
       setPractice(data);
+      
+      // Check access for premium content
+      if (!data.is_free) {
+        setAccessLoading(true);
+        try {
+          const access = await checkPracticeAccess(practiceUuid);
+          setAccessInfo(access);
+        } catch (accessErr) {
+          console.error('Failed to check access:', accessErr);
+          // Default to no access if check fails
+          setAccessInfo({
+            has_access: false,
+            requires_payment: true,
+            attempts_remaining: 0,
+            is_free: false,
+            reason: 'Failed to check access',
+            practice_uuid: practiceUuid,
+            practice_title: data.title,
+            section_type: data.section_type,
+          });
+        } finally {
+          setAccessLoading(false);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load practice');
     } finally {
@@ -265,6 +310,22 @@ export default function PracticeDetailPage() {
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Speaking</p>
                   </>
+                ) : practice.section_type === 'READING' && (practice.content as ReadingPassageInfo)?.passage_number ? (
+                  <>
+                    <BookOpen className="w-6 h-6 mx-auto mb-2 text-green-500" />
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                      Passage {(practice.content as ReadingPassageInfo).passage_number}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Reading</p>
+                  </>
+                ) : practice.section_type === 'LISTENING' && (practice.content as ListeningPartInfo)?.part_number ? (
+                  <>
+                    <Headphones className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                      Part {(practice.content as ListeningPartInfo).part_number}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Listening</p>
+                  </>
                 ) : (
                   <>
                     <Clock className="w-6 h-6 mx-auto mb-2 text-gray-400" />
@@ -276,11 +337,11 @@ export default function PracticeDetailPage() {
                 )}
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 text-center">
-                <Target className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                <Clock className="w-6 h-6 mx-auto mb-2 text-gray-400" />
                 <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {practice.total_questions}
+                  {practice.duration}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Questions</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Minutes</p>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 text-center">
                 <Trophy className="w-6 h-6 mx-auto mb-2 text-amber-500" />
@@ -290,6 +351,48 @@ export default function PracticeDetailPage() {
                 <p className="text-sm text-gray-600 dark:text-gray-400">Best Score</p>
               </div>
             </div>
+
+            {/* Reading-specific info */}
+            {practice.section_type === 'READING' && (practice.content as ReadingPassageInfo) && (
+              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-1 bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-300 text-xs font-bold rounded-full">
+                    Passage {(practice.content as ReadingPassageInfo).passage_number}
+                  </span>
+                  {(practice.content as ReadingPassageInfo).title && (
+                    <span className="text-sm text-green-700 dark:text-green-300 font-medium">
+                      {(practice.content as ReadingPassageInfo).title}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  {(practice.content as ReadingPassageInfo).word_count && (
+                    <span>~{(practice.content as ReadingPassageInfo).word_count} words</span>
+                  )}
+                  <span>• Timed practice</span>
+                </div>
+              </div>
+            )}
+
+            {/* Listening-specific info */}
+            {practice.section_type === 'LISTENING' && (practice.content as ListeningPartInfo) && (
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-1 bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-full">
+                    Part {(practice.content as ListeningPartInfo).part_number}
+                  </span>
+                  {(practice.content as ListeningPartInfo).title && (
+                    <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                      {(practice.content as ListeningPartInfo).title}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Audio included</span>
+                  <span>• One-time playback</span>
+                </div>
+              </div>
+            )}
 
             {/* Speaking-specific info */}
             {practice.section_type === 'SPEAKING' && speakingContent && (
@@ -347,14 +450,98 @@ export default function PracticeDetailPage() {
               </button>
             )}
 
-            {/* Start Button */}
-            <button
-              onClick={handleStart}
-              className={`w-full py-4 ${colors.button} text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors`}
-            >
-              <Play className="w-5 h-5" />
-              {hasAttempts ? 'Start New Attempt' : 'Start Practice'}
-            </button>
+            {/* Premium Access Info Card */}
+            {!practice.is_free && accessInfo && (
+              <div className={`mb-4 p-4 rounded-xl border ${
+                accessInfo.has_access 
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+              }`}>
+                <div className="flex items-center gap-3">
+                  {accessInfo.has_access ? (
+                    <>
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
+                        {accessInfo.is_unlimited ? (
+                          <Crown className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        ) : (
+                          <Zap className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-green-700 dark:text-green-300">
+                          {accessInfo.is_unlimited 
+                            ? 'Unlimited Access' 
+                            : `${accessInfo.attempts_remaining} attempt${accessInfo.attempts_remaining !== 1 ? 's' : ''} remaining`
+                          }
+                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          {accessInfo.reason}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center">
+                        <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-amber-700 dark:text-amber-300">
+                          Premium Content
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          {accessInfo.reason}
+                        </p>
+                      </div>
+                      <Link
+                        href="/pricing"
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Get Access
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Loading access check */}
+            {!practice.is_free && accessLoading && (
+              <div className="mb-4 p-4 rounded-xl border bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-400 border-t-transparent"></div>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Checking access...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Start Button - conditionally rendered based on access */}
+            {practice.is_free || (accessInfo?.has_access && !accessLoading) ? (
+              <button
+                onClick={handleStart}
+                className={`w-full py-4 ${colors.button} text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors`}
+              >
+                <Play className="w-5 h-5" />
+                {hasAttempts ? 'Start New Attempt' : 'Start Practice'}
+              </button>
+            ) : !accessLoading && accessInfo && !accessInfo.has_access ? (
+              <button
+                disabled
+                className="w-full py-4 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <Lock className="w-5 h-5" />
+                Unlock to Practice
+              </button>
+            ) : (
+              <button
+                disabled
+                className="w-full py-4 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-semibold rounded-xl flex items-center justify-center gap-2"
+              >
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-400 border-t-transparent"></div>
+                Loading...
+              </button>
+            )}
           </div>
         </div>
 

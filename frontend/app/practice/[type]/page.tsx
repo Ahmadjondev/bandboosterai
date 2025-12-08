@@ -22,10 +22,13 @@ import {
   List,
   Crown,
   Sparkles,
+  Zap,
 } from 'lucide-react';
 import {
   getSectionPracticesByType,
   getDifficultyColor,
+  getSectionAttemptBalance,
+  type SectionAttemptBalance,
 } from '@/lib/api/section-practice';
 import type {
   SectionPractice,
@@ -102,9 +105,20 @@ export default function SectionTypePage() {
   const [filterTaskType, setFilterTaskType] = useState<WritingTaskType | ''>('');
   const [filterChartType, setFilterChartType] = useState<ChartType | ''>('');
 
+  // Reading-specific filters
+  const [filterPassageNumber, setFilterPassageNumber] = useState<string>('');
+
+  // Listening-specific filters
+  const [filterPartNumber, setFilterPartNumber] = useState<string>('');
+
+  // User's attempt balance for this section
+  const [attemptBalance, setAttemptBalance] = useState<SectionAttemptBalance | null>(null);
+
   const validSections = ['listening', 'reading', 'writing', 'speaking'];
   const isValidSection = validSections.includes(sectionType);
   const isWritingSection = sectionType === 'writing';
+  const isReadingSection = sectionType === 'reading';
+  const isListeningSection = sectionType === 'listening';
 
   // Load view mode from localStorage on mount
   useEffect(() => {
@@ -136,7 +150,7 @@ export default function SectionTypePage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterDifficulty, filterStatus, filterPremium, filterTaskType, filterChartType]);
+  }, [filterDifficulty, filterStatus, filterPremium, filterTaskType, filterChartType, filterPassageNumber, filterPartNumber]);
 
   // Reset writing filters when section changes
   useEffect(() => {
@@ -145,6 +159,20 @@ export default function SectionTypePage() {
       setFilterChartType('');
     }
   }, [sectionType, isWritingSection]);
+
+  // Reset reading filters when section changes
+  useEffect(() => {
+    if (!isReadingSection) {
+      setFilterPassageNumber('');
+    }
+  }, [sectionType, isReadingSection]);
+
+  // Reset listening filters when section changes
+  useEffect(() => {
+    if (!isListeningSection) {
+      setFilterPartNumber('');
+    }
+  }, [sectionType, isListeningSection]);
 
   const loadData = useCallback(async () => {
     if (!isValidSection) return;
@@ -164,6 +192,10 @@ export default function SectionTypePage() {
           // Writing-specific filters
           task_type: filterTaskType || undefined,
           chart_type: filterChartType || undefined,
+          // Reading-specific filters
+          passage_number: filterPassageNumber || undefined,
+          // Listening-specific filters
+          part_number: filterPartNumber || undefined,
         }
       );
       setData(response);
@@ -172,11 +204,24 @@ export default function SectionTypePage() {
     } finally {
       setLoading(false);
     }
-  }, [sectionType, isValidSection, filterDifficulty, filterStatus, filterPremium, filterTaskType, filterChartType, debouncedSearch, currentPage]);
+  }, [sectionType, isValidSection, filterDifficulty, filterStatus, filterPremium, filterTaskType, filterChartType, filterPassageNumber, filterPartNumber, debouncedSearch, currentPage]);
+
+  // Load attempt balance for this section type
+  const loadAttemptBalance = useCallback(async () => {
+    if (!isValidSection) return;
+    
+    try {
+      const balance = await getSectionAttemptBalance(sectionType.toUpperCase() as SectionType);
+      setAttemptBalance(balance);
+    } catch (err) {
+      console.error('Failed to load attempt balance:', err);
+    }
+  }, [sectionType, isValidSection]);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadAttemptBalance();
+  }, [loadData, loadAttemptBalance]);
 
   if (!isValidSection) {
     return (
@@ -270,28 +315,72 @@ export default function SectionTypePage() {
               </h1>
               <p className="text-gray-600 dark:text-gray-400">{description}</p>
             </div>
-            {data?.stats && (
-              <div className="flex flex-wrap gap-4">
-                <div className="text-center px-4">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {data.stats.total_attempts}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Attempts</p>
+            <div className="flex flex-wrap gap-4 items-center">
+              {/* Attempt Balance Display */}
+              {attemptBalance && (
+                <div className={`px-4 py-3 rounded-xl ${
+                  attemptBalance.is_unlimited 
+                    ? 'bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 border border-amber-200 dark:border-amber-800'
+                    : attemptBalance.balance > 0 
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {attemptBalance.is_unlimited ? (
+                      <>
+                        <Crown className="w-5 h-5 text-amber-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Unlimited</p>
+                          <p className="text-xs text-amber-600 dark:text-amber-400">Premium Access</p>
+                        </div>
+                      </>
+                    ) : attemptBalance.balance > 0 ? (
+                      <>
+                        <Zap className="w-5 h-5 text-green-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-green-700 dark:text-green-300">
+                            {attemptBalance.balance} attempt{attemptBalance.balance !== 1 ? 's' : ''}
+                          </p>
+                          <p className="text-xs text-green-600 dark:text-green-400">Available</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5 text-red-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-red-700 dark:text-red-300">No attempts</p>
+                          <Link href="/pricing" className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                            Get more →
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="text-center px-4 border-l border-gray-200 dark:border-gray-700">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {data.stats.average_score != null ? Number(data.stats.average_score).toFixed(1) : '-'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Avg Score</p>
-                </div>
-                <div className="text-center px-4 border-l border-gray-200 dark:border-gray-700">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {data.stats.best_score != null ? Number(data.stats.best_score).toFixed(1) : '-'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Best Score</p>
-                </div>
-              </div>
-            )}
+              )}
+              {data?.stats && (
+                <>
+                  <div className="text-center px-4">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {data.stats.total_attempts}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Attempts</p>
+                  </div>
+                  <div className="text-center px-4 border-l border-gray-200 dark:border-gray-700">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {data.stats.average_score != null ? Number(data.stats.average_score).toFixed(1) : '-'}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Avg Score</p>
+                  </div>
+                  <div className="text-center px-4 border-l border-gray-200 dark:border-gray-700">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {data.stats.best_score != null ? Number(data.stats.best_score).toFixed(1) : '-'}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Best Score</p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -473,10 +562,80 @@ export default function SectionTypePage() {
                 )}
               </div>
             )}
+
+            {/* Reading-specific filters */}
+            {isReadingSection && (
+              <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-slate-200 dark:border-slate-600">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-gray-500 shrink-0" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 shrink-0">Passage:</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setFilterPassageNumber('')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        filterPassageNumber === ''
+                          ? 'bg-green-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {[1, 2, 3].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setFilterPassageNumber(String(num))}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          filterPassageNumber === String(num)
+                            ? 'bg-green-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        Passage {num}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Listening-specific filters */}
+            {isListeningSection && (
+              <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-slate-200 dark:border-slate-600">
+                <div className="flex items-center gap-2">
+                  <Headphones className="w-4 h-4 text-gray-500 shrink-0" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 shrink-0">Part:</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setFilterPartNumber('')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        filterPartNumber === ''
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {[1, 2, 3, 4].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setFilterPartNumber(String(num))}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          filterPartNumber === String(num)
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        Part {num}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Active Filters Summary */}
-          {(searchQuery || filterDifficulty || filterStatus !== 'all' || filterPremium !== 'all' || filterTaskType || filterChartType) && (
+          {(searchQuery || filterDifficulty || filterStatus !== 'all' || filterPremium !== 'all' || filterTaskType || filterChartType || filterPassageNumber || filterPartNumber) && (
             <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2 flex-wrap">
               <span className="text-sm text-gray-500">Active filters:</span>
               {searchQuery && (
@@ -532,6 +691,22 @@ export default function SectionTypePage() {
                   </button>
                 </span>
               )}
+              {filterPassageNumber && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">
+                  Passage {filterPassageNumber}
+                  <button onClick={() => setFilterPassageNumber('')} className="hover:text-green-900">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filterPartNumber && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs">
+                  Part {filterPartNumber}
+                  <button onClick={() => setFilterPartNumber('')} className="hover:text-blue-900">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
               <button
                 onClick={() => {
                   setSearchQuery('');
@@ -540,6 +715,8 @@ export default function SectionTypePage() {
                   setFilterPremium('all');
                   setFilterTaskType('');
                   setFilterChartType('');
+                  setFilterPassageNumber('');
+                  setFilterPartNumber('');
                 }}
                 className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 underline"
               >
@@ -638,6 +815,18 @@ function PracticeCard({ practice, colors }: PracticeCardProps) {
     ? practice.writing_task_type === 'TASK_1' ? 'Task 1' : 'Task 2'
     : null;
 
+  // For reading practices, display passage number
+  const isReading = practice.section_type === 'READING';
+  const readingPassageLabel = isReading && practice.reading_passage_number
+    ? `Passage ${practice.reading_passage_number}`
+    : null;
+
+  // For listening practices, display part number
+  const isListening = practice.section_type === 'LISTENING';
+  const listeningPartLabel = isListening && practice.listening_part_number
+    ? `Part ${practice.listening_part_number}`
+    : null;
+
   return (
     <Link href={`/practice/detail/${practice.uuid}`}>
       <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
@@ -677,6 +866,34 @@ function PracticeCard({ practice, colors }: PracticeCardProps) {
                   </p>
                 )}
               </>
+            ) : isReading && readingPassageLabel ? (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                    {readingPassageLabel}
+                  </span>
+                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getDifficultyColor(practice.difficulty)}`}>
+                    {practice.difficulty_display}
+                  </span>
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2">
+                  {practice.title}
+                </h3>
+              </>
+            ) : isListening && listeningPartLabel ? (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                    {listeningPartLabel}
+                  </span>
+                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getDifficultyColor(practice.difficulty)}`}>
+                    {practice.difficulty_display}
+                  </span>
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2">
+                  {practice.title}
+                </h3>
+              </>
             ) : (
               <>
                 <h3 className="font-semibold text-gray-900 dark:text-white truncate mb-1">
@@ -708,14 +925,10 @@ function PracticeCard({ practice, colors }: PracticeCardProps) {
             <Clock className="w-4 h-4" />
             <span>{practice.duration}m</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Target className="w-4 h-4" />
-            <span>{practice.total_questions} Q</span>
-          </div>
           {hasAttempts && (
             <div className="flex items-center gap-1">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>{practice.attempts_count}x</span>
+              <span>{practice.attempts_count} attempt{practice.attempts_count !== 1 ? 's' : ''}</span>
             </div>
           )}
         </div>
@@ -758,6 +971,18 @@ function PracticeListItem({ practice, colors }: PracticeCardProps) {
     ? practice.writing_task_type === 'TASK_1' ? 'Task 1' : 'Task 2'
     : null;
 
+  // For reading practices, display passage number
+  const isReading = practice.section_type === 'READING';
+  const readingPassageLabel = isReading && practice.reading_passage_number
+    ? `Passage ${practice.reading_passage_number}`
+    : null;
+
+  // For listening practices, display part number
+  const isListening = practice.section_type === 'LISTENING';
+  const listeningPartLabel = isListening && practice.listening_part_number
+    ? `Part ${practice.listening_part_number}`
+    : null;
+
   return (
     <Link href={`/practice/detail/${practice.uuid}`}>
       <div className="bg-white dark:bg-slate-800 rounded-xl px-5 py-4 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600">
@@ -786,6 +1011,16 @@ function PracticeListItem({ practice, colors }: PracticeCardProps) {
                   {writingTaskLabel}
                 </span>
               )}
+              {isReading && readingPassageLabel && (
+                <span className="shrink-0 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold rounded-full">
+                  {readingPassageLabel}
+                </span>
+              )}
+              {isListening && listeningPartLabel && (
+                <span className="shrink-0 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold rounded-full">
+                  {listeningPartLabel}
+                </span>
+              )}
               <h3 className="font-semibold text-gray-900 dark:text-white truncate">
                 {isSpeaking && practice.speaking_topic_name ? practice.speaking_topic_name : practice.title}
               </h3>
@@ -808,10 +1043,6 @@ function PracticeListItem({ practice, colors }: PracticeCardProps) {
               <div className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
                 <span>{practice.duration}m</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Target className="w-3.5 h-3.5" />
-                <span>{practice.total_questions} Q</span>
               </div>
               {hasAttempts && (
                 <div className="flex items-center gap-1">
