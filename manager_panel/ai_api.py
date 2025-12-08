@@ -76,15 +76,17 @@ def generate_content_from_pdf(request):
     content_type = request.data.get("content_type", "auto")
 
     # Validate file type
-    if not pdf_file.name.endswith(".pdf"):
+    if not (pdf_file.name.endswith(".pdf") or not pdf_file.name.endswith(".html")):
         return Response(
-            {"error": "Only PDF files are supported"},
+            {"error": "Only PDF and HTML files are supported"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     # Read PDF bytes
     pdf_bytes = pdf_file.read()
-    pdf_mime_type = pdf_file.content_type or "application/pdf"
+    pdf_mime_type = pdf_file.content_type or (
+        "application/pdf" if pdf_file.name.endswith(".pdf") else "text/html"
+    )
 
     try:
         # Auto-detect content type if requested
@@ -692,15 +694,17 @@ def generate_full_test_from_pdf(request):
     pdf_file = request.FILES["pdf_file"]
 
     # Validate file type
-    if not pdf_file.name.endswith(".pdf"):
+    if not (pdf_file.name.endswith(".pdf") or pdf_file.name.endswith(".html")):
         return Response(
-            {"error": "Only PDF files are supported"},
+            {"error": "Only PDF and HTML files are supported"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     # Read PDF bytes
     pdf_bytes = pdf_file.read()
-    pdf_mime_type = pdf_file.content_type or "application/pdf"
+    pdf_mime_type = pdf_file.content_type or (
+        "application/pdf" if pdf_file.name.endswith(".pdf") else "text/html"
+    )
 
     try:
         result = generate_cambridge_full_test_from_pdf(pdf_bytes, pdf_mime_type)

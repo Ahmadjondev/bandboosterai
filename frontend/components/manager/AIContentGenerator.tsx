@@ -801,8 +801,8 @@ const AIContentGenerator: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.includes('pdf')) {
-      showNotification('Please select a PDF file', 'error');
+    if (!file.type.includes('pdf') && !file.type.includes('html')) {
+      showNotification('Please select a PDF/Html file', 'error');
       return;
     }
 
@@ -1763,7 +1763,7 @@ const AIContentGenerator: React.FC = () => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.html"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
