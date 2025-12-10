@@ -349,7 +349,7 @@ export default function SectionTypePage() {
                         <Zap className="w-5 h-5 text-red-500" />
                         <div>
                           <p className="text-sm font-semibold text-red-700 dark:text-red-300">No attempts</p>
-                          <Link href="/pricing" className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                          <Link href="/dashboard/pricing" className="text-xs text-red-600 dark:text-red-400 hover:underline">
                             Get more →
                           </Link>
                         </div>

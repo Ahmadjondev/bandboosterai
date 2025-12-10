@@ -32,7 +32,7 @@ interface QuestionListProps {
   onDuplicateQuestion: (index: number) => void;
   onMoveQuestionUp: (index: number) => void;
   onMoveQuestionDown: (index: number) => void;
-  onReorderQuestion: (event: React.ChangeEvent<HTMLInputElement>, index: number) => void;
+  onReorderQuestion: (index: number, newOrder: number) => void;
   onTogglePreview: () => void;
   onClearAll: () => void;
   onOpenBuilder?: () => void;
@@ -231,7 +231,7 @@ export function QuestionList({
                         type="number"
                         value={question.order}
                         min={1}
-                        onChange={(e) => onReorderQuestion(e, index)}
+                        onChange={(e) => onReorderQuestion(index, parseInt(e.target.value) || 1)}
                         onWheel={(e) => e.preventDefault()}
                         inputMode="numeric"
                         className="w-12 px-2 py-1 text-xs font-bold text-center bg-orange-50 text-orange-700 border border-orange-200 rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"

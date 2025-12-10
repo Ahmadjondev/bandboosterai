@@ -260,11 +260,6 @@ if USE_S3_STORAGE:
 else:
     print(f"[STORAGE CONFIG] Using local file storage: {MEDIA_ROOT}")
 
-# Login URLs
-# LOGIN_URL = "/login/"
-# LOGIN_REDIRECT_URL = "/"
-# LOGOUT_REDIRECT_URL = "/login/"
-
 LOGIN_URL = None
 
 # ============================================================================

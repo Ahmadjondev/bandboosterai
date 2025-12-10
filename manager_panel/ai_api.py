@@ -727,9 +727,28 @@ def generate_full_test_from_pdf(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    except Exception as e:
+    except ValueError as e:
+        # Configuration error (missing API key, etc.)
         return Response(
-            {"error": f"Error processing PDF: {str(e)}"},
+            {
+                "error": "AI Configuration Error",
+                "message": str(e),
+                "details": "Please check your AI configuration in the manager panel or ensure GEMINI_API_KEY is set in environment variables.",
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    except Exception as e:
+        import traceback
+
+        error_traceback = traceback.format_exc()
+        print(f"AI Generate Full Test Error: {error_traceback}")
+
+        return Response(
+            {
+                "error": f"Error processing PDF: {str(e)}",
+                "error_type": type(e).__name__,
+                "details": "Check server logs for more information. Common issues: 1) Missing GEMINI_API_KEY, 2) Network connectivity to Google API, 3) Invalid PDF format.",
+            },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 

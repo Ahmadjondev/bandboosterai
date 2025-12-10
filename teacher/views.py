@@ -837,6 +837,29 @@ class TeacherExamViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Check if exam has started (start_date validation)
+        now = timezone.now()
+        if exam.start_date and now < exam.start_date:
+            return Response(
+                {
+                    "error": "This exam has not started yet",
+                    "start_date": exam.start_date.isoformat(),
+                    "message": f"Exam starts on {exam.start_date.strftime('%B %d, %Y at %H:%M')}",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if exam has ended (end_date validation)
+        if exam.end_date and now > exam.end_date:
+            return Response(
+                {
+                    "error": "This exam has ended",
+                    "end_date": exam.end_date.isoformat(),
+                    "message": f"Exam ended on {exam.end_date.strftime('%B %d, %Y at %H:%M')}",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Check if student has access
         if not exam.is_public and request.user not in exam.assigned_students.all():
             return Response(

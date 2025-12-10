@@ -69,7 +69,7 @@ export function TFNGBuilder({
       setPreviewQuestions(
         existingQuestions.map((q, idx) => ({
           ...q,
-          tempId: `existing-${idx}`,
+          tempId: q.id ? `existing-${q.id}` : `existing-${idx}`,
         }))
       );
       setShowPreview(true);
@@ -89,6 +89,11 @@ export function TFNGBuilder({
       return;
     }
 
+    // Append new questions to existing ones
+    const startOrder = previewQuestions.length > 0 
+      ? Math.max(...previewQuestions.map(q => q.order || 0)) + 1 
+      : 1;
+    
     const newQuestions: PreviewQuestion[] = lines.map((line, index) => ({
       id: null,
       tempId: `question-${Date.now()}-${index}`,
@@ -96,12 +101,12 @@ export function TFNGBuilder({
       correct_answer_text: '',
       answer_two_text: '',
       choices: [],
-      order: index + 1,
+      order: startOrder + index,
       explanation: '',
       points: 1,
     }));
 
-    setPreviewQuestions(newQuestions);
+    setPreviewQuestions(prev => [...prev, ...newQuestions]);
     setShowPreview(true);
     setBulkText('');
   };
@@ -168,7 +173,11 @@ export function TFNGBuilder({
       return;
     }
 
-    const questionsToSave = previewQuestions.map(({ tempId, ...rest }) => rest);
+    // Preserve original IDs when saving, only remove tempId
+    const questionsToSave = previewQuestions.map(({ tempId, ...rest }, idx) => ({
+      ...rest,
+      order: idx + 1, // Ensure proper ordering
+    }));
     onQuestionsReady(questionsToSave);
   };
 
@@ -474,7 +483,9 @@ export function TFNGBuilder({
               className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Check className="w-4 h-4" />
-              Add {previewQuestions.length} Question(s)
+              {existingQuestions && existingQuestions.length > 0 
+                ? `Save ${previewQuestions.length} Question(s)` 
+                : `Add ${previewQuestions.length} Question(s)`}
             </button>
           </div>
         </div>

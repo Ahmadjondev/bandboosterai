@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -17,6 +17,7 @@ import {
   Star,
   Target,
   AlertCircle,
+  Timer,
 } from 'lucide-react';
 import { studentTeacherExamApi } from '@/lib/student-teacher-api';
 import type { TeacherExam, TeacherExamAttempt } from '@/types/teacher';
@@ -30,6 +31,77 @@ export default function StudentExamDetailPage() {
   const [attempt, setAttempt] = useState<TeacherExamAttempt | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [countdown, setCountdown] = useState<string | null>(null);
+
+  // Check if exam can be started based on start_date
+  const examStatus = useMemo(() => {
+    if (!exam) return { canStart: false, message: '' };
+    
+    const now = new Date();
+    
+    if (exam.start_date) {
+      const startDate = new Date(exam.start_date);
+      if (now < startDate) {
+        return {
+          canStart: false,
+          isNotStarted: true,
+          startDate,
+          message: `Exam starts on ${startDate.toLocaleDateString()} at ${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        };
+      }
+    }
+    
+    if (exam.end_date) {
+      const endDate = new Date(exam.end_date);
+      if (now > endDate) {
+        return {
+          canStart: false,
+          isEnded: true,
+          endDate,
+          message: `Exam ended on ${endDate.toLocaleDateString()}`
+        };
+      }
+    }
+    
+    return { canStart: true, message: '' };
+  }, [exam]);
+
+  // Countdown timer for exams that haven't started yet
+  useEffect(() => {
+    if (!examStatus.isNotStarted || !examStatus.startDate) {
+      setCountdown(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = examStatus.startDate!.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setCountdown(null);
+        // Refresh exam data when countdown reaches zero
+        loadExamData();
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        setCountdown(`${days}d ${hours}h ${minutes}m`);
+      } else if (hours > 0) {
+        setCountdown(`${hours}h ${minutes}m ${seconds}s`);
+      } else {
+        setCountdown(`${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [examStatus.isNotStarted, examStatus.startDate]);
 
   useEffect(() => {
     loadExamData();
@@ -52,6 +124,12 @@ export default function StudentExamDetailPage() {
   };
 
   const handleStartExam = async () => {
+    // Double-check start time before allowing
+    if (!examStatus.canStart) {
+      alert(examStatus.message);
+      return;
+    }
+
     if (!confirm('Are you ready to start this exam? Make sure you have enough time to complete it.')) return;
 
     try {
@@ -291,14 +369,62 @@ export default function StudentExamDetailPage() {
             </h2>
 
             {!hasAttempt ? (
-              <button
-                onClick={handleStartExam}
-                disabled={starting}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-linear-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
-              >
-                <Play className="h-5 w-5" />
-                {starting ? 'Starting...' : 'Start Exam'}
-              </button>
+              <>
+                {/* Show countdown or start button */}
+                {examStatus.isNotStarted ? (
+                  <div className="text-center py-4">
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl mb-4">
+                      <Timer className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">
+                        Exam hasn&apos;t started yet
+                      </p>
+                      {countdown && (
+                        <div className="text-2xl font-bold text-amber-600 dark:text-amber-300 font-mono">
+                          {countdown}
+                        </div>
+                      )}
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                        {examStatus.message}
+                      </p>
+                    </div>
+                    <button
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl cursor-not-allowed font-semibold"
+                    >
+                      <Lock className="h-5 w-5" />
+                      Wait for Start Time
+                    </button>
+                  </div>
+                ) : examStatus.isEnded ? (
+                  <div className="text-center py-4">
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl mb-4">
+                      <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-3" />
+                      <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
+                        Exam has ended
+                      </p>
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        {examStatus.message}
+                      </p>
+                    </div>
+                    <button
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl cursor-not-allowed font-semibold"
+                    >
+                      <Lock className="h-5 w-5" />
+                      Exam Closed
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleStartExam}
+                    disabled={starting}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-linear-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
+                  >
+                    <Play className="h-5 w-5" />
+                    {starting ? 'Starting...' : 'Start Exam'}
+                  </button>
+                )}
+              </>
             ) : attempt?.status === 'IN_PROGRESS' && attempt?.uuid ? (
               <Link
                 href={`/exam/${attempt.uuid}`}

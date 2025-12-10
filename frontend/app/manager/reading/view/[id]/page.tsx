@@ -4,27 +4,28 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getReadingPassage } from '@/lib/api/reading';
+import { use, useEffect, useState } from 'react';
+import { managerAPI } from '@/lib/manager';
 import { TestHeads } from '@/components/manager/reading/TestHeads';
 import { LoadingSpinner } from '@/components/manager/shared';
 
 interface ViewPassagePageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function ViewPassagePage({ params }: ViewPassagePageProps) {
+  const resolvedParams = use(params);
   const [passageTitle, setPassageTitle] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const passageId = parseInt(params.id);
+  const passageId = parseInt(resolvedParams.id);
 
   useEffect(() => {
     const fetchPassage = async () => {
       try {
-        const response = await getReadingPassage(passageId);
-        setPassageTitle(response.passage.title);
+        const response = await managerAPI.getReadingPassage(passageId);
+        setPassageTitle(response.title || '');
       } catch (error) {
         console.error('Error fetching passage:', error);
       } finally {

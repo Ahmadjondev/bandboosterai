@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   BookOpen, 
@@ -21,7 +21,8 @@ import {
   Headphones,
   BookOpenCheck,
   PenTool,
-  Mic
+  Mic,
+  Timer
 } from 'lucide-react';
 import { studentTeacherExamApi } from '@/lib/student-teacher-api';
 import type { TeacherExam } from '@/types/teacher';
@@ -98,7 +99,7 @@ export default function StudentTeacherExamsPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header with gradient */}
-      <div className="relative mb-8 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 text-white overflow-hidden">
+      <div className="relative mb-8 bg-linear-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 text-white overflow-hidden">
         <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-10"></div>
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
@@ -218,7 +219,7 @@ export default function StudentTeacherExamsPage() {
             {!searchQuery && (
               <button
                 onClick={() => setShowJoinModal(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
               >
                 <KeyRound className="h-5 w-5" />
                 Join with Access Code
@@ -233,7 +234,7 @@ export default function StudentTeacherExamsPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl">
+              <div className="p-3 bg-linear-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl">
                 <KeyRound className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
@@ -267,7 +268,7 @@ export default function StudentTeacherExamsPage() {
               <button
                 onClick={handleJoinWithCode}
                 disabled={joining || !accessCode.trim()}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all font-medium"
+                className="flex-1 px-4 py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all font-medium"
               >
                 {joining ? (
                   <span className="flex items-center justify-center gap-2">
@@ -298,8 +299,48 @@ function ExamCard({ exam }: ExamCardProps) {
   const isInProgress = attempt?.status === 'IN_PROGRESS';
   const hasResults = isGraded && exam.results_visible && attempt?.overall_band;
 
+  // Check exam availability based on dates
+  const examAvailability = useMemo(() => {
+    const now = new Date();
+    
+    if (exam.start_date) {
+      const startDate = new Date(exam.start_date);
+      if (now < startDate) {
+        return {
+          canStart: false,
+          isNotStarted: true,
+          startDate,
+          label: 'Not Yet Open',
+          message: `Opens ${startDate.toLocaleDateString()} at ${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        };
+      }
+    }
+    
+    if (exam.end_date) {
+      const endDate = new Date(exam.end_date);
+      if (now > endDate) {
+        return {
+          canStart: false,
+          isEnded: true,
+          endDate,
+          label: 'Closed',
+          message: `Ended ${endDate.toLocaleDateString()}`
+        };
+      }
+    }
+    
+    return { canStart: true, label: '', message: '' };
+  }, [exam.start_date, exam.end_date]);
+
   // Get status badge info
   const getStatusInfo = () => {
+    // Show availability status for exams without attempts
+    if (!hasAttempt && examAvailability.isNotStarted) {
+      return { label: examAvailability.label, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Timer };
+    }
+    if (!hasAttempt && examAvailability.isEnded) {
+      return { label: 'Closed', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: Lock };
+    }
     if (!hasAttempt) {
       return { label: 'Not Started', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300', icon: BookOpen };
     }
@@ -323,6 +364,8 @@ function ExamCard({ exam }: ExamCardProps) {
     if (hasResults) return 'from-emerald-500 via-green-500 to-teal-500';
     if (isInProgress) return 'from-amber-500 via-orange-500 to-yellow-500';
     if (isCompleted) return 'from-blue-500 via-indigo-500 to-purple-500';
+    if (examAvailability.isNotStarted) return 'from-gray-400 via-gray-500 to-gray-600';
+    if (examAvailability.isEnded) return 'from-red-400 via-red-500 to-red-600';
     return 'from-blue-500 via-purple-500 to-pink-500';
   };
 
@@ -330,7 +373,7 @@ function ExamCard({ exam }: ExamCardProps) {
     <Link href={`/dashboard/teacher-exams/${exam.id}`}>
       <div className="group relative bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-2xl hover:border-transparent hover:-translate-y-1 transition-all duration-300">
         {/* Gradient Header */}
-        <div className={`relative h-28 bg-gradient-to-r ${getGradient()} p-5`}>
+        <div className={`relative h-28 bg-linear-to-r ${getGradient()} p-5`}>
           <div className="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors"></div>
           
           {/* Status Badge */}
@@ -365,7 +408,7 @@ function ExamCard({ exam }: ExamCardProps) {
         <div className="p-5">
           {/* Results Banner - Show if graded with visible results */}
           {hasResults && (
-            <div className="mb-4 -mx-5 -mt-5 px-5 py-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-b border-emerald-100 dark:border-emerald-800/30">
+            <div className="mb-4 -mx-5 -mt-5 px-5 py-4 bg-linear-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-b border-emerald-100 dark:border-emerald-800/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg">
@@ -412,7 +455,7 @@ function ExamCard({ exam }: ExamCardProps) {
 
           {/* In Progress Banner */}
           {isInProgress && (
-            <div className="mb-4 -mx-5 -mt-5 px-5 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-amber-100 dark:border-amber-800/30">
+            <div className="mb-4 -mx-5 -mt-5 px-5 py-3 bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-amber-100 dark:border-amber-800/30">
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <div className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-amber-400 opacity-75"></div>
@@ -425,10 +468,30 @@ function ExamCard({ exam }: ExamCardProps) {
 
           {/* Awaiting Grade Banner */}
           {isCompleted && !isGraded && (
-            <div className="mb-4 -mx-5 -mt-5 px-5 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-100 dark:border-blue-800/30">
+            <div className="mb-4 -mx-5 -mt-5 px-5 py-3 bg-linear-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-100 dark:border-blue-800/30">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-blue-500" />
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Submitted • Awaiting teacher review</span>
+              </div>
+            </div>
+          )}
+
+          {/* Not Yet Open Banner */}
+          {!hasAttempt && examAvailability.isNotStarted && (
+            <div className="mb-4 -mx-5 -mt-5 px-5 py-3 bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-amber-100 dark:border-amber-800/30">
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">{examAvailability.message}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Exam Ended Banner */}
+          {!hasAttempt && examAvailability.isEnded && (
+            <div className="mb-4 -mx-5 -mt-5 px-5 py-3 bg-linear-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-b border-red-100 dark:border-red-800/30">
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-red-500" />
+                <span className="text-sm font-medium text-red-700 dark:text-red-300">{examAvailability.message}</span>
               </div>
             </div>
           )}
@@ -475,15 +538,33 @@ function ExamCard({ exam }: ExamCardProps) {
                 ? 'text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700' 
                 : isInProgress
                   ? 'text-amber-600 dark:text-amber-400 group-hover:text-amber-700'
-                  : 'text-blue-600 dark:text-blue-400 group-hover:text-blue-700'
+                  : examAvailability.isNotStarted
+                    ? 'text-gray-500 dark:text-gray-400'
+                    : examAvailability.isEnded
+                      ? 'text-red-500 dark:text-red-400'
+                      : 'text-blue-600 dark:text-blue-400 group-hover:text-blue-700'
             }`}>
               <span>
-                {hasResults ? 'View Results' : isInProgress ? 'Continue Exam' : isCompleted ? 'View Details' : 'Start Exam'}
+                {hasResults 
+                  ? 'View Results' 
+                  : isInProgress 
+                    ? 'Continue Exam' 
+                    : isCompleted 
+                      ? 'View Details' 
+                      : examAvailability.isNotStarted
+                        ? 'View Details'
+                        : examAvailability.isEnded
+                          ? 'Exam Closed'
+                          : 'Start Exam'}
               </span>
               {hasResults ? (
                 <TrendingUp className="h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
               ) : isInProgress ? (
                 <Play className="h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
+              ) : examAvailability.isNotStarted ? (
+                <Timer className="h-5 w-5" />
+              ) : examAvailability.isEnded ? (
+                <Lock className="h-5 w-5" />
               ) : (
                 <Eye className="h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
               )}
@@ -492,7 +573,7 @@ function ExamCard({ exam }: ExamCardProps) {
         </div>
 
         {/* Decorative corner gradient */}
-        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-white/10 to-transparent pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-20 h-20 bg-linear-to-bl from-white/10 to-transparent pointer-events-none"></div>
       </div>
     </Link>
   );

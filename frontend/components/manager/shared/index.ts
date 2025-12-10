@@ -14,3 +14,4 @@ export { ThemeToggle } from './ThemeToggle';
 export { AdvancedFilter, type FilterConfig, type FilterOption, type FilterValues } from './AdvancedFilter';
 export { StatsCard, type StatsCardProps } from './StatsCard';
 export { SelectContentDialog } from './SelectContentDialog';
+export { ErrorLogViewer } from './ErrorLogViewer';

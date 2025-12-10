@@ -21,6 +21,7 @@ import {
   Tag,
   Library,
   Brain,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/manager/utils';
 
@@ -102,6 +103,11 @@ const navigation: NavItem[] = [
     href: '/manager/ai-config',
     icon: Brain,
     badge: 'AI',
+  },
+  {
+    label: 'Error Logs',
+    href: '/manager/error-logs',
+    icon: AlertCircle,
   },
   {
     label: 'Settings',

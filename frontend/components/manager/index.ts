@@ -6,6 +6,9 @@
 // AI Content Generator
 export { default as AIContentGenerator } from './AIContentGenerator';
 
+// Question Builder
+export { QuestionBuilder } from './question-builder';
+
 // Question Partials
 export {
   BulkAdd,
