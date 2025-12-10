@@ -13,9 +13,13 @@ import TextHighlighter from '@/components/exam/TextHighlighter';
 import PracticeHeader from '@/components/practice/PracticeHeader';
 import PracticeQuestionPalette from '@/components/practice/PracticeQuestionPalette';
 import AudioStartDialog from '@/components/practice/AudioStartDialog';
+import TimeUpDialog from '@/components/practice/TimeUpDialog';
 import { getSectionDetail, submitSectionAnswers } from '@/lib/api/books';
 import { EmailNotVerifiedError } from '@/lib/api-client';
 import type { SectionDetailResponse } from '@/types/books';
+
+// Default duration in minutes for listening section (IELTS standard: 30 min total)
+const DEFAULT_LISTENING_DURATION = 30;
 
 export default function ListeningPracticePage() {
   const params = useParams();
@@ -35,6 +39,10 @@ export default function ListeningPracticePage() {
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [startTime] = useState(Date.now());
   const [fontSize, setFontSize] = useState('text-base');
+
+  // Timer state
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
 
   // Audio state
   const [audioState, setAudioState] = useState({
@@ -97,6 +105,8 @@ export default function ListeningPracticePage() {
 
   const handleStartAudio = () => {
     setShowStartDialog(false);
+    // Start timer when audio starts
+    setIsTimerRunning(true);
     // Auto-play audio after dialog closes
     setTimeout(() => {
       if (audioRef.current) {
@@ -114,13 +124,37 @@ export default function ListeningPracticePage() {
     }
   }, []);
 
-  const handleSubmit = async () => {
+  // Timer handlers
+  const handleTimerStart = useCallback(() => {
+    setIsTimerRunning(true);
+  }, []);
+
+  const handleTimerPause = useCallback(() => {
+    setIsTimerRunning(false);
+    // Also pause audio when timer is paused
+    if (audioRef.current && audioState.isPlaying) {
+      audioRef.current.pause();
+    }
+  }, [audioState.isPlaying]);
+
+  const handleTimeUp = useCallback(() => {
+    setIsTimerRunning(false);
+    // Pause audio when time is up
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setShowTimeUpDialog(true);
+  }, []);
+
+  const handleSubmit = async (skipConfirm = false) => {
     if (!data) return;
 
-    const confirmed = window.confirm(
-      'Are you sure you want to submit your answers? You cannot change them after submission.'
-    );
-    if (!confirmed) return;
+    if (!skipConfirm) {
+      const confirmed = window.confirm(
+        'Are you sure you want to submit your answers? You cannot change them after submission.'
+      );
+      if (!confirmed) return;
+    }
 
     try {
       setSubmitting(true);
@@ -143,6 +177,10 @@ export default function ListeningPracticePage() {
       setSubmitting(false);
     }
   };
+
+  const handleTimeUpSubmit = useCallback(() => {
+    handleSubmit(true);
+  }, [data, sectionId, answers, startTime, sectionIdParam]);
 
   const handleExit = () => {
     const confirmed = window.confirm(
@@ -269,6 +307,9 @@ export default function ListeningPracticePage() {
     })) || []
   ) || [];
 
+  // Get timer duration (use section duration or default)
+  const timerDuration = (data.duration_minutes || DEFAULT_LISTENING_DURATION) * 60;
+
   return (
     <>
       {/* Audio Start Dialog */}
@@ -278,6 +319,16 @@ export default function ListeningPracticePage() {
         partTitle={data.title}
       />
 
+      {/* Time Up Dialog */}
+      <TimeUpDialog
+        isOpen={showTimeUpDialog}
+        onSubmit={handleTimeUpSubmit}
+        submitting={submitting}
+        answeredCount={answeredCount}
+        totalQuestions={data.total_questions}
+        sectionType="Listening"
+      />
+
       <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
         {/* Header */}
         <PracticeHeader
@@ -285,11 +336,16 @@ export default function ListeningPracticePage() {
           subtitle={data.book.title}
           answeredCount={answeredCount}
           totalQuestions={data.total_questions}
-          onSubmit={handleSubmit}
+          onSubmit={() => handleSubmit()}
           onExit={handleExit}
           submitting={submitting}
           bookId={data.book.id}
           sectionType="listening"
+          timerDuration={timerDuration}
+          isTimerRunning={isTimerRunning}
+          onTimerStart={handleTimerStart}
+          onTimerPause={handleTimerPause}
+          onTimeUp={handleTimeUp}
         />
 
         {/* Hidden Audio Player */}

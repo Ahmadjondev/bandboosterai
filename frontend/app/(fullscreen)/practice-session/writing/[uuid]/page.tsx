@@ -24,7 +24,13 @@ import {
   startPractice,
   submitWriting,
 } from '@/lib/api/section-practice';
+import PracticeTimer from '@/components/practice/PracticeTimer';
+import TimeUpDialog from '@/components/practice/TimeUpDialog';
 import type { SectionPracticeDetail, WritingTaskContent } from '@/types/section-practice';
+
+// Default duration in minutes for writing (Task 1: 20 min, Task 2: 40 min)
+const DEFAULT_TASK1_DURATION = 20;
+const DEFAULT_TASK2_DURATION = 40;
 
 export default function WritingPracticePage() {
   const params = useParams();
@@ -43,6 +49,10 @@ export default function WritingPracticePage() {
   const [submitting, setSubmitting] = useState(false);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Timer state
+  const [isTimerRunning, setIsTimerRunning] = useState(true);
+  const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -115,14 +125,28 @@ export default function WritingPracticePage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmit = async () => {
+  // Timer handlers
+  const handleTimerStart = useCallback(() => {
+    setIsTimerRunning(true);
+  }, []);
+
+  const handleTimerPause = useCallback(() => {
+    setIsTimerRunning(false);
+  }, []);
+
+  const handleTimeUp = useCallback(() => {
+    setIsTimerRunning(false);
+    setShowTimeUpDialog(true);
+  }, []);
+
+  const handleSubmit = async (skipConfirm = false) => {
     if (!attemptUuid) return;
 
     // Get writing task from content
     const writingTask = practice?.content as WritingTaskContent | null;
     const minWordsRequired = writingTask?.min_words || 150;
 
-    if (wordCount < minWordsRequired) {
+    if (!skipConfirm && wordCount < minWordsRequired) {
       const confirmed = window.confirm(
         `Your response has ${wordCount} words, which is below the minimum requirement of ${minWordsRequired} words. Are you sure you want to submit?`
       );
@@ -146,6 +170,10 @@ export default function WritingPracticePage() {
       setSubmitting(false);
     }
   };
+
+  const handleTimeUpSubmit = useCallback(() => {
+    handleSubmit(true);
+  }, [attemptUuid, practice, response, startTime]);
 
   const handleExit = () => {
     const confirmed = window.confirm(
@@ -191,8 +219,21 @@ export default function WritingPracticePage() {
   const taskType = writingTask?.task_type || 'TASK_2';
   const isTask1 = taskType === 'TASK_1';
 
+  // Get timer duration based on task type
+  const timerDuration = (practice?.duration_minutes || (isTask1 ? DEFAULT_TASK1_DURATION : DEFAULT_TASK2_DURATION)) * 60;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      {/* Time Up Dialog */}
+      <TimeUpDialog
+        isOpen={showTimeUpDialog}
+        onSubmit={handleTimeUpSubmit}
+        submitting={submitting}
+        answeredCount={response.trim() ? 1 : 0}
+        totalQuestions={1}
+        sectionType="Writing"
+      />
+
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -219,13 +260,16 @@ export default function WritingPracticePage() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Timer */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="font-mono text-gray-700 dark:text-gray-300">
-                {formatTime(elapsedTime)}
-              </span>
-            </div>
+            {/* Countdown Timer */}
+            <PracticeTimer
+              duration={timerDuration}
+              isRunning={isTimerRunning}
+              onStart={handleTimerStart}
+              onPause={handleTimerPause}
+              onTimeUp={handleTimeUp}
+              showControls={true}
+              size="md"
+            />
 
             {/* Word Count */}
             <div
@@ -244,7 +288,7 @@ export default function WritingPracticePage() {
 
             {/* Submit Button */}
             <button
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               disabled={submitting || !response.trim()}
               className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >

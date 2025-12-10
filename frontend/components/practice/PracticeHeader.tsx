@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import PracticeTimer from "./PracticeTimer";
 
 interface PracticeHeaderProps {
   title: string;
@@ -18,7 +19,17 @@ interface PracticeHeaderProps {
   onExit: () => void;
   submitting?: boolean;
   bookId?: number;
-  sectionType?: "listening" | "reading";
+  sectionType?: "listening" | "reading" | "writing" | "speaking";
+  /** Timer duration in seconds (optional - enables timer when provided) */
+  timerDuration?: number;
+  /** Whether timer is running */
+  isTimerRunning?: boolean;
+  /** Callback when timer starts */
+  onTimerStart?: () => void;
+  /** Callback when timer pauses */
+  onTimerPause?: () => void;
+  /** Callback when time is up */
+  onTimeUp?: () => void;
 }
 
 export default function PracticeHeader({
@@ -31,6 +42,11 @@ export default function PracticeHeader({
   submitting = false,
   bookId,
   sectionType,
+  timerDuration,
+  isTimerRunning = false,
+  onTimerStart,
+  onTimerPause,
+  onTimeUp,
 }: PracticeHeaderProps) {
   const router = useRouter();
   const [isDarkTheme, setIsDarkTheme] = useState(false);
@@ -155,6 +171,19 @@ export default function PracticeHeader({
 
         {/* Right: Controls */}
         <div className="flex items-center gap-3 shrink-0">
+          {/* Timer */}
+          {timerDuration && onTimeUp && (
+            <PracticeTimer
+              duration={timerDuration}
+              isRunning={isTimerRunning}
+              onStart={onTimerStart}
+              onPause={onTimerPause}
+              onTimeUp={onTimeUp}
+              showControls={true}
+              size="md"
+            />
+          )}
+
           {/* Progress */}
           {/* <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
             <svg

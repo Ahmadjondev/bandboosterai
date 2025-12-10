@@ -12,10 +12,14 @@ import QuestionRenderer from '@/components/exam/QuestionRenderer';
 import TextHighlighter from '@/components/exam/TextHighlighter';
 import PracticeHeader from '@/components/practice/PracticeHeader';
 import PracticeQuestionPalette from '@/components/practice/PracticeQuestionPalette';
+import TimeUpDialog from '@/components/practice/TimeUpDialog';
 import { formatPassageContent } from '@/lib/exam-utils';
 import { getSectionDetail, submitSectionAnswers } from '@/lib/api/books';
 import { EmailNotVerifiedError } from '@/lib/api-client';
 import type { SectionDetailResponse } from '@/types/books';
+
+// Default duration in minutes for reading section (IELTS standard: 20 min per passage)
+const DEFAULT_READING_DURATION = 20;
 
 export default function ReadingPracticePage() {
   const params = useParams();
@@ -35,6 +39,10 @@ export default function ReadingPracticePage() {
   const [startTime] = useState(Date.now());
   const [fontSize, setFontSize] = useState('text-base');
   const [splitPosition, setSplitPosition] = useState(50);
+
+  // Timer state
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
 
   const passageRef = useRef<HTMLDivElement>(null!);
   const questionsRef = useRef<HTMLDivElement>(null!);
@@ -94,13 +102,29 @@ export default function ReadingPracticePage() {
     }
   }, []);
 
-  const handleSubmit = async () => {
+  // Timer handlers
+  const handleTimerStart = useCallback(() => {
+    setIsTimerRunning(true);
+  }, []);
+
+  const handleTimerPause = useCallback(() => {
+    setIsTimerRunning(false);
+  }, []);
+
+  const handleTimeUp = useCallback(() => {
+    setIsTimerRunning(false);
+    setShowTimeUpDialog(true);
+  }, []);
+
+  const handleSubmit = async (skipConfirm = false) => {
     if (!data) return;
 
-    const confirmed = window.confirm(
-      'Are you sure you want to submit your answers? You cannot change them after submission.'
-    );
-    if (!confirmed) return;
+    if (!skipConfirm) {
+      const confirmed = window.confirm(
+        'Are you sure you want to submit your answers? You cannot change them after submission.'
+      );
+      if (!confirmed) return;
+    }
 
     try {
       setSubmitting(true);
@@ -123,6 +147,10 @@ export default function ReadingPracticePage() {
       setSubmitting(false);
     }
   };
+
+  const handleTimeUpSubmit = useCallback(() => {
+    handleSubmit(true);
+  }, [data, sectionId, answers, startTime, sectionIdParam]);
 
   const handleExit = () => {
     const confirmed = window.confirm(
@@ -196,19 +224,37 @@ export default function ReadingPracticePage() {
     })) || []
   ) || [];
 
+  // Get timer duration (use section duration or default)
+  const timerDuration = (data.duration_minutes || DEFAULT_READING_DURATION) * 60;
+
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+      {/* Time Up Dialog */}
+      <TimeUpDialog
+        isOpen={showTimeUpDialog}
+        onSubmit={handleTimeUpSubmit}
+        submitting={submitting}
+        answeredCount={answeredCount}
+        totalQuestions={data.total_questions}
+        sectionType="Reading"
+      />
+
       {/* Header */}
       <PracticeHeader
         title={data.title}
         subtitle={data.book.title}
         answeredCount={answeredCount}
         totalQuestions={data.total_questions}
-        onSubmit={handleSubmit}
+        onSubmit={() => handleSubmit()}
         onExit={handleExit}
         submitting={submitting}
         bookId={data.book.id}
         sectionType="reading"
+        timerDuration={timerDuration}
+        isTimerRunning={isTimerRunning}
+        onTimerStart={handleTimerStart}
+        onTimerPause={handleTimerPause}
+        onTimeUp={handleTimeUp}
       />
 
       {/* Split Pane Layout */}
