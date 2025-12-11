@@ -1,0 +1,666 @@
+```json
+{
+    "success": true,
+    "content_type": "full_test",
+    "book_info": {
+        "title": "CDI Listening Practice Test",
+        "total_tests": 1,
+        "extracted_tests": 1
+    },
+    "tests": [
+        {
+            "test_number": 1,
+            "test_name": "Listening Test",
+            "listening": {
+                "parts": [
+                    {
+                        "part_number": 1,
+                        "title": "Incident Report",
+                        "description": "A woman is reporting a theft to an insurance company.",
+                        "scenario": "A phone call to report an incident for an insurance claim.",
+                        "difficulty": "EASY",
+                        "speaker_count": 2,
+                        "question_groups": [
+                            {
+                                "title": "Questions 1-10",
+                                "question_type": "NC",
+                                "description": "Complete the notes below.\nWrite ONE WORD AND/OR A NUMBER for each answer.",
+                                "example": {
+                                    "question": "Name: Anna",
+                                    "answer": "Lumley",
+                                    "explanation": null
+                                },
+                                "question_data": {
+                                    "title": "INCIDENT REPORT",
+                                    "items": [
+                                        "Telephone: <input>",
+                                        "Date of arrival: <input>",
+                                        "Address: 235 <input> Road, East sea",
+                                        "The total value of insurance: $ <input>",
+                                        {
+                                            "prefix": "Missing items:",
+                                            "items": [
+                                                "– lamps and chairs (not expensive)",
+                                                "– furniture and <input>",
+                                                "– a rocking horse, some <input> and fruit bowls"
+                                            ]
+                                        },
+                                        {
+                                            "prefix": "Items ordered:",
+                                            "items": [
+                                                "– a clock",
+                                                "– a <input>"
+                                            ]
+                                        },
+                                        {
+                                            "prefix": "Damaged items:",
+                                            "items": [
+                                                "– the <input> needs to be replaced",
+                                                "– a <input> of one of the dining chairs is split",
+                                                "– four <input> were broken"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "questions": [
+                                    {
+                                        "order": 1,
+                                        "text": "Telephone",
+                                        "correct_answer": "077876345"
+                                    },
+                                    {
+                                        "order": 2,
+                                        "text": "Date of arrival",
+                                        "correct_answer": "27 February|27th February|February 27|February 27th"
+                                    },
+                                    {
+                                        "order": 3,
+                                        "text": "Address",
+                                        "correct_answer": "Akendale"
+                                    },
+                                    {
+                                        "order": 4,
+                                        "text": "The total value of insurance",
+                                        "correct_answer": "3450"
+                                    },
+                                    {
+                                        "order": 5,
+                                        "text": "Missing items: furniture and",
+                                        "correct_answer": "books"
+                                    },
+                                    {
+                                        "order": 6,
+                                        "text": "Missing items: a rocking horse, some",
+                                        "correct_answer": "paintings"
+                                    },
+                                    {
+                                        "order": 7,
+                                        "text": "Items ordered: a",
+                                        "correct_answer": "mirror"
+                                    },
+                                    {
+                                        "order": 8,
+                                        "text": "Damaged items: the",
+                                        "correct_answer": "desk"
+                                    },
+                                    {
+                                        "order": 9,
+                                        "text": "Damaged items: a ... of one of the dining chairs",
+                                        "correct_answer": "leg"
+                                    },
+                                    {
+                                        "order": 10,
+                                        "text": "Damaged items: four ... were broken",
+                                        "correct_answer": "plates"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "part_number": 2,
+                        "title": "Talk on Home Energy and Water Saving",
+                        "description": "A woman named Jill gives a talk about how to save energy and water at home.",
+                        "scenario": "A monologue providing advice on household conservation.",
+                        "difficulty": "MEDIUM",
+                        "speaker_count": 1,
+                        "question_groups": [
+                            {
+                                "title": "Questions 11-16",
+                                "question_type": "MCQ",
+                                "description": "Choose the correct letter, A, B or C.",
+                                "question_data": {},
+                                "questions": [
+                                    {
+                                        "order": 11,
+                                        "text": "What was Jill surprised to find?",
+                                        "correct_answer": "A",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "Some work to reduce the water usage to her house could be done soon."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "The house was poorly insulated."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "She could get financial help."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 12,
+                                        "text": "What does Jill say every family can do straight away?",
+                                        "correct_answer": "C",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "Use energy-saving bulbs."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "Turn down the thermostat."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "Turn off their appliances completely."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 13,
+                                        "text": "What pleased Jill about the energy provider?",
+                                        "correct_answer": "B",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "reduction in price for prompt payment"
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "allowing customers to pay online"
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "having a reduction in price of the energy-saving sources"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 14,
+                                        "text": "What difficulty does Jill have with the energy meters?",
+                                        "correct_answer": "B",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "They are difficult to access."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "The figures are hard to read accurately."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "She can't tell whether they're for electricity or for gas."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 15,
+                                        "text": "What kind of energy-saving method is Jill going to take next?",
+                                        "correct_answer": "C",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "Use an energy-saving boiler."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "Have the walls checked for their insulation level."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "Install double-glazed windows."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 16,
+                                        "text": "Why is Jill doubtful about renewable energy?",
+                                        "correct_answer": "A",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "She thinks it's unsuitable for her house."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "She doesn't understand the technical details."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "She believes it's too expensive."
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "title": "Questions 17-18",
+                                "question_type": "MCMA",
+                                "description": "Choose TWO letters, A-E.\nWhich TWO water-saving tips does Jill recommend?",
+                                "question_data": {},
+                                "questions": [
+                                    {
+                                        "order": 17,
+                                        "text": "Which TWO water-saving tips does Jill recommend?",
+                                        "correct_answer": "CE",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "use more showers than baths"
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "keep the washing machine full before using it"
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "boil only as much water as you need"
+                                            },
+                                            {
+                                                "key": "D",
+                                                "text": "turn off the taps while you are brushing your teeth"
+                                            },
+                                            {
+                                                "key": "E",
+                                                "text": "repair leaking taps"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 18,
+                                        "text": "Which TWO water-saving tips does Jill recommend?",
+                                        "correct_answer": "CE",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "use more showers than baths"
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "keep the washing machine full before using it"
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "boil only as much water as you need"
+                                            },
+                                            {
+                                                "key": "D",
+                                                "text": "turn off the taps while you are brushing your teeth"
+                                            },
+                                            {
+                                                "key": "E",
+                                                "text": "repair leaking taps"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "title": "Questions 19-20",
+                                "question_type": "MCMA",
+                                "description": "Choose TWO letters, A-E.\nWhich TWO topics do people most frequently ask about?",
+                                "question_data": {},
+                                "questions": [
+                                    {
+                                        "order": 19,
+                                        "text": "Which TWO topics do people most frequently ask about?",
+                                        "correct_answer": "AC",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "the ideal temperature setting on the thermostat"
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "whether to leave the light on or not"
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "whether to use a computer or laptop to watch movies"
+                                            },
+                                            {
+                                                "key": "D",
+                                                "text": "how to work out the operating cost of appliances"
+                                            },
+                                            {
+                                                "key": "E",
+                                                "text": "whether solar panels only work on sunny days"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 20,
+                                        "text": "Which TWO topics do people most frequently ask about?",
+                                        "correct_answer": "AC",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "the ideal temperature setting on the thermostat"
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "whether to leave the light on or not"
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "whether to use a computer or laptop to watch movies"
+                                            },
+                                            {
+                                                "key": "D",
+                                                "text": "how to work out the operating cost of appliances"
+                                            },
+                                            {
+                                                "key": "E",
+                                                "text": "whether solar panels only work on sunny days"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "part_number": 3,
+                        "title": "Discussion about Art Courses",
+                        "description": "Two students, James and Kate, discuss their experiences with different art-related college courses.",
+                        "scenario": "A conversation between two students in an academic setting.",
+                        "difficulty": "MEDIUM",
+                        "speaker_count": 2,
+                        "question_groups": [
+                            {
+                                "title": "Questions 21-25",
+                                "question_type": "MCQ",
+                                "description": "Choose the correct letter, A, B or C.",
+                                "question_data": {},
+                                "questions": [
+                                    {
+                                        "order": 21,
+                                        "text": "Why did James choose to work in the bakery?",
+                                        "correct_answer": "B",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "Because it's close to his home."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "Because it has a good reputation in the subject area."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "Because it's a part of a chain."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 22,
+                                        "text": "What was James surprised at in his studies?",
+                                        "correct_answer": "B",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "He finds the theoretical courses easy."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "He can finish the theoretical courses."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "He finds the theoretical work interesting."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 23,
+                                        "text": "How is James' course assessed in the first term?",
+                                        "correct_answer": "A",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "The marks are given by students to each other."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "Self-assessment."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "It is up to the practical experience."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 24,
+                                        "text": "Why has Kate enquired about the English language course?",
+                                        "correct_answer": "C",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "She wants to become an artist."
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "It is her first language."
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "She plans to curate in a gallery."
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "order": 25,
+                                        "text": "What else did Kate need to get before going to the college?",
+                                        "correct_answer": "C",
+                                        "choices": [
+                                            {
+                                                "key": "A",
+                                                "text": "starting date of the course"
+                                            },
+                                            {
+                                                "key": "B",
+                                                "text": "an offer with scholarships"
+                                            },
+                                            {
+                                                "key": "C",
+                                                "text": "a catalogue of modules"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "title": "Questions 26-30",
+                                "question_type": "MF",
+                                "description": "What statement applies to each of the following courses?\nChoose FIVE answers from the box and write the correct letter, A-G, next to questions 26-30.",
+                                "question_data": {
+                                    "options": [
+                                        {
+                                            "value": "A",
+                                            "label": "There are a lot of background readings."
+                                        },
+                                        {
+                                            "value": "B",
+                                            "label": "People stay at the studio where the course is taken."
+                                        },
+                                        {
+                                            "value": "C",
+                                            "label": "Many outside speakers will give a talk."
+                                        },
+                                        {
+                                            "value": "D",
+                                            "label": "It's the most difficult course."
+                                        },
+                                        {
+                                            "value": "E",
+                                            "label": "Students do their own research."
+                                        },
+                                        {
+                                            "value": "F",
+                                            "label": "Students need to spend a lot of money on a camera with a good display."
+                                        },
+                                        {
+                                            "value": "G",
+                                            "label": "Expensive materials need to be bought."
+                                        }
+                                    ]
+                                },
+                                "questions": [
+                                    {
+                                        "order": 26,
+                                        "text": "History of Art",
+                                        "correct_answer": "C"
+                                    },
+                                    {
+                                        "order": 27,
+                                        "text": "Sculpture",
+                                        "correct_answer": "G"
+                                    },
+                                    {
+                                        "order": 28,
+                                        "text": "Digital Painting",
+                                        "correct_answer": "B"
+                                    },
+                                    {
+                                        "order": 29,
+                                        "text": "Art Theory",
+                                        "correct_answer": "E"
+                                    },
+                                    {
+                                        "order": 30,
+                                        "text": "Photography",
+                                        "correct_answer": "F"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "part_number": 4,
+                        "title": "Lecture on Birds in New Zealand",
+                        "description": "A lecturer talks about the conservation of a specific type of bird in New Zealand.",
+                        "scenario": "An academic lecture on wildlife conservation.",
+                        "difficulty": "HARD",
+                        "speaker_count": 1,
+                        "question_groups": [
+                            {
+                                "title": "Questions 31-40",
+                                "question_type": "NC",
+                                "description": "Complete the notes below.\nWrite NO MORE THAN TWO WORDS for each answer.",
+                                "question_data": {
+                                    "title": "Birds in New Zealand",
+                                    "items": [
+                                        {
+                                            "title": "Facts",
+                                            "items": [
+                                                "• The birds often build their nests along the coastline or next to the <input>.",
+                                                "• In 1984. researchers found that there were <input> of this kind of bird left.",
+                                                "• It is difficult to <input> the number of birds accurately."
+                                            ]
+                                        },
+                                        {
+                                            "title": "Influencing factors",
+                                            "items": [
+                                                "• Human activities, such as <input> and building homes threaten the bird population.",
+                                                "• The birds are influenced by many species which can eat their <input>.",
+                                                "• Natural disasters like <input> can also reduce the population of the birds."
+                                            ]
+                                        },
+                                        {
+                                            "title": "Ways of protection",
+                                            "items": [
+                                                "• The zoo should hire a <input> to keep the birds from being poached",
+                                                "• The organizer could build <input> to prevent the public from getting closer.",
+                                                "• People should make more of an effort to protect <input> birds.",
+                                                "• Through the <input>, people will learn more about bird protection."
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "questions": [
+                                    {
+                                        "order": 31,
+                                        "text": "The birds often build their nests along the coastline or next to the <input>.",
+                                        "correct_answer": "river"
+                                    },
+                                    {
+                                        "order": 32,
+                                        "text": "In 1984. researchers found that there were <input> of this kind of bird left.",
+                                        "correct_answer": "3 pairs"
+                                    },
+                                    {
+                                        "order": 33,
+                                        "text": "It is difficult to <input> the number of birds accurately.",
+                                        "correct_answer": "estimate"
+                                    },
+                                    {
+                                        "order": 34,
+                                        "text": "Human activities, such as <input> and building homes threaten the bird population.",
+                                        "correct_answer": "farming"
+                                    },
+                                    {
+                                        "order": 35,
+                                        "text": "The birds are influenced by many species which can eat their <input>.",
+                                        "correct_answer": "eggs"
+                                    },
+                                    {
+                                        "order": 36,
+                                        "text": "Natural disasters like <input> can also reduce the population of the birds.",
+                                        "correct_answer": "storms"
+                                    },
+                                    {
+                                        "order": 37,
+                                        "text": "The zoo should hire a <input> to keep the birds from being poached",
+                                        "correct_answer": "guard"
+                                    },
+                                    {
+                                        "order": 38,
+                                        "text": "The organizer could build <input> to prevent the public from getting closer.",
+                                        "correct_answer": "fence"
+                                    },
+                                    {
+                                        "order": 39,
+                                        "text": "People should make more of an effort to protect <input> birds.",
+                                        "correct_answer": "wild"
+                                    },
+                                    {
+                                        "order": 40,
+                                        "text": "Through the <input>, people will learn more about bird protection.",
+                                        "correct_answer": "media"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "reading": null,
+            "writing": null,
+            "speaking": null
+        }
+    ],
+    "metadata": {
+        "total_listening_parts": 4,
+        "total_reading_passages": 0,
+        "total_writing_tasks": 0,
+        "total_speaking_parts": 0,
+        "has_answer_key": true,
+        "extraction_quality": "high"
+    }
+}
+```

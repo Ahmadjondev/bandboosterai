@@ -109,23 +109,36 @@ OUTPUT FORMAT (STRICT)
 
 RETURN ONLY VALID JSON.
 """
-1   
+1
 # ======================================================
 #               USER PROMPT BUILDER
 # ======================================================
 
 
 def create_user_prompt(
-    essay: str, task_type: str = "Task 2", task_question: Optional[str] = None
+    essay: str,
+    task_type: str = "Task 2",
+    task_question: Optional[str] = None,
+    teacher_instructions: Optional[str] = None,
 ) -> str:
 
     question_block = f"Task Question:\n{task_question}\n\n" if task_question else ""
 
+    teacher_block = ""
+    if teacher_instructions:
+        teacher_block = f"""
+SPECIAL TEACHER INSTRUCTIONS:
+The teacher has requested you pay special attention to the following:
+{teacher_instructions}
+
+Please incorporate these focus areas into your analysis and feedback.
+
+"""
+
     return f"""
 Analyze the following IELTS Writing {task_type} essay using the STRICT REAL EXAMINER RULES:
 
-{question_block}
-Essay:
+{question_block}{teacher_block}Essay:
 {essay}
 
 Return ONLY the JSON structure defined earlier.
@@ -144,6 +157,7 @@ def check_writing(
     max_retries: int = 3,
     retry_delay: float = 1.2,
     task_question: Optional[str] = None,
+    teacher_instructions: Optional[str] = None,
 ) -> Dict[str, Any]:
 
     if not essay_text.strip():
@@ -154,7 +168,7 @@ def check_writing(
     full_prompt = (
         SYSTEM_PROMPT
         + "\n\n"
-        + create_user_prompt(essay_text, task_type, task_question)
+        + create_user_prompt(essay_text, task_type, task_question, teacher_instructions)
     )
 
     last_error = None

@@ -40,6 +40,8 @@ urlpatterns = [
     # Panel URLs
     path("manager/", include("manager_panel.urls")),
     path("teacher/api/", include("teacher.urls")),
+    # Classroom Command - Teacher/Classroom management
+    path("classroom/api/", include("classroom.urls")),
     # path("", include("student_panel.urls")),
 ]
 

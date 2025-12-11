@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "ielts",
     "manager_panel",
     "teacher",  # Teacher Room module
+    "classroom",  # Classroom Command module
     "books",  # Book-based practice system
     "practice",  # Section-by-section practice
     "payments",  # Payment system with Payme integration

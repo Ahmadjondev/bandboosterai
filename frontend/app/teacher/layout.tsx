@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  FileText
+  FileText,
+  GraduationCap,
 } from 'lucide-react';
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,12 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
       href: '/teacher',
       icon: LayoutDashboard,
       current: pathname === '/teacher',
+    },
+    {
+      name: 'Classrooms',
+      href: '/teacher/classroom',
+      icon: GraduationCap,
+      current: pathname?.startsWith('/teacher/classroom'),
     },
     {
       name: 'My Exams',

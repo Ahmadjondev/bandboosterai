@@ -1,0 +1,523 @@
+
+{
+  "success": true,
+  "content_type": "full_test",
+  "book_info": {
+    "title": "Cambridge IELTS 10",
+    "total_tests": 4,
+    "extracted_tests": 1
+  },
+  "tests": [
+    {
+      "test_number": 1,
+      "test_name": "Test 1",
+      "listening": {
+        "parts": [
+          {
+            "part_number": 1,
+            "title": "Self-Drive Tours in the USA",
+            "description": "A conversation between a customer and a travel agent about self-drive tours.",
+            "scenario": "Travel booking",
+            "difficulty": "EASY",
+            "speaker_count": 2,
+            "question_groups": [
+              {
+                "title": "Questions 1-6",
+                "question_type": "FC",
+                "description": "Complete the notes below. Write ONE WORD for each answer.",
+                "example": {
+                  "question": "Name: Andrea Brown",
+                  "answer": "Brown",
+                  "explanation": "The example shows 'Brown' as the surname."
+                },
+                "question_data": {
+                  "title": "SELF-DRIVE TOURS IN THE USA",
+                  "items": [
+                    "Name: Andrea Brown",
+                    "Address: 24 <input> Road",
+                    "Postcode: BH5 2OP",
+                    "Phone: (mobile) 077 8664 3091",
+                    "Heard about company from: <input>",
+                    {
+                      "title": "Possible self-drive tours",
+                      "items": [
+                        {
+                          "title": "Trip One:",
+                          "items": [
+                            "Los Angeles: customer wants to visit some <input> parks with her children",
+                            "Yosemite Park: customer wants to stay in a lodge, not a <input>"
+                          ]
+                        },
+                        {
+                          "title": "Trip Two:",
+                          "items": [
+                            "Customer wants to see the <input> on the way to Cambria",
+                            "At Santa Monica: not interested in shopping",
+                            "At San Diego, wants to spend time on the <input>"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "questions": [
+                  {
+                    "order": 1,
+                    "text": "Address: 24 <input> Road",
+                    "correct_answer": "Ardleigh"
+                  },
+                  {
+                    "order": 2,
+                    "text": "Heard about company from: <input>",
+                    "correct_answer": "newspaper"
+                  },
+                  {
+                    "order": 3,
+                    "text": "Los Angeles: customer wants to visit some <input> parks with her children",
+                    "correct_answer": "theme"
+                  },
+                  {
+                    "order": 4,
+                    "text": "Yosemite Park: customer wants to stay in a lodge, not a <input>",
+                    "correct_answer": "tent"
+                  },
+                  {
+                    "order": 5,
+                    "text": "Customer wants to see the <input> on the way to Cambria",
+                    "correct_answer": "castle"
+                  },
+                  {
+                    "order": 6,
+                    "text": "At San Diego, wants to spend time on the <input>",
+                    "correct_answer": "beach|beaches"
+                  }
+                ]
+              },
+              {
+                "title": "Questions 7-10",
+                "question_type": "TC",
+                "description": "Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.",
+                "question_data": {
+                  "items": [
+                    ["Number of days", "Total distance", "Price (per person)", "Includes"],
+                    ["12 days", "<input> km", "£525", ["accommodation", "car", "one <input>"]],
+                    ["9 days", "980 km", "£<input>", ["accommodation", "car", "<input>"]]
+                  ]
+                },
+                "questions": [
+                  {
+                    "order": 7,
+                    "text": "Total distance for Trip One",
+                    "correct_answer": "2020"
+                  },
+                  {
+                    "order": 8,
+                    "text": "Includes for Trip One",
+                    "correct_answer": "flight"
+                  },
+                  {
+                    "order": 9,
+                    "text": "Price (per person) for Trip Two",
+                    "correct_answer": "429"
+                  },
+                  {
+                    "order": 10,
+                    "text": "Includes for Trip Two",
+                    "correct_answer": "dinner"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "part_number": 2,
+            "title": "Joining the Leisure Club",
+            "description": "A monologue about the facilities and membership options at a leisure club.",
+            "scenario": "Information about a club",
+            "difficulty": "MEDIUM",
+            "speaker_count": 1,
+            "question_groups": [
+              {
+                "title": "Questions 11-12",
+                "question_type": "MCMA",
+                "description": "Choose TWO letters A-E.\nWhich TWO facilities at the leisure club have recently been improved?",
+                "question_data": {},
+                "questions": [
+                  {
+                    "order": 11,
+                    "text": "Which TWO facilities at the leisure club have recently been improved?",
+                    "correct_answer": "AC",
+                    "choices": [
+                      {
+                        "key": "A",
+                        "text": "the gym"
+                      },
+                      {
+                        "key": "B",
+                        "text": "the tracks"
+                      },
+                      {
+                        "key": "C",
+                        "text": "the indoor pool"
+                      },
+                      {
+                        "key": "D",
+                        "text": "the outdoor pool"
+                      },
+                      {
+                        "key": "E",
+                        "text": "the sports training for children"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "title": "Questions 13-20",
+                "question_type": "NC",
+                "description": "Complete the notes below. Write NO MORE THAN TWO WORDS for each answer.",
+                "question_data": {
+                  "title": "Joining the leisure club",
+                  "items": [
+                    {
+                      "title": "Personal Assessment",
+                      "items": [
+                        "New members should describe any <input>",
+                        "The <input> will be explained to you before you use the equipment.",
+                        "You will be given a six-week <input>"
+                      ]
+                    },
+                    {
+                      "title": "Types of membership",
+                      "items": [
+                        "There is a compulsory £90 <input> fee for members.",
+                        "Gold members are given <input> to all the LP clubs.",
+                        "Premier members are given priority during <input> hours.",
+                        "Premier members can bring some <input> every month.",
+                        "Members should always take their <input> with them."
+                      ]
+                    }
+                  ]
+                },
+                "questions": [
+                  {
+                    "order": 13,
+                    "text": "New members should describe any <input>",
+                    "correct_answer": "health problems"
+                  },
+                  {
+                    "order": 14,
+                    "text": "The <input> will be explained to you before you use the equipment.",
+                    "correct_answer": "safety rules"
+                  },
+                  {
+                    "order": 15,
+                    "text": "You will be given a six-week <input>",
+                    "correct_answer": "plan"
+                  },
+                  {
+                    "order": 16,
+                    "text": "There is a compulsory £90 <input> fee for members.",
+                    "correct_answer": "joining"
+                  },
+                  {
+                    "order": 17,
+                    "text": "Gold members are given <input> to all the LP clubs.",
+                    "correct_answer": "free entry"
+                  },
+                  {
+                    "order": 18,
+                    "text": "Premier members are given priority during <input> hours.",
+                    "correct_answer": "peak"
+                  },
+                  {
+                    "order": 19,
+                    "text": "Premier members can bring some <input> every month.",
+                    "correct_answer": "guests"
+                  },
+                  {
+                    "order": 20,
+                    "text": "Members should always take their <input> with them.",
+                    "correct_answer": "photo card|photo cards"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "part_number": 3,
+            "title": "Global Design Competition",
+            "description": "A conversation between two students discussing a design competition project.",
+            "scenario": "Academic discussion",
+            "difficulty": "MEDIUM",
+            "speaker_count": 2,
+            "question_groups": [
+              {
+                "title": "Questions 21-25",
+                "question_type": "MCQ",
+                "description": "Choose the correct letter, A, B or C.",
+                "question_data": {},
+                "questions": [
+                  {
+                    "order": 21,
+                    "text": "Students entering the design competition have to",
+                    "correct_answer": "C",
+                    "choices": [
+                      {
+                        "key": "A",
+                        "text": "produce an energy-efficient design."
+                      },
+                      {
+                        "key": "B",
+                        "text": "adapt an existing energy-saving appliance."
+                      },
+                      {
+                        "key": "C",
+                        "text": "develop a new use for current technology."
+                      }
+                    ]
+                  },
+                  {
+                    "order": 22,
+                    "text": "John chose a dishwasher because he wanted to make dishwashers",
+                    "correct_answer": "A",
+                    "choices": [
+                      {
+                        "key": "A",
+                        "text": "more appealing."
+                      },
+                      {
+                        "key": "B",
+                        "text": "more common."
+                      },
+                      {
+                        "key": "C",
+                        "text": "more economical."
+                      }
+                    ]
+                  },
+                  {
+                    "order": 23,
+                    "text": "The stone in John's 'Rockpool' design is used",
+                    "correct_answer": "B",
+                    "choices": [
+                      {
+                        "key": "A",
+                        "text": "for decoration."
+                      },
+                      {
+                        "key": "B",
+                        "text": "to switch it on."
+                      },
+                      {
+                        "key": "C",
+                        "text": "to stop water escaping."
+                      }
+                    ]
+                  },
+                  {
+                    "order": 24,
+                    "text": "In the holding chamber, the carbon dioxide",
+                    "correct_answer": "A",
+                    "choices": [
+                      {
+                        "key": "A",
+                        "text": "changes back to a gas."
+                      },
+                      {
+                        "key": "B",
+                        "text": "dries the dishes."
+                      },
+                      {
+                        "key": "C",
+                        "text": "is allowed to cool."
+                      }
+                    ]
+                  },
+                  {
+                    "order": 25,
+                    "text": "At the end of the cleaning process, the carbon dioxide",
+                    "correct_answer": "C",
+                    "choices": [
+                      {
+                        "key": "A",
+                        "text": "is released into the air."
+                      },
+                      {
+                        "key": "B",
+                        "text": "is disposed of with the waste."
+                      },
+                      {
+                        "key": "C",
+                        "text": "is collected ready to be re-used."
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "title": "Questions 26-30",
+                "question_type": "NC",
+                "description": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+                "question_data": {
+                  "title": "Global Design Competition",
+                  "items": [
+                    "John needs help preparing for his <input>",
+                    "The professor advises John to make a <input> of his design.",
+                    "John's main problem is getting good quality <input>",
+                    "The professor suggests John apply for a <input>",
+                    "The professor will check the <input> information in John's written report."
+                  ]
+                },
+                "questions": [
+                  {
+                    "order": 26,
+                    "text": "John needs help preparing for his <input>",
+                    "correct_answer": "presentation"
+                  },
+                  {
+                    "order": 27,
+                    "text": "The professor advises John to make a <input> of his design.",
+                    "correct_answer": "model"
+                  },
+                  {
+                    "order": 28,
+                    "text": "John's main problem is getting good quality <input>",
+                    "correct_answer": "material|materials"
+                  },
+                  {
+                    "order": 29,
+                    "text": "The professor suggests John apply for a <input>",
+                    "correct_answer": "grant"
+                  },
+                  {
+                    "order": 30,
+                    "text": "The professor will check the <input> information in John's written report.",
+                    "correct_answer": "technical"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "part_number": 4,
+            "title": "The Spirit Bear",
+            "description": "A monologue about the characteristics, habitat, and threats to the Spirit Bear.",
+            "scenario": "Academic lecture",
+            "difficulty": "HARD",
+            "speaker_count": 1,
+            "question_groups": [
+              {
+                "title": "Questions 31-40",
+                "question_type": "NC",
+                "description": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+                "question_data": {
+                  "title": "THE SPIRIT BEAR",
+                  "items": [
+                    {
+                      "title": "General facts",
+                      "items": [
+                        "It is a white bear belonging to the black bear family.",
+                        "Its colour comes from an uncommon <input>",
+                        "Local people believe that it has unusual <input>",
+                        "They protect the bear from <input>"
+                      ]
+                    },
+                    {
+                      "title": "Habitat",
+                      "items": [
+                        "The bear's relationship with the forest is complex.",
+                        "Tree roots stop <input> along salmon streams.",
+                        "The bears' feeding habits provide nutrients for forest vegetation.",
+                        "It is currently found on a small number of <input>"
+                      ]
+                    },
+                    {
+                      "title": "Threats",
+                      "items": [
+                        "Habitat is being lost due to deforestation and construction of <input> by logging companies.",
+                        "Unrestricted <input> is affecting the salmon supply.",
+                        "The bears' existence is also threatened by their low rate of <input>"
+                      ]
+                    },
+                    {
+                      "title": "Going forward",
+                      "items": [
+                        "Interested parties are working together.",
+                        "Logging companies must improve their <input> of logging.",
+                        "Maintenance and <input> of the spirit bears' territory is needed."
+                      ]
+                    }
+                  ]
+                },
+                "questions": [
+                  {
+                    "order": 31,
+                    "text": "Its colour comes from an uncommon <input>",
+                    "correct_answer": "gene"
+                  },
+                  {
+                    "order": 32,
+                    "text": "Local people believe that it has unusual <input>",
+                    "correct_answer": "power|powers"
+                  },
+                  {
+                    "order": 33,
+                    "text": "They protect the bear from <input>",
+                    "correct_answer": "strangers"
+                  },
+                  {
+                    "order": 34,
+                    "text": "Tree roots stop <input> along salmon streams.",
+                    "correct_answer": "erosion"
+                  },
+                  {
+                    "order": 35,
+                    "text": "It is currently found on a small number of <input>",
+                    "correct_answer": "islands"
+                  },
+                  {
+                    "order": 36,
+                    "text": "Habitat is being lost due to deforestation and construction of <input> by logging companies.",
+                    "correct_answer": "roads"
+                  },
+                  {
+                    "order": 37,
+                    "text": "Unrestricted <input> is affecting the salmon supply.",
+                    "correct_answer": "fishing"
+                  },
+                  {
+                    "order": 38,
+                    "text": "The bears' existence is also threatened by their low rate of <input>",
+                    "correct_answer": "reproduction"
+                  },
+                  {
+                    "order": 39,
+                    "text": "Logging companies must improve their <input> of logging.",
+                    "correct_answer": "method|methods"
+                  },
+                  {
+                    "order": 40,
+                    "text": "Maintenance and <input> of the spirit bears' territory is needed.",
+                    "correct_answer": "expansion"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "reading": null,
+      "writing": null,
+      "speaking": null
+    }
+  ],
+  "metadata": {
+    "total_listening_parts": 4,
+    "total_reading_passages": 0,
+    "total_writing_tasks": 0,
+    "total_speaking_parts": 0,
+    "has_answer_key": true,
+    "extraction_quality": "high"
+  }
+}

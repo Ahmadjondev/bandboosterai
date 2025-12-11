@@ -177,7 +177,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className=" mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
         {/* Hero Section */}
         <HeroSection
           userName={userName}
