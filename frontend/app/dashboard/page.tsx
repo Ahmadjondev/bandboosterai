@@ -107,7 +107,7 @@ export default function DashboardPage() {
       const [overviewData, sectionsData, activeAttemptData] = await Promise.all([
         getDashboardOverviewV2().catch(() => null),
         getDashboardSectionsV2().catch(() => null),
-        checkActiveAttempt().catch(() => ({ has_active_attempt: false })),
+        checkActiveAttempt().catch(() => ({ has_active_attempt: false, active_attempt: undefined })),
       ]);
 
       setOverviewV2(overviewData);

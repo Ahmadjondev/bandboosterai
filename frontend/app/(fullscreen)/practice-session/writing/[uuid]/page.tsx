@@ -219,8 +219,8 @@ export default function WritingPracticePage() {
   const taskType = writingTask?.task_type || 'TASK_2';
   const isTask1 = taskType === 'TASK_1';
 
-  // Get timer duration based on task type
-  const timerDuration = (practice?.duration_minutes || (isTask1 ? DEFAULT_TASK1_DURATION : DEFAULT_TASK2_DURATION)) * 60;
+  // Get timer duration based on task type (duration is in minutes)
+  const timerDuration = (practice?.duration || (isTask1 ? DEFAULT_TASK1_DURATION : DEFAULT_TASK2_DURATION)) * 60;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">

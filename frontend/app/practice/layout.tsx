@@ -1,66 +1,55 @@
-'use client';
+import { Metadata } from 'next';
+import { PracticeClientLayout } from './ClientLayout';
+import { WebPageJsonLd, BreadcrumbJsonLd } from '@/components/seo/JsonLd';
 
-import { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
-import { Navbar } from '@/components/Navbar';
-import EmailVerificationBanner from '@/components/EmailVerificationBanner';
-import { useAuth } from '@/components/AuthProvider';
+export const metadata: Metadata = {
+  title: 'IELTS Practice Tests - Listening, Reading, Writing & Speaking',
+  description: 'Practice all four IELTS sections with authentic mock tests. Improve your Listening, Reading, Writing, and Speaking skills with AI-powered feedback and detailed explanations.',
+  keywords: [
+    'IELTS practice tests',
+    'IELTS listening practice',
+    'IELTS reading practice',
+    'IELTS writing practice',
+    'IELTS speaking practice',
+    'free IELTS mock test',
+    'IELTS band score practice',
+  ],
+  alternates: {
+    canonical: 'https://bandbooster.uz/practice',
+  },
+  openGraph: {
+    title: 'Free IELTS Practice Tests - All Four Sections',
+    description: 'Practice IELTS Listening, Reading, Writing, and Speaking with authentic tests and AI-powered feedback.',
+    url: 'https://bandbooster.uz/practice',
+    type: 'website',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
-interface PracticeLayoutProps {
+const breadcrumbs = [
+  { name: 'Home', url: 'https://bandbooster.uz' },
+  { name: 'Practice', url: 'https://bandbooster.uz/practice' },
+];
+
+export default function PracticeLayout({
+  children,
+}: {
   children: React.ReactNode;
-}
-
-export default function PracticeLayout({ children }: PracticeLayoutProps) {
-  const { user, loading: isLoading } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const toggleSidebarCollapse = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+}) {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      {/* Sidebar - persists across page navigations */}
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={toggleSidebarCollapse}
+    <>
+      <BreadcrumbJsonLd items={breadcrumbs} />
+      <WebPageJsonLd 
+        title="IELTS Practice Tests"
+        description="Practice all four IELTS sections with authentic mock tests and AI-powered feedback."
+        url="https://bandbooster.uz/practice"
       />
-
-      {/* Main content area */}
-      <div className={`transition-all duration-300 ${isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`}>
-        {/* Navbar - persists across page navigations */}
-        <Navbar user={user} onMenuClick={toggleSidebar} />
-
-        {/* Email Verification Banner */}
-        {user && user.is_verified === false && (
-          <div className="px-4 pt-4">
-            <EmailVerificationBanner email={user.email} />
-          </div>
-        )}
-
-        {/* Page content - only this changes on navigation */}
-        <main>
-          {children}
-        </main>
-      </div>
-    </div>
+      <PracticeClientLayout>
+        {children}
+      </PracticeClientLayout>
+    </>
   );
 }
