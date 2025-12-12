@@ -11,6 +11,7 @@ import {
   AnalyticsProgressTrends,
   AnalyticsBandPrediction,
   AnalyticsStudyPlan,
+  AnalyticsAchievements,
 } from "@/lib/exam-api";
 import {
   BarChart3,
@@ -43,36 +44,61 @@ import BandPredictionCard from "@/components/analytics/BandPredictionCard";
 import StudyPlanCard from "@/components/analytics/StudyPlanCard";
 import AnalyticsQuestionTypeBreakdown from "@/components/analytics/AnalyticsQuestionTypeBreakdown";
 import AnalyticsComparisonChart from "@/components/analytics/AnalyticsComparisonChart";
+import AchievementsCard from "@/components/analytics/AchievementsCard";
 
-// Plan tier configuration
+// Plan tier configuration with static Tailwind classes
 const PLAN_FEATURES = {
   FREE: {
     name: "Free",
-    color: "gray",
     icon: BookOpen,
-    features: ["7-day history", "Basic stats", "Overall scores"],
-    upgradeMessage: "Upgrade to Plus for more insights",
+    features: ["7-day history", "Basic stats", "Progress trends", "Skill overview", "Achievements"],
+    upgradeMessage: "Upgrade to Pro for detailed analysis",
+    styles: {
+      banner: "bg-linear-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 border-gray-200 dark:border-gray-700",
+      iconBg: "bg-gray-100 dark:bg-gray-800",
+      iconText: "text-gray-600 dark:text-gray-400",
+      title: "text-gray-900 dark:text-gray-100",
+      badge: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
+    },
   },
   PLUS: {
     name: "Plus",
-    color: "blue",
     icon: Zap,
     features: ["30-day history", "Section averages", "Activity tracking", "Progress charts"],
     upgradeMessage: "Upgrade to Pro for detailed analysis",
+    styles: {
+      banner: "bg-linear-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200 dark:border-blue-800",
+      iconBg: "bg-blue-100 dark:bg-blue-900/40",
+      iconText: "text-blue-600 dark:text-blue-400",
+      title: "text-blue-900 dark:text-blue-100",
+      badge: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+    },
   },
   PRO: {
     name: "Pro",
-    color: "purple",
     icon: Crown,
-    features: ["90-day history", "Skill breakdown", "Weakness analysis", "Question type stats"],
+    features: ["90-day history", "Detailed skill breakdown", "Weakness analysis", "Question type stats"],
     upgradeMessage: "Upgrade to Ultra for AI predictions",
+    styles: {
+      banner: "bg-linear-to-r from-purple-50 to-purple-100/50 dark:from-purple-950/50 dark:to-purple-900/30 border-purple-200 dark:border-purple-800",
+      iconBg: "bg-purple-100 dark:bg-purple-900/40",
+      iconText: "text-purple-600 dark:text-purple-400",
+      title: "text-purple-900 dark:text-purple-100",
+      badge: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300",
+    },
   },
   ULTRA: {
     name: "Ultra",
-    color: "amber",
     icon: Sparkles,
     features: ["Unlimited history", "Band prediction", "AI study plans", "Complete analytics"],
     upgradeMessage: null,
+    styles: {
+      banner: "bg-linear-to-r from-amber-50 to-amber-100/50 dark:from-amber-950/50 dark:to-amber-900/30 border-amber-200 dark:border-amber-800",
+      iconBg: "bg-amber-100 dark:bg-amber-900/40",
+      iconText: "text-amber-600 dark:text-amber-400",
+      title: "text-amber-900 dark:text-amber-100",
+      badge: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
+    },
   },
 };
 
@@ -93,13 +119,13 @@ function LockedFeatureCard({
   const planConfig = PLAN_FEATURES[requiredPlan];
 
   return (
-    <div className="relative bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-6 overflow-hidden">
+    <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-6 overflow-hidden">
       {/* Blur overlay */}
       <div className="absolute inset-0 backdrop-blur-[2px] bg-white/30 dark:bg-black/30 z-10" />
       
       {/* Lock badge */}
       <div className="absolute top-4 right-4 z-20">
-        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-${planConfig.color}-100 dark:bg-${planConfig.color}-900/30 text-${planConfig.color}-700 dark:text-${planConfig.color}-300`}>
+        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${planConfig.styles.badge}`}>
           <Lock className="w-3.5 h-3.5" />
           <span className="text-xs font-semibold">{planConfig.name}+</span>
         </div>
@@ -108,8 +134,8 @@ function LockedFeatureCard({
       {/* Blurred content preview */}
       <div className="relative z-0 opacity-40">
         <div className="flex items-center gap-3 mb-4">
-          <div className={`p-3 rounded-xl bg-${planConfig.color}-100 dark:bg-${planConfig.color}-900/30`}>
-            <Icon className={`w-6 h-6 text-${planConfig.color}-600 dark:text-${planConfig.color}-400`} />
+          <div className={`p-3 rounded-xl ${planConfig.styles.iconBg}`}>
+            <Icon className={`w-6 h-6 ${planConfig.styles.iconText}`} />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
         </div>
@@ -119,14 +145,14 @@ function LockedFeatureCard({
       {/* Unlock CTA */}
       <div className="absolute inset-0 flex items-center justify-center z-20">
         <div className="text-center p-6">
-          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-${planConfig.color}-100 dark:bg-${planConfig.color}-900/30 mb-4`}>
-            <Lock className={`w-8 h-8 text-${planConfig.color}-600 dark:text-${planConfig.color}-400`} />
+          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl ${planConfig.styles.iconBg} mb-4`}>
+            <Lock className={`w-8 h-8 ${planConfig.styles.iconText}`} />
           </div>
           <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{title}</h4>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-xs">{description}</p>
           <Link
             href="/dashboard/pricing"
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-${planConfig.color}-600 text-white hover:bg-${planConfig.color}-700 transition-colors font-medium text-sm`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transition-colors font-medium text-sm"
           >
             <Sparkles className="w-4 h-4" />
             Upgrade to {planConfig.name}
@@ -151,6 +177,7 @@ export default function AnalyticsPage() {
   const [progress, setProgress] = useState<AnalyticsProgressTrends | null>(null);
   const [bandPrediction, setBandPrediction] = useState<AnalyticsBandPrediction | null>(null);
   const [studyPlan, setStudyPlan] = useState<AnalyticsStudyPlan | null>(null);
+  const [achievements, setAchievements] = useState<AnalyticsAchievements | null>(null);
 
   // Determine user's subscription tier
   const userTier: PlanTier = (overview?.subscription_tier as PlanTier) || null;
@@ -165,6 +192,7 @@ export default function AnalyticsPage() {
       setProgress(data.progress);
       setBandPrediction(data.bandPrediction);
       setStudyPlan(data.studyPlan);
+      setAchievements(data.achievements);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load analytics");
@@ -240,7 +268,7 @@ export default function AnalyticsPage() {
 
         <div className="flex items-center gap-3">
           {/* Plan Badge */}
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full bg-${planConfig.color}-100 dark:bg-${planConfig.color}-900/30 text-${planConfig.color}-700 dark:text-${planConfig.color}-300`}>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${planConfig.styles.badge}`}>
             <planConfig.icon className="w-4 h-4" />
             <span className="font-semibold text-sm">{planConfig.name} Plan</span>
           </div>
@@ -259,14 +287,14 @@ export default function AnalyticsPage() {
 
       {/* Plan Features Banner (for non-Ultra users) */}
       {!hasUltraAccess && (
-        <div className={`bg-linear-to-r from-${planConfig.color}-50 to-${planConfig.color}-100/50 dark:from-${planConfig.color}-900/20 dark:to-${planConfig.color}-800/10 border border-${planConfig.color}-200 dark:border-${planConfig.color}-800 rounded-xl p-4`}>
+        <div className={`${planConfig.styles.banner} border rounded-xl p-4`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className={`p-2 rounded-lg bg-${planConfig.color}-100 dark:bg-${planConfig.color}-900/40`}>
-                <Sparkles className={`w-5 h-5 text-${planConfig.color}-600 dark:text-${planConfig.color}-400`} />
+              <div className={`p-2 rounded-lg ${planConfig.styles.iconBg}`}>
+                <Sparkles className={`w-5 h-5 ${planConfig.styles.iconText}`} />
               </div>
               <div>
-                <h3 className={`font-semibold text-${planConfig.color}-900 dark:text-${planConfig.color}-100`}>
+                <h3 className={`font-semibold ${planConfig.styles.title}`}>
                   {planConfig.upgradeMessage}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
@@ -344,9 +372,14 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Progress Trends - Plus+ */}
+      {/* Achievements Section - Available to ALL users */}
+      {achievements && (
+        <AchievementsCard achievements={achievements} />
+      )}
+
+      {/* Progress Trends - All users can see progress trends now */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {hasPlusAccess && progress ? (
+        {progress ? (
           <ProgressTrendsChart progress={progress} />
         ) : (
           <LockedFeatureCard
@@ -357,8 +390,8 @@ export default function AnalyticsPage() {
           />
         )}
 
-        {/* Section Comparison - Plus+ */}
-        {hasPlusAccess && overview ? (
+        {/* Section Comparison - All users */}
+        {overview ? (
           <AnalyticsComparisonChart overview={overview} />
         ) : (
           <LockedFeatureCard
@@ -370,9 +403,13 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Skill Breakdown - Pro+ */}
-      {hasProAccess && skills ? (
-        <SkillBreakdownChart skills={skills} />
+      {/* Skill Breakdown - Now available to ALL users (limited for free, detailed for Pro+) */}
+      {skills ? (
+        <>
+          <SkillBreakdownChart skills={skills} />
+          {/* Show question type analysis for Pro+ users */}
+          {hasProAccess && <AnalyticsQuestionTypeBreakdown skills={skills} />}
+        </>
       ) : (
         <LockedFeatureCard
           title="Skill Breakdown"
@@ -382,10 +419,30 @@ export default function AnalyticsPage() {
         />
       )}
 
-      {/* Question Type Analysis - Pro+ */}
-      {hasProAccess && skills ? (
-        <AnalyticsQuestionTypeBreakdown skills={skills} />
-      ) : null}
+      {/* Question Type Analysis hint for non-Pro users */}
+      {skills && !hasProAccess && (
+        <div className="bg-linear-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/40">
+              <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                Want detailed question type analysis?
+              </p>
+              <p className="text-xs text-purple-700 dark:text-purple-300">
+                Upgrade to Pro for in-depth breakdown of each question type with personalized tips
+              </p>
+            </div>
+            <a
+              href="/dashboard/pricing"
+              className="px-3 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Upgrade
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Weakness Analysis - Pro+ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

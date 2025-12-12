@@ -78,6 +78,76 @@ class User(AbstractUser):
         max_digits=12, decimal_places=2, default=100000.00, verbose_name="Balance (UZS)"
     )
 
+    # Onboarding Fields
+    EXAM_TYPE_CHOICES = (
+        ("ACADEMIC", "Academic"),
+        ("GENERAL", "General Training"),
+        ("UKVI", "UKVI (UK Visas and Immigration)"),
+    )
+
+    HEARD_FROM_CHOICES = (
+        ("GOOGLE", "Google Search"),
+        ("SOCIAL_MEDIA", "Social Media (Instagram, TikTok, etc.)"),
+        ("FRIEND", "Friend or Family"),
+        ("YOUTUBE", "YouTube"),
+        ("TELEGRAM", "Telegram"),
+        ("OTHER", "Other"),
+    )
+
+    GOAL_CHOICES = (
+        ("STUDY_ABROAD", "Study Abroad"),
+        ("IMMIGRATION", "Immigration"),
+        ("WORK", "Work or Career"),
+        ("PERSONAL", "Personal Development"),
+        ("OTHER", "Other"),
+    )
+
+    TARGET_SCORE_CHOICES = (
+        ("5.0", "Band 5.0"),
+        ("5.5", "Band 5.5"),
+        ("6.0", "Band 6.0"),
+        ("6.5", "Band 6.5"),
+        ("7.0", "Band 7.0"),
+        ("7.5", "Band 7.5"),
+        ("8.0", "Band 8.0"),
+        ("8.5", "Band 8.5+"),
+    )
+
+    target_score = models.CharField(
+        max_length=10,
+        choices=TARGET_SCORE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Target Score",
+    )
+    exam_type = models.CharField(
+        max_length=20,
+        choices=EXAM_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Exam Type",
+    )
+    exam_date = models.DateField(
+        null=True, blank=True, verbose_name="Planned Exam Date"
+    )
+    heard_from = models.CharField(
+        max_length=30,
+        choices=HEARD_FROM_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="How Did You Hear About Us",
+    )
+    main_goal = models.CharField(
+        max_length=30,
+        choices=GOAL_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Main Goal",
+    )
+    onboarding_completed = models.BooleanField(
+        default=False, verbose_name="Onboarding Completed"
+    )
+
     # Timestamps (auto-managed)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")

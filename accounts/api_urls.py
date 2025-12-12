@@ -9,6 +9,7 @@ from .api_views import (
     verify_code,
     check_verification_status,
     purchase_cd_exam,
+    onboarding_view,
 )
 from .telegram_api import (
     verify_telegram_code,
@@ -27,6 +28,7 @@ urlpatterns = [
     path("logout/", logout_view, name="logout"),
     path("me/", current_user_view, name="current_user"),
     path("profile/", update_profile_view, name="update_profile"),
+    path("onboarding/", onboarding_view, name="onboarding"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path(
         "send-verification-code/", send_verification_code, name="send_verification_code"

@@ -20,6 +20,17 @@ from .api_views_analytics import (
     refresh_analytics_cache,
     get_analytics_cache_status,
 )
+from .api_views_analytics_v2 import (
+    get_analytics_overview_v2,
+    get_skill_breakdown_v2,
+    get_weakness_analysis_v2,
+    get_progress_trends_v2,
+    get_band_prediction_v2,
+    get_study_plan_v2,
+    get_achievements_v2,
+    refresh_analytics_cache_v2,
+    get_analytics_cache_status_v2,
+)
 
 app_name = "ielts"
 
@@ -183,5 +194,51 @@ urlpatterns = [
         "api/analytics/cache-status/",
         get_analytics_cache_status,
         name="api_analytics_cache_status",
+    ),
+    # Analytics API v2 - Optimized with better caching and free tier support
+    path(
+        "api/analytics/v2/overview/",
+        get_analytics_overview_v2,
+        name="api_analytics_overview_v2",
+    ),
+    path(
+        "api/analytics/v2/skills/",
+        get_skill_breakdown_v2,
+        name="api_analytics_skills_v2",
+    ),
+    path(
+        "api/analytics/v2/weaknesses/",
+        get_weakness_analysis_v2,
+        name="api_analytics_weaknesses_v2",
+    ),
+    path(
+        "api/analytics/v2/progress/",
+        get_progress_trends_v2,
+        name="api_analytics_progress_v2",
+    ),
+    path(
+        "api/analytics/v2/band-prediction/",
+        get_band_prediction_v2,
+        name="api_analytics_band_prediction_v2",
+    ),
+    path(
+        "api/analytics/v2/study-plan/",
+        get_study_plan_v2,
+        name="api_analytics_study_plan_v2",
+    ),
+    path(
+        "api/analytics/v2/achievements/",
+        get_achievements_v2,
+        name="api_analytics_achievements_v2",
+    ),
+    path(
+        "api/analytics/v2/refresh/",
+        refresh_analytics_cache_v2,
+        name="api_analytics_refresh_v2",
+    ),
+    path(
+        "api/analytics/v2/cache-status/",
+        get_analytics_cache_status_v2,
+        name="api_analytics_cache_status_v2",
     ),
 ]

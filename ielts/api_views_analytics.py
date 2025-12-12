@@ -241,8 +241,8 @@ def get_analytics_overview(request):
     else:
         current_level = "Not Started"
 
-    # Get user's target band (default 7.0)
-    target_band = getattr(user, "target_band", 7.0) or 7.0
+    # Get user's target band from profile (default 7.0 if not set)
+    target_band = float(user.target_score) if user.target_score else 7.0
 
     # Determine tier limits based on subscription
     has_weakness_analysis = tier in [TIER_PRO, TIER_ULTRA]
@@ -844,6 +844,9 @@ def get_weakness_analysis(request):
         key=lambda x: x[1],
     )
 
+    # Get user's target score from profile (default to 7.0 if not set)
+    target_score = float(user.target_score) if user.target_score else 7.0
+
     response_data = {
         "subscription_tier": tier,
         "overall_weakest_section": (
@@ -881,7 +884,7 @@ def get_weakness_analysis(request):
                 "current_score": round(
                     accuracy_val * 9, 1
                 ),  # Convert to band-like score
-                "target_score": 7.0,
+                "target_score": target_score,
                 "priority": (
                     "high"
                     if accuracy_val < 0.3
@@ -902,7 +905,7 @@ def get_weakness_analysis(request):
                 "section": "writing",
                 "weakness_type": weakness["area"].replace("Writing - ", ""),
                 "current_score": weakness["score"],
-                "target_score": 7.0,
+                "target_score": target_score,
                 "priority": "high" if weakness["score"] < 5.0 else "medium",
                 "improvement_tips": [weakness["tip"]],
             }
@@ -915,7 +918,7 @@ def get_weakness_analysis(request):
                 "section": "speaking",
                 "weakness_type": weakness["area"].replace("Speaking - ", ""),
                 "current_score": weakness["score"],
-                "target_score": 7.0,
+                "target_score": target_score,
                 "priority": "high" if weakness["score"] < 5.0 else "medium",
                 "improvement_tips": [weakness["tip"]],
             }
@@ -1260,7 +1263,8 @@ def get_band_prediction(request):
     )
 
     # Estimate time to goal (very rough estimate)
-    target_band = getattr(user, "target_band", 7.0) or 7.0
+    # Get user's target band from profile (default 7.0 if not set)
+    target_band = float(user.target_score) if user.target_score else 7.0
     if current_overall and overall_prediction:
         if overall_prediction >= target_band:
             time_to_goal = "You're on track to meet your target!"

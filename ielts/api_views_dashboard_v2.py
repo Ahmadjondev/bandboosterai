@@ -45,9 +45,7 @@ def get_dashboard_overview(request):
     month_ago = today - timedelta(days=30)
 
     # Single optimized query for exam stats
-    exam_stats = ExamAttempt.objects.filter(
-        student=user, status="COMPLETED"
-    ).aggregate(
+    exam_stats = ExamAttempt.objects.filter(student=user, status="COMPLETED").aggregate(
         total_tests=Count("id"),
         tests_this_week=Count("id", filter=Q(completed_at__date__gte=week_ago)),
         tests_this_month=Count("id", filter=Q(completed_at__date__gte=month_ago)),
@@ -78,8 +76,8 @@ def get_dashboard_overview(request):
         streak += 1
         check_date -= timedelta(days=1)
 
-    # Target score (could be user-specific in future)
-    target_score = 7.5
+    # Get user's target score from profile (default to 7.5 if not set)
+    target_score = float(user.target_score) if user.target_score else 7.5
 
     response_data = {
         "total_tests": exam_stats["total_tests"] or 0,
@@ -116,9 +114,7 @@ def get_section_scores(request):
 
     # Aggregate scores directly from ExamAttempt model fields
     listening_stats = ExamAttempt.objects.filter(
-        student=user,
-        status="COMPLETED",
-        listening_score__isnull=False
+        student=user, status="COMPLETED", listening_score__isnull=False
     ).aggregate(
         avg_score=Avg("listening_score"),
         tests_count=Count("id"),
@@ -126,9 +122,7 @@ def get_section_scores(request):
     )
 
     reading_stats = ExamAttempt.objects.filter(
-        student=user,
-        status="COMPLETED",
-        reading_score__isnull=False
+        student=user, status="COMPLETED", reading_score__isnull=False
     ).aggregate(
         avg_score=Avg("reading_score"),
         tests_count=Count("id"),
@@ -136,9 +130,7 @@ def get_section_scores(request):
     )
 
     writing_stats = ExamAttempt.objects.filter(
-        student=user,
-        status="COMPLETED",
-        writing_score__isnull=False
+        student=user, status="COMPLETED", writing_score__isnull=False
     ).aggregate(
         avg_score=Avg("writing_score"),
         tests_count=Count("id"),
@@ -146,16 +138,15 @@ def get_section_scores(request):
     )
 
     speaking_stats = ExamAttempt.objects.filter(
-        student=user,
-        status="COMPLETED",
-        speaking_score__isnull=False
+        student=user, status="COMPLETED", speaking_score__isnull=False
     ).aggregate(
         avg_score=Avg("speaking_score"),
         tests_count=Count("id"),
         best_score=Max("speaking_score"),
     )
 
-    target_score = 7.5
+    # Get user's target score from profile (default to 7.5 if not set)
+    target_score = float(user.target_score) if user.target_score else 7.5
 
     def format_section(stats):
         avg = stats.get("avg_score")
@@ -205,57 +196,71 @@ def get_books_progress(request):
         return Response(cached_data)
 
     # Get user's book progress with related book data
-    progress_list = UserBookProgress.objects.filter(
-        user=user, is_started=True
-    ).select_related("book").order_by("-last_accessed")[:5]
+    progress_list = (
+        UserBookProgress.objects.filter(user=user, is_started=True)
+        .select_related("book")
+        .order_by("-last_accessed")[:5]
+    )
 
     # Get available books not started
     started_book_ids = progress_list.values_list("book_id", flat=True)
-    available_books = Book.objects.filter(
-        is_active=True
-    ).exclude(id__in=started_book_ids).order_by("-created_at")[:3]
+    available_books = (
+        Book.objects.filter(is_active=True)
+        .exclude(id__in=started_book_ids)
+        .order_by("-created_at")[:3]
+    )
 
     # Format progress data
     in_progress = []
     for p in progress_list:
-        in_progress.append({
-            "id": p.book.id,
-            "title": p.book.title,
-            "cover_image": p.book.cover_image.url if p.book.cover_image else None,
-            "level": p.book.level,
-            "total_sections": p.book.total_sections,
-            "completed_sections": p.completed_sections,
-            "percentage": round(float(p.percentage), 0),
-            "average_score": round(float(p.average_score), 1) if p.average_score else None,
-            "is_completed": p.is_completed,
-            "last_accessed": p.last_accessed,
-        })
+        in_progress.append(
+            {
+                "id": p.book.id,
+                "title": p.book.title,
+                "cover_image": p.book.cover_image.url if p.book.cover_image else None,
+                "level": p.book.level,
+                "total_sections": p.book.total_sections,
+                "completed_sections": p.completed_sections,
+                "percentage": round(float(p.percentage), 0),
+                "average_score": (
+                    round(float(p.average_score), 1) if p.average_score else None
+                ),
+                "is_completed": p.is_completed,
+                "last_accessed": p.last_accessed,
+            }
+        )
 
     # Format available books
     suggested = []
     for book in available_books:
-        suggested.append({
-            "id": book.id,
-            "title": book.title,
-            "cover_image": book.cover_image.url if book.cover_image else None,
-            "level": book.level,
-            "total_sections": book.total_sections,
-        })
+        suggested.append(
+            {
+                "id": book.id,
+                "title": book.title,
+                "cover_image": book.cover_image.url if book.cover_image else None,
+                "level": book.level,
+                "total_sections": book.total_sections,
+            }
+        )
 
     # Get recent section results
-    recent_sections = UserSectionResult.objects.filter(
-        user=user, is_completed=True
-    ).select_related("section", "section__book").order_by("-completed_at")[:5]
+    recent_sections = (
+        UserSectionResult.objects.filter(user=user, is_completed=True)
+        .select_related("section", "section__book")
+        .order_by("-completed_at")[:5]
+    )
 
     recent_activity = []
     for result in recent_sections:
-        recent_activity.append({
-            "section_title": result.section.get_title(),
-            "book_title": result.section.book.title,
-            "score": round(float(result.score), 1) if result.score else None,
-            "completed_at": result.completed_at,
-            "section_type": result.section.section_type,
-        })
+        recent_activity.append(
+            {
+                "section_title": result.section.get_title(),
+                "book_title": result.section.book.title,
+                "score": round(float(result.score), 1) if result.score else None,
+                "completed_at": result.completed_at,
+                "section_type": result.section.section_type,
+            }
+        )
 
     response_data = {
         "in_progress": in_progress,
@@ -263,7 +268,9 @@ def get_books_progress(request):
         "recent_activity": recent_activity,
         "stats": {
             "total_started": len(in_progress),
-            "total_completed": UserBookProgress.objects.filter(user=user, is_completed=True).count(),
+            "total_completed": UserBookProgress.objects.filter(
+                user=user, is_completed=True
+            ).count(),
         },
     }
 
@@ -286,11 +293,11 @@ def get_recent_activity(request):
         return Response(cached_data)
 
     # Get recent completed attempts with scores included
-    recent_attempts = ExamAttempt.objects.filter(
-        student=user, status="COMPLETED"
-    ).select_related(
-        "exam__mock_test"
-    ).order_by("-completed_at")[:10]
+    recent_attempts = (
+        ExamAttempt.objects.filter(student=user, status="COMPLETED")
+        .select_related("exam__mock_test")
+        .order_by("-completed_at")[:10]
+    )
 
     recent_tests = []
     for attempt in recent_attempts:
@@ -298,24 +305,34 @@ def get_recent_activity(request):
         r_score = attempt.reading_score
         w_score = attempt.writing_score
         s_score = attempt.speaking_score
-        
+
         # Calculate overall if not stored
         scores = [s for s in [l_score, r_score, w_score, s_score] if s is not None]
         overall = attempt.overall_score
         if not overall and scores:
             overall = round(sum(float(s) for s in scores) / len(scores) * 2) / 2
-        
-        recent_tests.append({
-            "id": attempt.id,
-            "exam_name": attempt.exam.mock_test.title if attempt.exam.mock_test else "Unknown Test",
-            "exam_type": attempt.exam.mock_test.exam_type if attempt.exam.mock_test else "UNKNOWN",
-            "date": attempt.completed_at,
-            "listening_score": round(float(l_score), 1) if l_score else None,
-            "reading_score": round(float(r_score), 1) if r_score else None,
-            "writing_score": round(float(w_score), 1) if w_score else None,
-            "speaking_score": round(float(s_score), 1) if s_score else None,
-            "overall_score": round(float(overall), 1) if overall else None,
-        })
+
+        recent_tests.append(
+            {
+                "id": attempt.id,
+                "exam_name": (
+                    attempt.exam.mock_test.title
+                    if attempt.exam.mock_test
+                    else "Unknown Test"
+                ),
+                "exam_type": (
+                    attempt.exam.mock_test.exam_type
+                    if attempt.exam.mock_test
+                    else "UNKNOWN"
+                ),
+                "date": attempt.completed_at,
+                "listening_score": round(float(l_score), 1) if l_score else None,
+                "reading_score": round(float(r_score), 1) if r_score else None,
+                "writing_score": round(float(w_score), 1) if w_score else None,
+                "speaking_score": round(float(s_score), 1) if s_score else None,
+                "overall_score": round(float(overall), 1) if overall else None,
+            }
+        )
 
     response_data = {"recent_tests": recent_tests}
     dashboard_cache.set(cache_key, response_data, timeout=CACHE_SHORT)
@@ -337,12 +354,10 @@ def get_weekly_progress(request):
 
     # Get tests by week for the last 8 weeks
     eight_weeks_ago = timezone.now() - timedelta(weeks=8)
-    
+
     weekly_data = (
         ExamAttempt.objects.filter(
-            student=user,
-            status="COMPLETED",
-            completed_at__gte=eight_weeks_ago
+            student=user, status="COMPLETED", completed_at__gte=eight_weeks_ago
         )
         .annotate(week=TruncWeek("completed_at"))
         .values("week")
@@ -353,10 +368,12 @@ def get_weekly_progress(request):
     # Format for chart
     weeks = []
     for item in weekly_data:
-        weeks.append({
-            "week": item["week"].strftime("%b %d"),
-            "tests": item["tests_count"],
-        })
+        weeks.append(
+            {
+                "week": item["week"].strftime("%b %d"),
+                "tests": item["tests_count"],
+            }
+        )
 
     response_data = {"weekly_progress": weeks}
     dashboard_cache.set(cache_key, response_data, timeout=CACHE_MEDIUM)
@@ -377,9 +394,7 @@ def get_achievements(request):
         return Response(cached_data)
 
     # Get stats needed for achievements
-    stats = ExamAttempt.objects.filter(
-        student=user, status="COMPLETED"
-    ).aggregate(
+    stats = ExamAttempt.objects.filter(student=user, status="COMPLETED").aggregate(
         total_tests=Count("id"),
     )
 
@@ -394,52 +409,62 @@ def get_achievements(request):
 
     # Test achievements
     if total_tests >= 1:
-        achievements.append({
-            "id": "first_test",
-            "title": "First Steps",
-            "description": "Completed your first practice test",
-            "icon": "🎯",
-            "unlocked": True,
-        })
+        achievements.append(
+            {
+                "id": "first_test",
+                "title": "First Steps",
+                "description": "Completed your first practice test",
+                "icon": "🎯",
+                "unlocked": True,
+            }
+        )
 
     if total_tests >= 5:
-        achievements.append({
-            "id": "five_tests",
-            "title": "Getting Started",
-            "description": "Completed 5 practice tests",
-            "icon": "📚",
-            "unlocked": True,
-        })
+        achievements.append(
+            {
+                "id": "five_tests",
+                "title": "Getting Started",
+                "description": "Completed 5 practice tests",
+                "icon": "📚",
+                "unlocked": True,
+            }
+        )
 
     if total_tests >= 10:
-        achievements.append({
-            "id": "ten_tests",
-            "title": "Dedicated Learner",
-            "description": "Completed 10 practice tests",
-            "icon": "🏆",
-            "unlocked": True,
-        })
+        achievements.append(
+            {
+                "id": "ten_tests",
+                "title": "Dedicated Learner",
+                "description": "Completed 10 practice tests",
+                "icon": "🏆",
+                "unlocked": True,
+            }
+        )
 
     # Book achievements
     if books_completed >= 1:
-        achievements.append({
-            "id": "first_book",
-            "title": "Book Worm",
-            "description": "Completed your first practice book",
-            "icon": "📖",
-            "unlocked": True,
-        })
+        achievements.append(
+            {
+                "id": "first_book",
+                "title": "Book Worm",
+                "description": "Completed your first practice book",
+                "icon": "📖",
+                "unlocked": True,
+            }
+        )
 
     # Progress milestones
     if total_tests < 5:
-        achievements.append({
-            "id": "progress_five",
-            "title": "Getting Started",
-            "description": f"Complete {5 - total_tests} more tests",
-            "icon": "📚",
-            "unlocked": False,
-            "progress": (total_tests / 5) * 100,
-        })
+        achievements.append(
+            {
+                "id": "progress_five",
+                "title": "Getting Started",
+                "description": f"Complete {5 - total_tests} more tests",
+                "icon": "📚",
+                "unlocked": False,
+                "progress": (total_tests / 5) * 100,
+            }
+        )
 
     response_data = {"achievements": achievements}
     dashboard_cache.set(cache_key, response_data, timeout=CACHE_LONG)

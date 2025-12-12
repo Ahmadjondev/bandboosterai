@@ -23,7 +23,7 @@ export function OrganizationJsonLd() {
     name: siteName,
     alternateName: 'BandBooster',
     url: siteUrl,
-    logo: `${siteUrl}/logo.svg`,
+    logo: `${siteUrl}/logo.png`,
     description: 'AI-powered IELTS preparation platform offering mock tests, practice exercises, and personalized feedback.',
     foundingDate: '2024',
     sameAs: [
@@ -73,7 +73,7 @@ export function WebSiteJsonLd() {
       name: siteName,
       logo: {
         '@type': 'ImageObject',
-        url: `${siteUrl}/logo.svg`,
+        url: `${siteUrl}/logo.png`,
       },
     },
   };

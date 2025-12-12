@@ -5,10 +5,29 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { classNames } from '@/lib/utils';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import {
+  faHouse,
+  faChartLine,
+  faCalendarDays,
+  faTrophy,
+  faChartBar,
+  faFileLines,
+  faGraduationCap,
+  faBook,
+  faHeadphones,
+  faBookOpen,
+  faPenNib,
+  faMicrophone,
+  faGem,
+  faUser,
+  faStar,
+} from '@fortawesome/free-solid-svg-icons';
 
 interface SidebarItemProps {
   href: string;
-  icon: ReactNode;
+  icon: IconDefinition;
   label: string;
   badge?: string;
   comingSoon?: boolean;
@@ -33,7 +52,7 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
             if (isCollapsed) e.stopPropagation();
           }}
         >
-          <span className="text-xl opacity-50">{icon}</span>
+          <FontAwesomeIcon icon={icon} className="w-5 h-5 opacity-50" />
           {!isCollapsed && (
             <>
               <span className="font-medium opacity-50">{label}</span>
@@ -80,7 +99,7 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
         isCollapsed && 'justify-center px-2'
       )}
     >
-      <span className="text-xl">{icon}</span>
+      <FontAwesomeIcon icon={icon} className="w-5 h-5" />
 
       {!isCollapsed && (
         <>
@@ -99,10 +118,6 @@ function SidebarItem({ href, icon, label, badge, comingSoon, isCollapsed }: Side
           )}
         </>
       )}
-
-      {/* {isActive && !isCollapsed && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full" />
-      )} */}
 
       {isCollapsed && (
         <div className="absolute left-full ml-2 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
@@ -126,7 +141,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
     section: string;
     items: Array<{
       href: string;
-      icon: string;
+      icon: IconDefinition;
       label: string;
       badge?: string;
       comingSoon?: boolean;
@@ -135,43 +150,36 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
     {
       section: 'Main',
       items: [
-        { href: '/dashboard', icon: '🏠', label: 'Dashboard' },
-        { href: '/dashboard/analytics', icon: '📈', label: 'Analytics' },
-        { href: '/dashboard/planner', icon: '📅', label: 'Study Planner', comingSoon: true },
-        { href: '/dashboard/leaderboard', icon: '🏆', label: 'Leaderboard' },
-        { href: '/dashboard/my-tests', icon: '📊', label: 'My Tests' },
+        { href: '/dashboard', icon: faHouse, label: 'Dashboard' },
+        { href: '/dashboard/analytics', icon: faChartLine, label: 'Analytics' },
+        { href: '/dashboard/planner', icon: faCalendarDays, label: 'Study Planner', comingSoon: true },
+        { href: '/dashboard/leaderboard', icon: faTrophy, label: 'Leaderboard' },
+        { href: '/dashboard/my-tests', icon: faChartBar, label: 'My Tests' },
       ]
     },
     {
       section: 'IELTS Exams',
       items: [
-        { href: '/dashboard/cd-exam', icon: '📝', label: 'CD IELTS Exam'},
-        { href: '/dashboard/teacher-exams', icon: '🎓', label: 'Exams', badge: 'NEW' }
+        { href: '/dashboard/cd-exam', icon: faFileLines, label: 'CD IELTS Exam'},
+        { href: '/dashboard/teacher-exams', icon: faGraduationCap, label: 'Exams', badge: 'NEW' }
       ]
     },
     {
       section: 'Practice',
       items: [
-        { href: '/dashboard/books', icon: '📚', label: 'Practice Books', badge: 'NEW' },
-        { href: '/practice/listening', icon: '🎧', label: 'Listening' },
-        { href: '/practice/reading', icon: '📖', label: 'Reading' },
-        { href: '/practice/writing', icon: '✍️', label: 'Writing' },
-        { href: '/practice/speaking', icon: '🎤', label: 'Speaking' },
-        { href: '/dashboard/resources', icon: '✨', label: 'Study Resources' }
+        { href: '/dashboard/books', icon: faBook, label: 'Practice Books', badge: 'NEW' },
+        { href: '/practice/listening', icon: faHeadphones, label: 'Listening' },
+        { href: '/practice/reading', icon: faBookOpen, label: 'Reading' },
+        { href: '/practice/writing', icon: faPenNib, label: 'Writing' },
+        { href: '/practice/speaking', icon: faMicrophone, label: 'Speaking' },
+        { href: '/dashboard/resources', icon: faStar, label: 'Study Resources' }
       ]
     },
-    // {
-    //   section: 'AI Tools',
-    //   items: [
-        
-        
-    //   ]
-    // },
     {
       section: 'Account',
       items: [
-        { href: '/dashboard/pricing', icon: '💎', label: 'Premium Plans', badge: 'PRO' },
-        { href: '/dashboard/profile', icon: '👤', label: 'Profile' }
+        { href: '/dashboard/pricing', icon: faGem, label: 'Premium Plans', badge: 'PRO' },
+        { href: '/dashboard/profile', icon: faUser, label: 'Profile' }
       ]
     }
   ];
@@ -202,7 +210,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         >
           {!isCollapsed && (
             <Link href="/dashboard" className="flex items-center gap-3">
-              <Image src="/logo.svg" alt="BandBooster Logo" width={40} height={40} />
+              <Image src="/logo.png" alt="BandBooster Logo" width={40} height={40} />
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   BandBooster
@@ -214,7 +222,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
 
           {isCollapsed && (
             <Link href="/dashboard">
-              <Image src="/logo.svg" alt="BandBooster Logo" width={40} height={40} />
+              <Image src="/logo.png" alt="BandBooster Logo" width={40} height={40} />
             </Link>
           )}
         </div>

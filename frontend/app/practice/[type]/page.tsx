@@ -323,7 +323,9 @@ export default function SectionTypePage() {
                     ? 'bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 border border-amber-200 dark:border-amber-800'
                     : attemptBalance.balance > 0 
                       ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                      : (isReadingSection || isListeningSection)
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                        : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
                 }`}>
                   <div className="flex items-center gap-2">
                     {attemptBalance.is_unlimited ? (
@@ -341,7 +343,17 @@ export default function SectionTypePage() {
                           <p className="text-sm font-semibold text-green-700 dark:text-green-300">
                             {attemptBalance.balance} attempt{attemptBalance.balance !== 1 ? 's' : ''}
                           </p>
-                          <p className="text-xs text-green-600 dark:text-green-400">Available</p>
+                          <p className="text-xs text-green-600 dark:text-green-400">Premium Available</p>
+                        </div>
+                      </>
+                    ) : (isReadingSection || isListeningSection) ? (
+                      <>
+                        <Sparkles className="w-5 h-5 text-blue-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Free Available</p>
+                          <Link href="/dashboard/pricing" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                            Unlock premium →
+                          </Link>
                         </div>
                       </>
                     ) : (

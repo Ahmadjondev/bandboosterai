@@ -1,5 +1,5 @@
 import { apiClient, setTokens, clearTokens } from './api-client';
-import type { User, AuthResponse, LoginCredentials } from '@/types/auth';
+import type { User, AuthResponse, LoginCredentials, OnboardingData, OnboardingResponse } from '@/types/auth';
 
 export interface RegisterData {
   email: string;
@@ -219,6 +219,43 @@ export async function purchaseCDExam(): Promise<{ new_balance: number; amount_pa
       new_balance: response.data.new_balance,
       amount_paid: response.data.amount_paid,
     };
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Get onboarding status and options
+ */
+export async function getOnboardingData(): Promise<OnboardingResponse> {
+  try {
+    const response = await apiClient.get<OnboardingResponse>('/accounts/api/onboarding/');
+    if (!response.data) {
+      throw new Error('No response data');
+    }
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Submit onboarding data
+ */
+export async function submitOnboarding(data: OnboardingData): Promise<{ message: string; user: User }> {
+  try {
+    const response = await apiClient.post<{ message: string; user: User }>('/accounts/api/onboarding/', data);
+    
+    if (!response.data) {
+      throw new Error('No response data');
+    }
+    
+    // Update user in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+    }
+    
+    return response.data;
   } catch (error) {
     throw error;
   }

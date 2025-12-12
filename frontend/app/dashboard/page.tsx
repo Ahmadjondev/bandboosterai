@@ -160,7 +160,9 @@ export default function DashboardPage() {
   // Prepare data for components
   const userName = user?.first_name || user?.username || "Student";
   const currentScore = sectionsV2?.overall_average ?? stats?.overview.current_score ?? null;
-  const targetScore = overviewV2?.target_score ?? stats?.overview.target_score ?? 7.5;
+  // Use API target_score first, then user's profile target_score, then default 7.5
+  const userTargetScore = user?.target_score ? parseFloat(user.target_score) : 7.5;
+  const targetScore = overviewV2?.target_score ?? stats?.overview.target_score ?? userTargetScore;
   const streakDays = overviewV2?.streak_days ?? stats?.overview.streak_days ?? 0;
   const testsThisWeek = overviewV2?.tests_this_week ?? stats?.overview.tests_this_week ?? 0;
 
@@ -177,7 +179,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
         {/* Hero Section */}
         <HeroSection
           userName={userName}

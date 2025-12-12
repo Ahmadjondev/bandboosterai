@@ -133,48 +133,66 @@ export default function PracticeDetailPage() {
   const handleStart = async () => {
     if (!practice) return;
 
-    // For reading, navigate to unified reading page
+    let targetUrl = `/practice-session/${practice.uuid}`;
+
+    // Determine the target URL based on section type
     if (practice.section_type === 'READING') {
-      router.push(`/practice-session/reading/${practice.uuid}`);
-      return;
+      targetUrl = `/practice-session/reading/${practice.uuid}`;
+    } else if (practice.section_type === 'LISTENING') {
+      targetUrl = `/practice-session/listening/${practice.uuid}`;
+    } else if (practice.section_type === 'SPEAKING') {
+      targetUrl = `/practice-session/speaking/${practice.uuid}`;
+    } else if (practice.section_type === 'WRITING') {
+      targetUrl = `/practice-session/writing/${practice.uuid}`;
     }
 
-    // For listening, navigate to unified listening page
-    if (practice.section_type === 'LISTENING') {
-      router.push(`/practice-session/listening/${practice.uuid}`);
-      return;
+    // Use router.push with a fallback to window.location for network issues
+    try {
+      router.push(targetUrl);
+      // Set a timeout to fallback to direct navigation if RSC fails
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
+          window.location.href = targetUrl;
+        }
+      }, 3000);
+    } catch {
+      // Fallback to direct navigation on any error
+      if (typeof window !== 'undefined') {
+        window.location.href = targetUrl;
+      }
     }
-
-    // For speaking, navigate to speaking practice page
-    if (practice.section_type === 'SPEAKING') {
-      router.push(`/practice-session/speaking/${practice.uuid}`);
-      return;
-    }
-
-    // For writing, navigate to writing practice page
-    if (practice.section_type === 'WRITING') {
-      router.push(`/practice-session/writing/${practice.uuid}`);
-      return;
-    }
-
-    // Fallback
-    router.push(`/practice-session/${practice.uuid}`);
   };
 
   const handleContinue = () => {
     if (!practice) return;
 
-    // Navigate to the appropriate session page - it will auto-detect in-progress attempt
+    let targetUrl = `/practice-session/${practice.uuid}`;
+
+    // Determine the target URL based on section type
     if (practice.section_type === 'READING') {
-      router.push(`/practice-session/reading/${practice.uuid}`);
+      targetUrl = `/practice-session/reading/${practice.uuid}`;
     } else if (practice.section_type === 'LISTENING') {
-      router.push(`/practice-session/listening/${practice.uuid}`);
+      targetUrl = `/practice-session/listening/${practice.uuid}`;
     } else if (practice.section_type === 'SPEAKING') {
-      router.push(`/practice-session/speaking/${practice.uuid}`);
+      targetUrl = `/practice-session/speaking/${practice.uuid}`;
     } else if (practice.section_type === 'WRITING') {
-      router.push(`/practice-session/writing/${practice.uuid}`);
-    } else {
-      router.push(`/practice-session/${practice.uuid}`);
+      targetUrl = `/practice-session/writing/${practice.uuid}`;
+    }
+
+    // Use router.push with a fallback to window.location for network issues
+    try {
+      router.push(targetUrl);
+      // Set a timeout to fallback to direct navigation if RSC fails
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
+          window.location.href = targetUrl;
+        }
+      }, 3000);
+    } catch {
+      // Fallback to direct navigation on any error
+      if (typeof window !== 'undefined') {
+        window.location.href = targetUrl;
+      }
     }
   };
 
@@ -578,29 +596,47 @@ function AttemptCard({ attempt, sectionType, practiceUuid }: AttemptCardProps) {
     IN_PROGRESS: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
     ABANDONED: 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400',
   };
+
+  // Helper function to navigate with fallback for RSC fetch failures
+  const navigateWithFallback = (targetUrl: string) => {
+    try {
+      router.push(targetUrl);
+      // Set a timeout to fallback to direct navigation if RSC fails
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
+          window.location.href = targetUrl;
+        }
+      }, 3000);
+    } catch {
+      // Fallback to direct navigation on any error
+      if (typeof window !== 'undefined') {
+        window.location.href = targetUrl;
+      }
+    }
+  };
   
   const handleViewResults = () => {
+    let targetUrl = `/practice/results/${attempt.uuid}`;
     if (sectionType === 'SPEAKING') {
-      router.push(`/practice-session/speaking/results/${attempt.uuid}`);
+      targetUrl = `/practice-session/speaking/results/${attempt.uuid}`;
     } else if (sectionType === 'WRITING') {
-      router.push(`/practice-session/writing/results/${attempt.uuid}`);
-    } else {
-      router.push(`/practice/results/${attempt.uuid}`);
+      targetUrl = `/practice-session/writing/results/${attempt.uuid}`;
     }
+    navigateWithFallback(targetUrl);
   };
 
   const handleContinue = () => {
+    let targetUrl = `/practice-session/${practiceUuid}`;
     if (sectionType === 'READING') {
-      router.push(`/practice-session/reading/${practiceUuid}`);
+      targetUrl = `/practice-session/reading/${practiceUuid}`;
     } else if (sectionType === 'LISTENING') {
-      router.push(`/practice-session/listening/${practiceUuid}`);
+      targetUrl = `/practice-session/listening/${practiceUuid}`;
     } else if (sectionType === 'SPEAKING') {
-      router.push(`/practice-session/speaking/${practiceUuid}`);
+      targetUrl = `/practice-session/speaking/${practiceUuid}`;
     } else if (sectionType === 'WRITING') {
-      router.push(`/practice-session/writing/${practiceUuid}`);
-    } else {
-      router.push(`/practice-session/${practiceUuid}`);
+      targetUrl = `/practice-session/writing/${practiceUuid}`;
     }
+    navigateWithFallback(targetUrl);
   };
 
   return (

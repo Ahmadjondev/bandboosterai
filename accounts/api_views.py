@@ -11,7 +11,12 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import timedelta, datetime
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from .serializers import (
+    RegisterSerializer,
+    LoginSerializer,
+    UserSerializer,
+    OnboardingSerializer,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
@@ -258,6 +263,84 @@ def update_profile_view(request):
             {"error": f"Failed to update profile: {str(e)}"},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+@api_view(["POST", "GET"])
+@permission_classes([IsAuthenticated])
+def onboarding_view(request):
+    """
+    API endpoint to handle user onboarding
+    GET /accounts/api/onboarding/ - Get onboarding status and options
+    POST /accounts/api/onboarding/ - Submit onboarding data
+    """
+    user = request.user
+
+    if request.method == "GET":
+        # Return onboarding options and current status
+        return Response(
+            {
+                "onboarding_completed": user.onboarding_completed,
+                "current_data": {
+                    "date_of_birth": user.date_of_birth,
+                    "target_score": user.target_score,
+                    "exam_type": user.exam_type,
+                    "exam_date": user.exam_date,
+                    "heard_from": user.heard_from,
+                    "main_goal": user.main_goal,
+                },
+                "options": {
+                    "exam_types": [
+                        {"value": "ACADEMIC", "label": "Academic"},
+                        {"value": "GENERAL", "label": "General Training"},
+                        {"value": "UKVI", "label": "UKVI (UK Visas and Immigration)"},
+                    ],
+                    "heard_from": [
+                        {"value": "GOOGLE", "label": "Google Search"},
+                        {
+                            "value": "SOCIAL_MEDIA",
+                            "label": "Social Media (Instagram, TikTok, etc.)",
+                        },
+                        {"value": "FRIEND", "label": "Friend or Family"},
+                        {"value": "YOUTUBE", "label": "YouTube"},
+                        {"value": "TELEGRAM", "label": "Telegram"},
+                        {"value": "OTHER", "label": "Other"},
+                    ],
+                    "goals": [
+                        {"value": "STUDY_ABROAD", "label": "Study Abroad"},
+                        {"value": "IMMIGRATION", "label": "Immigration"},
+                        {"value": "WORK", "label": "Work or Career"},
+                        {"value": "PERSONAL", "label": "Personal Development"},
+                        {"value": "OTHER", "label": "Other"},
+                    ],
+                    "target_scores": [
+                        {"value": "5.0", "label": "Band 5.0"},
+                        {"value": "5.5", "label": "Band 5.5"},
+                        {"value": "6.0", "label": "Band 6.0"},
+                        {"value": "6.5", "label": "Band 6.5"},
+                        {"value": "7.0", "label": "Band 7.0"},
+                        {"value": "7.5", "label": "Band 7.5"},
+                        {"value": "8.0", "label": "Band 8.0"},
+                        {"value": "8.5", "label": "Band 8.5+"},
+                    ],
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    # POST - Submit onboarding data
+    serializer = OnboardingSerializer(user, data=request.data, partial=True)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(
+            {
+                "message": "Onboarding completed successfully",
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    return validation_error_response(serializer.errors)
 
 
 @api_view(["POST"])

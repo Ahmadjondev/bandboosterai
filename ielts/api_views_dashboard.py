@@ -407,13 +407,15 @@ def _get_motivational_message(
     )
 
 
-def _calculate_skill_gaps(section_stats: Dict) -> List[Dict[str, Any]]:
+def _calculate_skill_gaps(
+    section_stats: Dict, target_score: float = 7.5
+) -> List[Dict[str, Any]]:
     """Identify skill gaps and priority areas for improvement."""
     gaps = []
 
     for section, stats in section_stats.items():
         if stats["average_score"]:
-            gap_size = 7.5 - stats["average_score"]  # Assuming 7.5 target
+            gap_size = target_score - stats["average_score"]
             if gap_size > 0:
                 priority = (
                     "high" if gap_size >= 2 else "medium" if gap_size >= 1 else "low"
@@ -422,7 +424,7 @@ def _calculate_skill_gaps(section_stats: Dict) -> List[Dict[str, Any]]:
                     {
                         "section": section.capitalize(),
                         "current_score": stats["average_score"],
-                        "target_score": 7.5,
+                        "target_score": target_score,
                         "gap": round(gap_size, 1),
                         "priority": priority,
                         "estimated_practice_needed": int(
@@ -616,8 +618,8 @@ def get_dashboard_stats(request):
     speaking_avg = calc_avg(speaking_scores)
     overall_avg = calc_avg(overall_scores)
 
-    # Default target score (can be customized per user in future)
-    target_score = 7.5
+    # Get user's target score from profile (default to 7.5 if not set)
+    target_score = float(user.target_score) if user.target_score else 7.5
 
     # Calculate progress percentage (0-100)
     def calc_progress(current, target):
@@ -694,7 +696,7 @@ def get_dashboard_stats(request):
     motivational_message = _get_motivational_message(
         overall_avg or 0, streak, total_tests
     )
-    skill_gaps = _calculate_skill_gaps(section_stats_dict)
+    skill_gaps = _calculate_skill_gaps(section_stats_dict, target_score)
 
     # Prepare comprehensive response data
     response_data = {

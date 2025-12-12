@@ -13,6 +13,7 @@ import TextHighlighter from '@/components/exam/TextHighlighter';
 import PracticeHeader from '@/components/practice/PracticeHeader';
 import PracticeQuestionPalette from '@/components/practice/PracticeQuestionPalette';
 import TimeUpDialog from '@/components/practice/TimeUpDialog';
+import TimerStartDialog from '@/components/practice/TimerStartDialog';
 import { formatPassageContent } from '@/lib/exam-utils';
 import { getSectionDetail, submitSectionAnswers } from '@/lib/api/books';
 import { EmailNotVerifiedError } from '@/lib/api-client';
@@ -36,17 +37,50 @@ export default function ReadingPracticePage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [answers, setAnswers] = useState<Record<number, any>>({});
-  const [startTime] = useState(Date.now());
   const [fontSize, setFontSize] = useState('text-base');
   const [splitPosition, setSplitPosition] = useState(50);
 
-  // Timer state
+  // Timer state - track elapsed time properly
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timerStarted, setTimerStarted] = useState(false);
+  const [showTimerDialog, setShowTimerDialog] = useState(false);
   const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
+  
+  // Track actual elapsed time for submission
+  const elapsedTimeRef = useRef(0);
+  const lastTickRef = useRef<number | null>(null);
 
   const passageRef = useRef<HTMLDivElement>(null!);
   const questionsRef = useRef<HTMLDivElement>(null!);
   const questionRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    loadSectionData();
+  }, [sectionId]);
+
+  // Track elapsed time when timer is running
+  useEffect(() => {
+    if (isTimerRunning) {
+      lastTickRef.current = Date.now();
+      const interval = setInterval(() => {
+        if (lastTickRef.current) {
+          const now = Date.now();
+          elapsedTimeRef.current += Math.floor((now - lastTickRef.current) / 1000);
+          lastTickRef.current = now;
+        }
+      }, 1000);
+      return () => {
+        if (lastTickRef.current) {
+          const now = Date.now();
+          elapsedTimeRef.current += Math.floor((now - lastTickRef.current) / 1000);
+          lastTickRef.current = null;
+        }
+        clearInterval(interval);
+      };
+    } else {
+      lastTickRef.current = null;
+    }
+  }, [isTimerRunning]);
 
   useEffect(() => {
     loadSectionData();
@@ -105,11 +139,19 @@ export default function ReadingPracticePage() {
   // Timer handlers
   const handleTimerStart = useCallback(() => {
     setIsTimerRunning(true);
+    setTimerStarted(true);
+    setShowTimerDialog(false);
   }, []);
 
   const handleTimerPause = useCallback(() => {
     setIsTimerRunning(false);
   }, []);
+
+  const handleTimerClick = useCallback(() => {
+    if (!timerStarted) {
+      setShowTimerDialog(true);
+    }
+  }, [timerStarted]);
 
   const handleTimeUp = useCallback(() => {
     setIsTimerRunning(false);
@@ -128,7 +170,8 @@ export default function ReadingPracticePage() {
 
     try {
       setSubmitting(true);
-      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+      // Use tracked elapsed time instead of startTime calculation
+      const timeSpent = elapsedTimeRef.current;
 
       // Submit answers to backend - it will calculate score and save result
       await submitSectionAnswers(sectionId, {
@@ -150,7 +193,7 @@ export default function ReadingPracticePage() {
 
   const handleTimeUpSubmit = useCallback(() => {
     handleSubmit(true);
-  }, [data, sectionId, answers, startTime, sectionIdParam]);
+  }, [data, sectionId, answers, sectionIdParam]);
 
   const handleExit = () => {
     const confirmed = window.confirm(
@@ -226,9 +269,19 @@ export default function ReadingPracticePage() {
 
   // Get timer duration (use section duration or default)
   const timerDuration = (data.duration_minutes || DEFAULT_READING_DURATION) * 60;
+  const timerDurationMinutes = data.duration_minutes || DEFAULT_READING_DURATION;
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+      {/* Timer Start Dialog */}
+      <TimerStartDialog
+        isOpen={showTimerDialog}
+        onStart={handleTimerStart}
+        sectionType="reading"
+        duration={timerDurationMinutes}
+        title={data.title}
+      />
+
       {/* Time Up Dialog */}
       <TimeUpDialog
         isOpen={showTimeUpDialog}
@@ -252,8 +305,10 @@ export default function ReadingPracticePage() {
         sectionType="reading"
         timerDuration={timerDuration}
         isTimerRunning={isTimerRunning}
+        timerStarted={timerStarted}
         onTimerStart={handleTimerStart}
         onTimerPause={handleTimerPause}
+        onTimerClick={handleTimerClick}
         onTimeUp={handleTimeUp}
       />
 

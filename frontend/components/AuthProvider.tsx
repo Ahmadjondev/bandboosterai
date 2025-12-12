@@ -126,7 +126,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     console.log('[AuthProvider] Redirect logic - user:', user?.username || 'null', 'pathname:', pathname);
 
-    const publicPaths = ["/", "/login", "/register", "/verify-email", "/forgot-password","/register/telegram"];
+    const publicPaths = ["/", "/login", "/register", "/verify-email", "/forgot-password","/register/telegram", "/privacy", "/terms"];
     const isPublicPath = publicPaths.includes(pathname);
 
     if (!user && !isPublicPath) {
@@ -139,12 +139,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('[AuthProvider] Redirecting authenticated user away from login/register');
       if (user.role === "MANAGER") {
         router.push("/manager");
+      } else if (user.role === "TEACHER") {
+        router.push("/teacher");
       } else {
-        router.push("/dashboard");
+        // For students, check onboarding first
+        if (!user.onboarding_completed) {
+          router.push("/onboarding");
+        } else {
+          router.push("/dashboard");
+        }
+      }
+    } else if (user && user.role === "STUDENT" && !user.onboarding_completed && pathname !== "/onboarding") {
+      // Student without completed onboarding trying to access any page except onboarding
+      // Allow them to access verify-email if needed
+      const allowedPathsForOnboarding = ['/onboarding', '/verify-email', '/logout'];
+      const isAllowedForOnboarding = allowedPathsForOnboarding.some(path => pathname.startsWith(path));
+      
+      if (!isAllowedForOnboarding && !isPublicPath) {
+        console.log('[AuthProvider] Redirecting student to onboarding - not completed');
+        router.push('/onboarding');
       }
     } else if (user && !user.is_verified) {
       // Check if email verification is required for this route
-      const allowedPathsForUnverified = ['/dashboard', '/verify-email', '/logout', '/profile'];
+      const allowedPathsForUnverified = ['/dashboard', '/verify-email', '/logout', '/profile', '/onboarding'];
       const isAllowedPath = allowedPathsForUnverified.some(path => pathname.startsWith(path));
       
       if (!isAllowedPath && pathname !== '/verify-email') {

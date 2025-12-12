@@ -18,6 +18,40 @@ export interface User {
   // Payment related fields
   attempts?: UserAttempts;
   subscription?: UserSubscription;
+  // Onboarding fields
+  target_score?: string;
+  exam_type?: 'ACADEMIC' | 'GENERAL' | 'UKVI';
+  exam_date?: string;
+  heard_from?: 'GOOGLE' | 'SOCIAL_MEDIA' | 'FRIEND' | 'YOUTUBE' | 'TELEGRAM' | 'OTHER';
+  main_goal?: 'STUDY_ABROAD' | 'IMMIGRATION' | 'WORK' | 'PERSONAL' | 'OTHER';
+  onboarding_completed?: boolean;
+}
+
+export interface OnboardingData {
+  date_of_birth?: string;
+  target_score?: string;
+  exam_type?: string;
+  exam_date?: string;
+  heard_from?: string;
+  main_goal?: string;
+}
+
+export interface OnboardingOption {
+  value: string;
+  label: string;
+}
+
+export interface OnboardingOptions {
+  exam_types: OnboardingOption[];
+  heard_from: OnboardingOption[];
+  goals: OnboardingOption[];
+  target_scores: OnboardingOption[];
+}
+
+export interface OnboardingResponse {
+  onboarding_completed: boolean;
+  current_data: OnboardingData;
+  options: OnboardingOptions;
 }
 
 export interface AuthResponse {

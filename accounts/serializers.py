@@ -28,6 +28,13 @@ class UserSerializer(serializers.ModelSerializer):
             "registration_method",
             "balance",
             "created_at",
+            # Onboarding fields
+            "target_score",
+            "exam_type",
+            "exam_date",
+            "heard_from",
+            "main_goal",
+            "onboarding_completed",
         ]
         read_only_fields = [
             "id",
@@ -37,6 +44,7 @@ class UserSerializer(serializers.ModelSerializer):
             "balance",
             "created_at",
             "profile_image_url",
+            "onboarding_completed",
         ]
 
     def get_profile_image_url(self, obj):
@@ -130,3 +138,51 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, attrs):
         """Validate credentials"""
         return attrs
+
+
+class OnboardingSerializer(serializers.ModelSerializer):
+    """Serializer for user onboarding data"""
+
+    class Meta:
+        model = User
+        fields = [
+            "date_of_birth",
+            "target_score",
+            "exam_type",
+            "exam_date",
+            "heard_from",
+            "main_goal",
+        ]
+
+    def validate_date_of_birth(self, value):
+        """Validate that the user is at least 10 years old"""
+        from datetime import date
+
+        if value:
+            today = date.today()
+            age = (
+                today.year
+                - value.year
+                - ((today.month, today.day) < (value.month, value.day))
+            )
+            if age < 10:
+                raise serializers.ValidationError("You must be at least 10 years old.")
+            if age > 100:
+                raise serializers.ValidationError("Please enter a valid date of birth.")
+        return value
+
+    def validate_exam_date(self, value):
+        """Validate that the exam date is in the future"""
+        from datetime import date
+
+        if value and value < date.today():
+            raise serializers.ValidationError("Exam date must be in the future.")
+        return value
+
+    def update(self, instance, validated_data):
+        """Update user with onboarding data and mark as completed"""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.onboarding_completed = True
+        instance.save()
+        return instance

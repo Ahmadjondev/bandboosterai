@@ -876,7 +876,7 @@ export interface AnalyticsStudyPlan {
  * Analytics - Get overview with subscription tier info
  */
 export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
-  const response = await apiClient.get<AnalyticsOverview>(`${API_BASE}/analytics/overview/`);
+  const response = await apiClient.get<AnalyticsOverview>(`${API_BASE}/analytics/v2/overview/`);
   if (!response.data) throw new Error("Failed to fetch analytics overview");
   return response.data;
 }
@@ -885,7 +885,7 @@ export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
  * Analytics - Get skill breakdown by section
  */
 export async function getAnalyticsSkillBreakdown(): Promise<AnalyticsSkillBreakdown> {
-  const response = await apiClient.get<AnalyticsSkillBreakdown>(`${API_BASE}/analytics/skills/`);
+  const response = await apiClient.get<AnalyticsSkillBreakdown>(`${API_BASE}/analytics/v2/skills/`);
   if (!response.data) throw new Error("Failed to fetch skill breakdown");
   return response.data;
 }
@@ -894,7 +894,7 @@ export async function getAnalyticsSkillBreakdown(): Promise<AnalyticsSkillBreakd
  * Analytics - Get weakness analysis (Pro+ only)
  */
 export async function getAnalyticsWeaknesses(): Promise<AnalyticsWeaknessAnalysis> {
-  const response = await apiClient.get<AnalyticsWeaknessAnalysis>(`${API_BASE}/analytics/weaknesses/`);
+  const response = await apiClient.get<AnalyticsWeaknessAnalysis>(`${API_BASE}/analytics/v2/weaknesses/`);
   if (!response.data) throw new Error("Failed to fetch weakness analysis");
   return response.data;
 }
@@ -903,7 +903,7 @@ export async function getAnalyticsWeaknesses(): Promise<AnalyticsWeaknessAnalysi
  * Analytics - Get progress trends over time
  */
 export async function getAnalyticsProgressTrends(): Promise<AnalyticsProgressTrends> {
-  const response = await apiClient.get<AnalyticsProgressTrends>(`${API_BASE}/analytics/progress/`);
+  const response = await apiClient.get<AnalyticsProgressTrends>(`${API_BASE}/analytics/v2/progress/`);
   if (!response.data) throw new Error("Failed to fetch progress trends");
   return response.data;
 }
@@ -912,7 +912,7 @@ export async function getAnalyticsProgressTrends(): Promise<AnalyticsProgressTre
  * Analytics - Get band prediction (Ultra only)
  */
 export async function getAnalyticsBandPrediction(): Promise<AnalyticsBandPrediction> {
-  const response = await apiClient.get<AnalyticsBandPrediction>(`${API_BASE}/analytics/band-prediction/`);
+  const response = await apiClient.get<AnalyticsBandPrediction>(`${API_BASE}/analytics/v2/band-prediction/`);
   if (!response.data) throw new Error("Failed to fetch band prediction");
   return response.data;
 }
@@ -921,22 +921,83 @@ export async function getAnalyticsBandPrediction(): Promise<AnalyticsBandPredict
  * Analytics - Get AI study plan (Ultra only)
  */
 export async function getAnalyticsStudyPlan(): Promise<AnalyticsStudyPlan> {
-  const response = await apiClient.get<AnalyticsStudyPlan>(`${API_BASE}/analytics/study-plan/`);
+  const response = await apiClient.get<AnalyticsStudyPlan>(`${API_BASE}/analytics/v2/study-plan/`);
   if (!response.data) throw new Error("Failed to fetch study plan");
   return response.data;
 }
 
 /**
- * Analytics - Load all analytics data in parallel
+ * Analytics achievements response type
+ */
+export interface AnalyticsAchievements {
+  subscription_tier: string | null;
+  achievements: Array<{
+    id: string;
+    name: string;
+    description: string;
+    unlocked: boolean;
+  }>;
+  total_unlocked: number;
+  next_achievements: Array<{
+    id: string;
+    name: string;
+    progress: number;
+    target: number;
+  }>;
+  stats: {
+    total_exams: number;
+    best_overall: number | null;
+    practice_sessions: number;
+    books_completed: number;
+  };
+  cached?: boolean;
+}
+
+/**
+ * Analytics - Get user achievements (Available to ALL users)
+ */
+export async function getAnalyticsAchievements(): Promise<AnalyticsAchievements> {
+  const response = await apiClient.get<AnalyticsAchievements>(`${API_BASE}/analytics/v2/achievements/`);
+  if (!response.data) throw new Error("Failed to fetch achievements");
+  return response.data;
+}
+
+/**
+ * Helper to silently handle 403 subscription tier errors
+ * Returns null for tier-restricted features instead of throwing
+ */
+function handleTierRestrictedError<T>(promise: Promise<T>): Promise<T | null> {
+  return promise.catch((error) => {
+    // Silently return null for 403 errors (subscription tier restrictions)
+    // These are expected for users without the required subscription
+    if (error?.status === 403) {
+      return null;
+    }
+    // Log other errors for debugging
+    console.error('Analytics API error:', error);
+    return null;
+  });
+}
+
+/**
+ * Analytics - Load all analytics data in parallel using v2 endpoints
+ * v2 endpoints are optimized with:
+ * - Better caching (unified data fetch reduces DB queries)
+ * - More features for free users (basic skills, achievements)
+ * - Tier-restricted endpoints return null silently
  */
 export async function loadAnalyticsData() {
-  const [overview, skills, weaknesses, progress, bandPrediction, studyPlan] = await Promise.all([
+  const [overview, skills, weaknesses, progress, bandPrediction, studyPlan, achievements] = await Promise.all([
     getAnalyticsOverview().catch(() => null),
+    // Skills endpoint now available to ALL users (limited for free)
     getAnalyticsSkillBreakdown().catch(() => null),
-    getAnalyticsWeaknesses().catch(() => null),
+    // Weaknesses still requires Pro+ tier
+    handleTierRestrictedError(getAnalyticsWeaknesses()),
     getAnalyticsProgressTrends().catch(() => null),
-    getAnalyticsBandPrediction().catch(() => null),
-    getAnalyticsStudyPlan().catch(() => null),
+    handleTierRestrictedError(getAnalyticsBandPrediction()),
+    handleTierRestrictedError(getAnalyticsStudyPlan()),
+    // Achievements available to ALL users
+    getAnalyticsAchievements().catch(() => null),
   ]);
 
   return {
@@ -946,5 +1007,6 @@ export async function loadAnalyticsData() {
     progress,
     bandPrediction,
     studyPlan,
+    achievements,
   };
 }

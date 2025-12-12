@@ -66,7 +66,7 @@ export function LandingNavbar() {
               <div className="relative">
                 <div className="absolute inset-0 bg-linear-to-r from-blue-600 to-indigo-600 rounded-full blur opacity-0 group-hover:opacity-50 transition-opacity"></div>
                 <Image
-                  src="/logo.svg"
+                  src="/logo.png"
                   alt="BandBooster Logo"
                   width={40}
                   height={40}
