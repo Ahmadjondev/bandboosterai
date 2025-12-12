@@ -459,9 +459,8 @@ def get_skill_breakdown_v2(request):
         answer_filter &= Q(exam_attempt__completed_at__gte=cutoff_date)
 
     # Get answer data with efficient prefetching
-    user_answers = (
-        UserAnswer.objects.filter(answer_filter)
-        .select_related("question__test_head")
+    user_answers = UserAnswer.objects.filter(answer_filter).select_related(
+        "question__test_head"
     )
 
     # Aggregate by question type
