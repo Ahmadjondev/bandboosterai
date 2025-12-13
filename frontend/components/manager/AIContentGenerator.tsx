@@ -50,8 +50,10 @@ import {
   Volume2,
   VolumeX,
   Loader2,
+  Scissors,
 } from 'lucide-react';
 import { managerAPI } from '@/lib/manager/api-client';
+import AudioSplitter from './AudioSplitter';
 import type {
   ContentType,
   ContentTypeOption,
@@ -147,6 +149,10 @@ const AIContentGenerator: React.FC = () => {
   const [partAudios, setPartAudios] = useState<Record<string, { file: File; preview: string; duration?: number }>>({});
   const [isDraggingAudio, setIsDraggingAudio] = useState(false);
   const [audioUploadQueue, setAudioUploadQueue] = useState<File[]>([]);
+
+  // Audio Splitter state
+  const [showAudioSplitter, setShowAudioSplitter] = useState(false);
+  const [splitAudioTestIndex, setSplitAudioTestIndex] = useState<number>(0);
 
   // TTS (Text-to-Speech) state for speaking questions
   const [ttsVoice, setTtsVoice] = useState<string>('female_primary');
@@ -510,6 +516,55 @@ const AIContentGenerator: React.FC = () => {
       return updated;
     });
     showNotification('Audio removed', 'info');
+  };
+
+  // Handle audio split completion - convert split parts to partAudios state
+  // The parts array includes part_number and optional targetPartIndex for custom assignment
+  const handleAudioSplitComplete = async (parts: Array<{
+    part_number: number;
+    audio_url: string;
+    start_formatted: string;
+    end_formatted: string;
+    duration_seconds: number;
+    targetPartIndex?: number; // Optional: admin-selected target part (0-indexed)
+  }>) => {
+    try {
+      // For each split part, fetch the audio and create a File object
+      const newPartAudios: Record<string, { file: File; preview: string; duration?: number }> = {};
+      
+      for (const part of parts) {
+        // Use targetPartIndex if provided (admin selection), otherwise use part_number - 1
+        const partIndex = part.targetPartIndex !== undefined 
+          ? part.targetPartIndex 
+          : part.part_number - 1;
+        
+        // Always use simple "part-X" format for UI compatibility
+        // The test prefix is only added at save time in saveFullTestContent
+        const partKey = `part-${partIndex}`;
+        
+        // Fetch the audio file from the server
+        const response = await fetch(part.audio_url);
+        const blob = await response.blob();
+        const file = new File([blob], `part-${partIndex + 1}.mp3`, { type: 'audio/mpeg' });
+        
+        newPartAudios[partKey] = {
+          file,
+          preview: part.audio_url,
+          duration: part.duration_seconds,
+        };
+      }
+      
+      // Merge with existing partAudios
+      setPartAudios(prev => ({
+        ...prev,
+        ...newPartAudios,
+      }));
+      
+      setShowAudioSplitter(false);
+      showNotification(`Audio split into ${parts.length} parts successfully!`, 'success');
+    } catch (error: any) {
+      showNotification('Error processing split audio: ' + error.message, 'error');
+    }
   };
 
   // ============= TTS (Text-to-Speech) Functions =============
@@ -2228,7 +2283,22 @@ const AIContentGenerator: React.FC = () => {
               {/* Render listening parts */}
               {extractedData.parts && Array.isArray(extractedData.parts) && (
                 <div>
-                  <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-3">Listening Parts</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-medium text-slate-900 dark:text-white">Listening Parts</h3>
+                    <button
+                      onClick={() => {
+                        setSplitAudioTestIndex(0);
+                        setShowAudioSplitter(true);
+                      }}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition shadow-sm"
+                    >
+                      <Scissors className="w-4 h-4" />
+                      Split Full Audio
+                    </button>
+                  </div>
+                  <p className="text-sm text-slate-500 mb-4">
+                    Have a full listening audio? Click <strong>Split Full Audio</strong> to cut it into parts automatically.
+                  </p>
                   <div className="space-y-3">
                     {extractedData.parts.map((part: any, idx: number) => (
                       <div key={idx} className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-900">
@@ -2704,10 +2774,26 @@ const AIContentGenerator: React.FC = () => {
             {/* Audio Upload Section for Listening */}
             {selectedSections.has('listening') && currentTest?.listening?.parts && (
               <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10 rounded-xl border border-purple-200 dark:border-purple-800">
-                <h4 className="font-medium text-purple-900 dark:text-purple-100 mb-3 flex items-center gap-2">
-                  <FileAudio className="w-5 h-5" />
-                  Upload Audio Files for Listening Parts
-                </h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-purple-900 dark:text-purple-100 flex items-center gap-2">
+                    <FileAudio className="w-5 h-5" />
+                    Upload Audio Files for Listening Parts
+                  </h4>
+                  {/* Audio Splitter Button */}
+                  <button
+                    onClick={() => {
+                      setSplitAudioTestIndex(selectedTestIndex);
+                      setShowAudioSplitter(true);
+                    }}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition shadow-sm"
+                  >
+                    <Scissors className="w-4 h-4" />
+                    Split Full Audio
+                  </button>
+                </div>
+                <p className="text-sm text-purple-700 dark:text-purple-300 mb-4">
+                  Have a full listening audio? Use <strong>Split Full Audio</strong> to cut it into 4 parts automatically, or upload each part individually below.
+                </p>
                 <div className="grid grid-cols-4 gap-3">
                   {currentTest.listening.parts.map((part: any, idx: number) => (
                     <div key={idx} className="relative">
@@ -3771,6 +3857,16 @@ const AIContentGenerator: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Audio Splitter Modal */}
+      {showAudioSplitter && (
+        <AudioSplitter
+          onSplitComplete={handleAudioSplitComplete}
+          onClose={() => setShowAudioSplitter(false)}
+          expectedParts={4}
+          partLabels={['Part 1', 'Part 2', 'Part 3', 'Part 4']}
+        />
       )}
     </div>
   );

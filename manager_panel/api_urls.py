@@ -92,6 +92,11 @@ from .ai_api import (
     generate_all_default_speaking_audios,
     update_default_speaking_audio,
     delete_default_speaking_audio,
+    # Audio splitting endpoints
+    analyze_audio_file,
+    split_audio_file,
+    upload_full_audio_temp,
+    split_uploaded_audio,
 )
 from .api.exams import (
     get_exams_list,
@@ -516,6 +521,17 @@ urlpatterns = [
     ),
     path("tests/ai-save-full/", save_full_test_content, name="ai_save_full_test"),
     path("tests/upload-batch-audio/", upload_batch_audio, name="upload_batch_audio"),
+    # Audio Splitting Endpoints (for cutting full listening audio into parts)
+    path("tests/audio/analyze/", analyze_audio_file, name="analyze_audio"),
+    path("tests/audio/split/", split_audio_file, name="split_audio"),
+    path(
+        "tests/audio/upload-temp/",
+        upload_full_audio_temp,
+        name="upload_full_audio_temp",
+    ),
+    path(
+        "tests/audio/split-uploaded/", split_uploaded_audio, name="split_uploaded_audio"
+    ),
     # Practice Creation from extracted content
     path("tests/create-practice/", create_section_practice, name="create_practice"),
     path(

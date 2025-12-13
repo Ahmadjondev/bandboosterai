@@ -1115,6 +1115,146 @@ class ManagerAPIClient {
   }
 
   // ============================================================================
+  // Audio Splitting APIs (for cutting full listening audio into parts)
+  // ============================================================================
+
+  /**
+   * Upload a full audio file temporarily and get analysis info
+   * @param file Full audio file
+   * @returns Audio info with suggested split points
+   */
+  async uploadFullAudioForSplitting(file: File): Promise<{
+    success: boolean;
+    temp_id: string;
+    audio_url: string;
+    filename: string;
+    file_size: number;
+    duration: {
+      duration_seconds: number;
+      duration_ms: number;
+      duration_formatted: string;
+    };
+    suggested_splits: Array<{
+      part_number: number;
+      start_ms: number;
+      end_ms: number;
+      start_formatted: string;
+      end_formatted: string;
+      duration_seconds: number;
+    }>;
+  }> {
+    const formData = new FormData();
+    formData.append('audio_file', file);
+    return this.uploadFile('/tests/audio/upload-temp/', formData, 300000); // 5 min timeout
+  }
+
+  /**
+   * Analyze an audio file and return duration and suggested split points
+   * @param file Audio file to analyze
+   * @returns Audio analysis with suggested splits
+   */
+  async analyzeAudioFile(file: File): Promise<{
+    success: boolean;
+    duration: {
+      duration_seconds: number;
+      duration_ms: number;
+      duration_formatted: string;
+    };
+    suggested_splits: Array<{
+      part_number: number;
+      start_ms: number;
+      end_ms: number;
+      start_formatted: string;
+      end_formatted: string;
+      duration_seconds: number;
+    }>;
+    error?: string;
+  }> {
+    const formData = new FormData();
+    formData.append('audio_file', file);
+    return this.uploadFile('/tests/audio/analyze/', formData, 120000); // 2 min timeout
+  }
+
+  /**
+   * Split a previously uploaded audio file by timestamps
+   * @param tempId Temporary ID from uploadFullAudioForSplitting
+   * @param audioUrl Temporary audio URL
+   * @param timestamps Array of split points with start/end in milliseconds
+   * @param outputFormat Output format (mp3 or wav)
+   * @returns Split audio parts with URLs
+   */
+  async splitUploadedAudio(
+    tempId: string,
+    audioUrl: string,
+    timestamps: Array<{ start: number; end: number }>,
+    outputFormat: string = 'mp3'
+  ): Promise<{
+    success: boolean;
+    batch_id: string;
+    parts: Array<{
+      part_number: number;
+      start_ms: number;
+      end_ms: number;
+      start_formatted: string;
+      end_formatted: string;
+      duration_seconds: number;
+      audio_url: string;
+      filename: string;
+    }>;
+    error?: string;
+  }> {
+    return this.post('/tests/audio/split-uploaded/', {
+      temp_id: tempId,
+      audio_url: audioUrl,
+      timestamps,
+      output_format: outputFormat,
+    });
+  }
+
+  /**
+   * Split an audio file directly (upload + split in one request)
+   * @param file Audio file to split
+   * @param timestamps Optional timestamps for split points
+   * @param autoSplit If true and no timestamps, split equally into 4 parts
+   * @returns Split audio parts with URLs
+   */
+  async splitAudioFile(
+    file: File,
+    timestamps?: Array<{ start: string | number; end: string | number }>,
+    autoSplit: boolean = false,
+    outputFormat: string = 'mp3'
+  ): Promise<{
+    success: boolean;
+    original_duration: {
+      duration_seconds: number;
+      duration_ms: number;
+      duration_formatted: string;
+    };
+    batch_id: string;
+    parts: Array<{
+      part_number: number;
+      start_ms: number;
+      end_ms: number;
+      start_formatted: string;
+      end_formatted: string;
+      duration_seconds: number;
+      audio_url: string;
+      filename: string;
+    }>;
+    error?: string;
+  }> {
+    const formData = new FormData();
+    formData.append('audio_file', file);
+    if (timestamps) {
+      formData.append('timestamps', JSON.stringify(timestamps));
+    }
+    formData.append('auto_split', autoSplit.toString());
+    formData.append('output_format', outputFormat);
+    
+    return this.uploadFile('/tests/audio/split/', formData, 300000); // 5 min timeout
+  }
+
+  // ============================================================================
   // Practice Creation APIs (from tests endpoint)
   // ============================================================================
 

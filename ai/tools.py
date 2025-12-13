@@ -282,11 +282,12 @@ def generate_ai(
                     ),
                 ),
             )
-
-            # Log raw response for debugging
-            print("RAW AI RESPONSE RECEIVED")
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            response_file = f"ai-response/ai_response_{timestamp}.json"
+            response_dir = "ai-response"
+            os.makedirs(
+                response_dir, exist_ok=True
+            )  # Create directory if it doesn't exist
+            response_file = f"{response_dir}/ai_response_{timestamp}.json"
             with open(response_file, "w", encoding="utf-8") as f:
                 f.write(response.text)
             print(f"Saved raw response to {response_file}")

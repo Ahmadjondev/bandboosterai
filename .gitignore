@@ -32,6 +32,10 @@ db.sqlite3-journal
 /media
 /staticfiles
 *.md
+
+# AI Response Cache
+ai-response/
+
 # Environment variables
 .env
 

@@ -1915,3 +1915,391 @@ def delete_default_speaking_audio(request, audio_type):
             {"error": "Default audio not found"},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+
+# =============================================================================
+# AUDIO SPLITTING ENDPOINTS
+# =============================================================================
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def analyze_audio_file(request):
+    """
+    Analyze an audio file and return duration and suggested split points.
+
+    POST /manager/api/tests/audio/analyze/
+
+    Body (multipart/form-data):
+        - audio_file: The full audio file to analyze
+
+    Returns:
+        - Duration info
+        - Suggested split points for 4 IELTS listening parts
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if "audio_file" not in request.FILES:
+        return Response(
+            {"error": "No audio file provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    audio_file = request.FILES["audio_file"]
+
+    # Get file format from filename
+    filename = audio_file.name
+    file_format = filename.rsplit(".", 1)[-1].lower() if "." in filename else None
+
+    try:
+        from ai.audio_splitter import analyze_audio_for_splitting
+
+        result = analyze_audio_for_splitting(audio_file, file_format)
+
+        if result.get("success"):
+            return Response(result)
+        else:
+            return Response(
+                {"error": result.get("error", "Failed to analyze audio")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    except Exception as e:
+        return Response(
+            {"error": f"Error analyzing audio: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def split_audio_file(request):
+    """
+    Split an audio file into parts based on timestamps.
+
+    POST /manager/api/tests/audio/split/
+
+    Body (multipart/form-data):
+        - audio_file: The full audio file to split
+        - timestamps: JSON string with split points, e.g.:
+            [
+                {"start": 0, "end": "10:30"},
+                {"start": "10:30", "end": "20:15"},
+                {"start": "20:15", "end": "30:00"},
+                {"start": "30:00", "end": "40:00"}
+            ]
+        - auto_split: If "true" and no timestamps provided, split equally into 4 parts
+        - output_format: Output format (mp3, wav) - default: mp3
+
+    Returns:
+        - List of split audio parts with URLs
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if "audio_file" not in request.FILES:
+        return Response(
+            {"error": "No audio file provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    audio_file = request.FILES["audio_file"]
+    timestamps_str = request.data.get("timestamps")
+    auto_split = request.data.get("auto_split", "false").lower() == "true"
+    output_format = request.data.get("output_format", "mp3")
+
+    # Parse timestamps if provided
+    timestamps = None
+    if timestamps_str:
+        try:
+            import json
+
+            timestamps = json.loads(timestamps_str)
+        except json.JSONDecodeError:
+            return Response(
+                {"error": "Invalid timestamps JSON format"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # Require either timestamps or auto_split
+    if not timestamps and not auto_split:
+        return Response(
+            {"error": "Either provide timestamps or set auto_split=true"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Get file format from filename
+    filename = audio_file.name
+    file_format = filename.rsplit(".", 1)[-1].lower() if "." in filename else None
+
+    try:
+        from ai.audio_splitter import split_listening_audio
+        import uuid
+
+        result = split_listening_audio(
+            audio_file,
+            timestamps=timestamps,
+            file_format=file_format,
+            output_format=output_format,
+        )
+
+        if not result.get("success"):
+            return Response(
+                {"error": result.get("error", "Failed to split audio")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Save split audio files to storage
+        from django.core.files.storage import default_storage
+        from django.core.files.base import ContentFile
+
+        saved_parts = []
+        batch_id = uuid.uuid4().hex[:12]
+
+        for part in result["parts"]:
+            part_filename = f"ielts/listening_audio/split_{batch_id}_part{part['part_number']}.{output_format}"
+            saved_path = default_storage.save(
+                part_filename, ContentFile(part["audio_bytes"])
+            )
+
+            saved_parts.append(
+                {
+                    "part_number": part["part_number"],
+                    "start_ms": part["start_ms"],
+                    "end_ms": part["end_ms"],
+                    "start_formatted": part["start_formatted"],
+                    "end_formatted": part["end_formatted"],
+                    "duration_seconds": part["duration_seconds"],
+                    "audio_url": f"/media/{saved_path}",
+                    "filename": saved_path.split("/")[-1],
+                }
+            )
+
+        return Response(
+            {
+                "success": True,
+                "original_duration": result["original_duration"],
+                "batch_id": batch_id,
+                "parts": saved_parts,
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Error splitting audio: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def upload_full_audio_temp(request):
+    """
+    Upload a full listening audio file temporarily for splitting.
+    Returns a temporary URL and audio info for the frontend to display.
+
+    POST /manager/api/tests/audio/upload-temp/
+
+    Body (multipart/form-data):
+        - audio_file: The full audio file
+
+    Returns:
+        - Temporary audio URL
+        - Audio duration info
+        - Suggested split points
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if "audio_file" not in request.FILES:
+        return Response(
+            {"error": "No audio file provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    audio_file = request.FILES["audio_file"]
+
+    try:
+        import uuid
+        from django.core.files.storage import default_storage
+        from ai.audio_splitter import analyze_audio_for_splitting
+
+        # Get file format from filename
+        filename = audio_file.name
+        file_ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
+
+        # Analyze audio first
+        analysis = analyze_audio_for_splitting(audio_file, file_ext)
+
+        if not analysis.get("success"):
+            return Response(
+                {"error": analysis.get("error", "Failed to analyze audio")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Reset file position for saving
+        audio_file.seek(0)
+
+        # Save to temporary location
+        temp_id = uuid.uuid4().hex[:16]
+        temp_filename = f"ielts/listening_audio/temp_{temp_id}.{file_ext}"
+        saved_path = default_storage.save(temp_filename, audio_file)
+
+        return Response(
+            {
+                "success": True,
+                "temp_id": temp_id,
+                "audio_url": f"/media/{saved_path}",
+                "filename": audio_file.name,
+                "file_size": audio_file.size,
+                "duration": analysis["duration"],
+                "suggested_splits": analysis["suggested_splits"],
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Error uploading audio: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def split_uploaded_audio(request):
+    """
+    Split a previously uploaded temporary audio file.
+
+    POST /manager/api/tests/audio/split-uploaded/
+
+    Body (JSON):
+        - temp_id: The temporary ID from upload_full_audio_temp
+        - audio_url: The temporary audio URL
+        - timestamps: List of split points
+            [
+                {"start": 0, "end": 630000},  // milliseconds
+                {"start": 630000, "end": 1215000},
+                ...
+            ]
+        - output_format: mp3 or wav (default: mp3)
+
+    Returns:
+        - List of split audio parts with URLs
+    """
+    if not check_manager_permission(request.user):
+        return Response(
+            {"error": "Manager permissions required"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    temp_id = request.data.get("temp_id")
+    audio_url = request.data.get("audio_url")
+    timestamps = request.data.get("timestamps")
+    output_format = request.data.get("output_format", "mp3")
+
+    if not audio_url:
+        return Response(
+            {"error": "Missing audio_url"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not timestamps or len(timestamps) == 0:
+        return Response(
+            {"error": "Missing timestamps"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        import uuid
+        from django.core.files.storage import default_storage
+        from django.core.files.base import ContentFile
+        from ai.audio_splitter import AudioSplitter
+
+        # Get the file path from URL
+        file_path = audio_url.replace("/media/", "")
+
+        if not default_storage.exists(file_path):
+            return Response(
+                {"error": "Audio file not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Read the file
+        with default_storage.open(file_path, "rb") as f:
+            audio_bytes = f.read()
+
+        # Get format from path
+        file_ext = file_path.rsplit(".", 1)[-1].lower()
+
+        # Create splitter and load audio
+        splitter = AudioSplitter(audio_bytes, file_ext)
+        splitter.load()
+
+        # Convert timestamps to format expected by splitter
+        # timestamps from frontend are in milliseconds
+        timestamp_pairs = []
+        for t in timestamps:
+            start = t.get("start", 0)
+            end = t.get("end", 0)
+            # Convert ms to seconds for the splitter if they're large numbers
+            if isinstance(start, (int, float)) and start > 10000:  # Likely ms
+                start = start / 1000
+            if isinstance(end, (int, float)) and end > 10000:  # Likely ms
+                end = end / 1000
+            timestamp_pairs.append((start, end))
+
+        # Split the audio
+        parts = splitter.split_by_timestamps(timestamp_pairs, output_format)
+
+        # Save split parts
+        batch_id = uuid.uuid4().hex[:12]
+        saved_parts = []
+
+        for part in parts:
+            part_filename = f"ielts/listening_audio/split_{batch_id}_part{part['part_number']}.{output_format}"
+            saved_path = default_storage.save(
+                part_filename, ContentFile(part["audio_bytes"])
+            )
+
+            saved_parts.append(
+                {
+                    "part_number": part["part_number"],
+                    "start_ms": part["start_ms"],
+                    "end_ms": part["end_ms"],
+                    "start_formatted": part["start_formatted"],
+                    "end_formatted": part["end_formatted"],
+                    "duration_seconds": part["duration_seconds"],
+                    "audio_url": f"/media/{saved_path}",
+                    "filename": saved_path.split("/")[-1],
+                }
+            )
+
+        # Optionally delete the temporary file
+        if temp_id:
+            try:
+                default_storage.delete(file_path)
+            except Exception:
+                pass  # Ignore deletion errors
+
+        return Response(
+            {
+                "success": True,
+                "batch_id": batch_id,
+                "parts": saved_parts,
+            }
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Error splitting audio: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
