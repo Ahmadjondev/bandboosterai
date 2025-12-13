@@ -2,17 +2,19 @@
  * Timer Start Dialog Component
  * Shows instructions before starting reading/listening practice timer
  * User must click "Start" to begin the countdown
+ * User can customize the timer duration before starting
  */
 
 "use client";
 
-import { Clock, BookOpen, Headphones, Play, Info, Lightbulb } from "lucide-react";
+import { useState } from "react";
+import { Clock, BookOpen, Headphones, Play, Info, Lightbulb, Minus, Plus, RotateCcw } from "lucide-react";
 
 interface TimerStartDialogProps {
   isOpen: boolean;
-  onStart: () => void;
+  onStart: (customDuration?: number) => void;
   sectionType: "reading" | "listening";
-  duration: number; // in minutes
+  duration: number; // in minutes (default duration)
   title?: string;
 }
 
@@ -23,6 +25,8 @@ export default function TimerStartDialog({
   duration,
   title = "Practice Session",
 }: TimerStartDialogProps) {
+  const [customDuration, setCustomDuration] = useState(duration);
+  
   if (!isOpen) return null;
 
   const isReading = sectionType === "reading";
@@ -32,6 +36,7 @@ export default function TimerStartDialog({
   const borderColor = isReading ? "border-emerald-200 dark:border-emerald-800" : "border-blue-200 dark:border-blue-800";
   const lightBg = isReading ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-blue-50 dark:bg-blue-900/20";
   const buttonColor = isReading ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:bg-blue-700";
+  const accentColor = isReading ? "emerald" : "blue";
 
   const tips = isReading
     ? [
@@ -46,6 +51,31 @@ export default function TimerStartDialog({
         "Write answers as you hear them",
         "Use any extra time to review your answers",
       ];
+
+  const handleDecrease = () => {
+    if (customDuration > 5) {
+      setCustomDuration(prev => prev - 5);
+    }
+  };
+
+  const handleIncrease = () => {
+    if (customDuration < 120) {
+      setCustomDuration(prev => prev + 5);
+    }
+  };
+
+  const handleReset = () => {
+    setCustomDuration(duration);
+  };
+
+  const handleStart = () => {
+    // Pass custom duration only if it's different from default
+    if (customDuration !== duration) {
+      onStart(customDuration);
+    } else {
+      onStart();
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -69,16 +99,62 @@ export default function TimerStartDialog({
 
         {/* Content */}
         <div className="p-6 space-y-5">
-          {/* Timer Info */}
-          <div className="flex items-center justify-center gap-3 py-4 px-5 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
-            <Clock className="w-6 h-6 text-gray-500 dark:text-gray-400" />
-            <div className="text-center">
-              <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                {duration}
-              </span>
-              <span className="text-lg text-gray-600 dark:text-gray-400 ml-1.5">
-                minutes
-              </span>
+          {/* Timer Customization */}
+          <div className="py-4 px-5 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Timer Duration</span>
+              </div>
+              {customDuration !== duration && (
+                <button 
+                  onClick={handleReset}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Reset
+                </button>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={handleDecrease}
+                disabled={customDuration <= 5}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  customDuration <= 5
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                    : `bg-${accentColor}-100 dark:bg-${accentColor}-900/30 text-${accentColor}-600 dark:text-${accentColor}-400 hover:bg-${accentColor}-200 dark:hover:bg-${accentColor}-900/50`
+                }`}
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+              
+              <div className="text-center min-w-[100px]">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  {customDuration}
+                </span>
+                <span className="text-lg text-gray-600 dark:text-gray-400 ml-1.5">
+                  min
+                </span>
+                {customDuration !== duration && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Default: {duration} min
+                  </p>
+                )}
+              </div>
+              
+              <button
+                onClick={handleIncrease}
+                disabled={customDuration >= 120}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  customDuration >= 120
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                    : `bg-${accentColor}-100 dark:bg-${accentColor}-900/30 text-${accentColor}-600 dark:text-${accentColor}-400 hover:bg-${accentColor}-200 dark:hover:bg-${accentColor}-900/50`
+                }`}
+              >
+                <Plus className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
@@ -120,14 +196,14 @@ export default function TimerStartDialog({
         {/* Action Button */}
         <div className="px-6 pb-6">
           <button
-            onClick={onStart}
+            onClick={handleStart}
             className={`w-full py-3.5 px-6 ${buttonColor} text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2.5 shadow-lg hover:shadow-xl active:scale-[0.98]`}
           >
             <Play className="w-5 h-5" fill="currentColor" />
             Start Timer
           </button>
           <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">
-            Click to begin your {duration}-minute practice session
+            Click to begin your {customDuration}-minute practice session
           </p>
         </div>
       </div>

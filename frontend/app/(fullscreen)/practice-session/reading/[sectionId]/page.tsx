@@ -45,10 +45,12 @@ export default function ReadingPracticePage() {
   const [timerStarted, setTimerStarted] = useState(false);
   const [showTimerDialog, setShowTimerDialog] = useState(false);
   const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
+  const [customTimerDuration, setCustomTimerDuration] = useState<number | null>(null);
   
   // Track actual elapsed time for submission
   const elapsedTimeRef = useRef(0);
   const lastTickRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   const passageRef = useRef<HTMLDivElement>(null!);
   const questionsRef = useRef<HTMLDivElement>(null!);
@@ -61,6 +63,9 @@ export default function ReadingPracticePage() {
   // Track elapsed time when timer is running
   useEffect(() => {
     if (isTimerRunning) {
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now();
+      }
       lastTickRef.current = Date.now();
       const interval = setInterval(() => {
         if (lastTickRef.current) {
@@ -81,10 +86,6 @@ export default function ReadingPracticePage() {
       lastTickRef.current = null;
     }
   }, [isTimerRunning]);
-
-  useEffect(() => {
-    loadSectionData();
-  }, [sectionId]);
 
   // Listen for font size changes
   useEffect(() => {
@@ -137,10 +138,16 @@ export default function ReadingPracticePage() {
   }, []);
 
   // Timer handlers
-  const handleTimerStart = useCallback(() => {
+  const handleTimerStart = useCallback((customDuration?: number) => {
+    if (customDuration) {
+      setCustomTimerDuration(customDuration);
+    }
     setIsTimerRunning(true);
     setTimerStarted(true);
     setShowTimerDialog(false);
+    // Reset elapsed time when starting fresh
+    elapsedTimeRef.current = 0;
+    startTimeRef.current = Date.now();
   }, []);
 
   const handleTimerPause = useCallback(() => {
@@ -170,8 +177,13 @@ export default function ReadingPracticePage() {
 
     try {
       setSubmitting(true);
-      // Use tracked elapsed time instead of startTime calculation
-      const timeSpent = elapsedTimeRef.current;
+      // Calculate time spent: use elapsed time ref or calculate from start time
+      let timeSpent = elapsedTimeRef.current;
+      
+      // If elapsed time is 0 but we have a start time, calculate it
+      if (timeSpent === 0 && startTimeRef.current) {
+        timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      }
 
       // Submit answers to backend - it will calculate score and save result
       await submitSectionAnswers(sectionId, {
@@ -267,9 +279,10 @@ export default function ReadingPracticePage() {
     })) || []
   ) || [];
 
-  // Get timer duration (use section duration or default)
-  const timerDuration = (data.duration_minutes || DEFAULT_READING_DURATION) * 60;
-  const timerDurationMinutes = data.duration_minutes || DEFAULT_READING_DURATION;
+  // Get timer duration (use custom duration, section duration, or default)
+  const defaultDurationMinutes = data.duration_minutes || DEFAULT_READING_DURATION;
+  const timerDurationMinutes = customTimerDuration || defaultDurationMinutes;
+  const timerDuration = timerDurationMinutes * 60;
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
@@ -278,7 +291,7 @@ export default function ReadingPracticePage() {
         isOpen={showTimerDialog}
         onStart={handleTimerStart}
         sectionType="reading"
-        duration={timerDurationMinutes}
+        duration={defaultDurationMinutes}
         title={data.title}
       />
 

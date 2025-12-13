@@ -43,10 +43,12 @@ export default function ListeningPracticePage() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
   const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
+  const [customTimerDuration, setCustomTimerDuration] = useState<number | null>(null);
   
   // Track actual elapsed time for submission
   const elapsedTimeRef = useRef(0);
   const lastTickRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   // Audio state
   const [audioState, setAudioState] = useState({
@@ -67,6 +69,9 @@ export default function ListeningPracticePage() {
   // Track elapsed time when timer is running
   useEffect(() => {
     if (isTimerRunning) {
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now();
+      }
       lastTickRef.current = Date.now();
       const interval = setInterval(() => {
         if (lastTickRef.current) {
@@ -131,11 +136,17 @@ export default function ListeningPracticePage() {
     }));
   }, []);
 
-  const handleStartAudio = () => {
+  const handleStartAudio = (customDuration?: number) => {
+    if (customDuration) {
+      setCustomTimerDuration(customDuration);
+    }
     setShowStartDialog(false);
     // Start timer when audio starts
     setIsTimerRunning(true);
     setTimerStarted(true);
+    // Reset elapsed time when starting fresh
+    elapsedTimeRef.current = 0;
+    startTimeRef.current = Date.now();
     // Auto-play audio after dialog closes
     setTimeout(() => {
       if (audioRef.current) {
@@ -187,8 +198,13 @@ export default function ListeningPracticePage() {
 
     try {
       setSubmitting(true);
-      // Use tracked elapsed time instead of startTime calculation
-      const timeSpent = elapsedTimeRef.current;
+      // Calculate time spent: use elapsed time ref or calculate from start time
+      let timeSpent = elapsedTimeRef.current;
+      
+      // If elapsed time is 0 but we have a start time, calculate it
+      if (timeSpent === 0 && startTimeRef.current) {
+        timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      }
 
       // Submit answers to backend - it will calculate score and save result
       await submitSectionAnswers(sectionId, {
@@ -337,8 +353,10 @@ export default function ListeningPracticePage() {
     })) || []
   ) || [];
 
-  // Get timer duration (use section duration or default)
-  const timerDuration = (data.duration_minutes || DEFAULT_LISTENING_DURATION) * 60;
+  // Get timer duration (use custom duration, section duration, or default)
+  const defaultDurationMinutes = data.duration_minutes || DEFAULT_LISTENING_DURATION;
+  const timerDurationMinutes = customTimerDuration || defaultDurationMinutes;
+  const timerDuration = timerDurationMinutes * 60;
 
   return (
     <>
@@ -347,6 +365,7 @@ export default function ListeningPracticePage() {
         isOpen={showStartDialog}
         onStart={handleStartAudio}
         partTitle={data.title}
+        defaultDuration={defaultDurationMinutes}
       />
 
       {/* Time Up Dialog */}

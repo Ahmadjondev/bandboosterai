@@ -154,7 +154,7 @@ export function Navbar({ user, onMenuClick }: NavbarProps) {
           {user && user.balance !== undefined && (
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium">
               <FontAwesomeIcon icon={faWallet} className="w-3.5 h-3.5" />
-              <span>{Number(user.balance).toLocaleString('en-US')}</span>
+              <span>{Number(user.balance).toLocaleString('en-US')} UZS</span>
             </div>
           )}
 
